@@ -8,7 +8,7 @@ Practical recipes for adapting benchmarks, training models, and measuring reward
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.6.12 openai
+pip install trajectory-sdk==0.6.13 openai
 export TRAJECTORY_API_KEY="..."
 ```
 
