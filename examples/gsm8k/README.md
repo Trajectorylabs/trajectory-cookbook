@@ -1,0 +1,67 @@
+# GSM8K
+
+This example adapts the public
+[GSM8K dataset](https://github.com/openai/grade-school-math) to the Trajectory SDK. It demonstrates
+the three benchmark integration points:
+
+1. [`ingest.py`](ingest.py) maps source rows to train/test `TaskSpec` objects and uploads them.
+2. [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py) calls the model, grades the answer, logs
+   reward, and completes the trajectory.
+3. [`train.py`](train.py) trains a model and compares its initial and final checkpoints on held-out
+   tasks.
+
+## Prerequisites
+
+- Python 3.11 or newer
+- [`uv`](https://docs.astral.sh/uv/)
+- A Trajectory API key
+
+```bash
+export TRAJECTORY_API_KEY="..."
+```
+
+The SDK defaults to `https://api.trajectory.ai`. Set `TRAJECTORY_BASE_URL` when using another
+deployment.
+
+## 1. Ingest the benchmark
+
+Run a small first pass:
+
+```bash
+uv run ingest.py --train-limit 64 --test-limit 16
+```
+
+The command prints a `bench_id` and waits for the runtime image to build. Keep that ID for
+training.
+
+For a larger run, increase both limits. Training needs enough varied tasks to produce useful
+reward contrast.
+
+## 2. Train and evaluate
+
+```bash
+uv run train.py --bench-id YOUR_BENCH_ID --num-steps 3
+```
+
+The script:
+
+1. Verifies that the benchmark has train and test splits.
+2. Starts a training run and waits for completion.
+3. Resolves checkpoint 0 and the final checkpoint.
+4. Evaluates both checkpoints on the benchmark's held-out tasks.
+5. Prints the baseline reward, final reward, and reward delta.
+
+A single short run is an integration check, not statistical evidence that training improves the
+model. Use repeated runs and a sufficiently large frozen test set for a reliable comparison.
+
+## Adapt this example
+
+To integrate another benchmark, preserve its original task data and grader, then replace:
+
+- `_load_rows()` with the benchmark's dataset loader.
+- `TaskSpec.env_vars` with the inputs needed by one task.
+- The prompt and `extract_number()` with the benchmark's interaction protocol.
+- The equality check with the benchmark's original grader.
+
+Keep the SDK boundary unchanged: the runtime calls the provided model endpoint, logs reward, and
+completes the trajectory.
