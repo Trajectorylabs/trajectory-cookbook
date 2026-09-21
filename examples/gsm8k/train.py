@@ -40,9 +40,7 @@ def train_and_evaluate(
         training_options={
             "num_steps": num_steps,
             "max_output_tokens_per_step": 1024,
-            "max_total_tokens_per_trajectory": 2048,
             "max_turns_per_trajectory": 1,
-            "max_tool_calls_per_step": 0,
             "max_response_chars_per_tool_call": 128,
         },
     )
