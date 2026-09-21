@@ -34,11 +34,9 @@ from trajectory import Client
 # client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 client = Client()
-tid = client.trajectories.create().tid
 
 with client.responses.create(
     model="openai/gpt-5.4-mini",
-    x_trajectory_id=tid,
     input=prompt,
     stream=True,
 ) as stream:
@@ -49,9 +47,10 @@ with client.responses.create(
     )
 ```
 
-Creating the trajectory first gives the model call, reward, and completion a shared trajectory ID.
-Both `client.responses.create` and `client.chat.completions.create` support `stream=True`; streaming
-is optional and defaults to `False`.
+When the platform runs a task, its injected credentials bind model calls and telemetry to the
+task's trajectory. The harness does not create an Agent or manage a trajectory ID. Both
+`client.responses.create` and `client.chat.completions.create` support `stream=True`; streaming is
+optional and defaults to `False`.
 
 #### Point reward logging to Trajectory
 
@@ -62,33 +61,17 @@ mark the attempt complete.
 reward = float(check_answer(model_answer, expected_answer))
 
 client.trajectories.log_reward(
-    tid,
     reward_id="correctness",
     name="reward_accuracy",
     value=reward,
 )
 client.trajectories.complete(
-    tid,
     termination_reason="ENV_DONE",
 )
 ```
 
-#### Run the task and inspect it through the SDK
-
-Run the complete single-task example:
-
-```bash
-uv run examples/quickstart.py
-```
-
-The SDK can read the captured trajectory, including its model steps:
-
-```python
-trajectory = client.trajectories.retrieve(tid, include_steps=True)
-print(trajectory.status, trajectory.reward, trajectory.steps)
-```
-
-See [the complete single-task script](examples/quickstart.py).
+See [the complete task harness](examples/quickstart.py). Run it through a Trajectory benchmark so
+the platform can inject the task's model and trajectory credentials.
 
 ### 2. Upload to the Trajectory Platform
 
@@ -196,8 +179,8 @@ See [the complete GSM8K training and evaluation script](examples/gsm8k/train.py)
 
 ## Examples
 
-- [Single-task quickstart](examples/quickstart.py): create, run, reward, complete, and inspect one
-  trajectory entirely through the SDK.
+- [Single-task quickstart](examples/quickstart.py): run, reward, and complete one
+  platform-managed trajectory through the SDK.
 - [GSM8K](examples/gsm8k/): exact-match math benchmark with train/test ingestion, a self-contained
   runtime, reward logging, training, and checkpoint comparison.
 
