@@ -27,14 +27,21 @@ def main() -> None:
     expected = extract_number(os.environ["GSM8K_ANSWER"])
 
     client = Client()
-    response = client.chat.completions.create(
+    with client.responses.create(
         model="gsm8k",  # Any model name.
-        messages=[{"role": "user", "content": _PROMPT.format(question=question)}],
-        max_tokens=1024,
-        temperature=1.0,
-        top_p=0.95,
-    )
-    answer = response.choices[0].message.content or ""
+        input=_PROMPT.format(question=question),
+        stream=True,
+        extra_body={
+            "max_output_tokens": 1024,
+            "temperature": 1.0,
+            "top_p": 0.95,
+        },
+    ) as stream:
+        answer = "".join(
+            event.delta or ""
+            for event in stream
+            if event.type == "response.output_text.delta"
+        )
     submitted = extract_number(answer)
     reward = float(
         submitted is not None and expected is not None and submitted == expected

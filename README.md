@@ -8,7 +8,7 @@ Practical recipes for adapting benchmarks, training models, and measuring reward
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.6.15
+pip install trajectory-sdk==0.6.16
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -24,8 +24,8 @@ for repeatable evaluation and training.
 
 #### Point the model call to Trajectory
 
-Replace the OpenAI client with the Trajectory client. Keep the OpenAI-compatible call site and use
-an available model slug such as `openai/gpt-5-mini`.
+Replace the OpenAI client with the Trajectory client. The public model catalog currently exposes
+`openai/gpt-5.6-sol`, `openai/gpt-5.6-luna`, and `openai/gpt-5.4-mini`.
 
 ```python
 from uuid import uuid4
@@ -43,14 +43,22 @@ created = client.agents.trajectories.create(
     idempotency_key=f"quickstart-{uuid4()}",
 )
 
-response = client.chat.completions.create(
-    model="openai/gpt-5-mini",
+with client.responses.create(
+    model="openai/gpt-5.4-mini",
     x_trajectory_id=created.tid,
-    messages=[{"role": "user", "content": prompt}],
-)
+    input=prompt,
+    stream=True,
+) as stream:
+    model_answer = "".join(
+        event.delta or ""
+        for event in stream
+        if event.type == "response.output_text.delta"
+    )
 ```
 
 Creating the trajectory first gives the model call, reward, and completion a shared trajectory ID.
+Both `client.responses.create` and `client.chat.completions.create` support `stream=True`; streaming
+is optional and defaults to `False`.
 
 #### Point reward logging to Trajectory
 

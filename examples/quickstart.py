@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.6.15"]
+# dependencies = ["trajectory-sdk==0.6.16"]
 # ///
 """Capture and inspect one trajectory through the Trajectory SDK."""
 
@@ -17,14 +17,17 @@ def main() -> None:
         idempotency_key=f"quickstart-{uuid4()}",
     )
 
-    response = client.chat.completions.create(
-        model="openai/gpt-5-mini",
+    with client.responses.create(
+        model="openai/gpt-5.4-mini",
         x_trajectory_id=created.tid,
-        messages=[
-            {"role": "user", "content": "What is 6 × 7? Reply with only the number."}
-        ],
-    )
-    answer = response.choices[0].message.content or ""
+        input="What is 6 × 7? Reply with only the number.",
+        stream=True,
+    ) as stream:
+        answer = "".join(
+            event.delta or ""
+            for event in stream
+            if event.type == "response.output_text.delta"
+        )
     reward = float(answer.strip() == "42")
 
     client.trajectories.log_reward(
