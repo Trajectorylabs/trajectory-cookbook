@@ -22,21 +22,39 @@ for repeatable evaluation and training.
 
 ### 1. Inject the Trajectory SDK into your benchmark
 
-#### Point the model call to Trajectory
-
-Replace the OpenAI client with the Trajectory client. The public model catalog currently exposes
-`openai/gpt-5.6-sol`, `openai/gpt-5.6-luna`, and `openai/gpt-5.4-mini`.
+#### Replace the OpenAI client with the Trajectory client
 
 ```python
+# Before
+from openai import OpenAI
+
+client = OpenAI()
+```
+
+```python
+# After
 from trajectory import Client
 
-# Before:
-# client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-
 client = Client()
+```
 
+#### Create a TID when a task starts
+
+Create one trajectory for each task and keep its ID for the full task lifecycle.
+
+```python
+tid = client.trajectories.create().tid
+```
+
+#### Pass the TID to LLM calls
+
+The public model catalog currently exposes `openai/gpt-5.6-sol`, `openai/gpt-5.6-luna`, and
+`openai/gpt-5.4-mini`. Responses and Chat Completions both support streaming.
+
+```python
 with client.responses.create(
     model="openai/gpt-5.4-mini",
+    x_trajectory_id=tid,
     input=prompt,
     stream=True,
 ) as stream:
@@ -47,31 +65,41 @@ with client.responses.create(
     )
 ```
 
-When the platform runs a task, its injected credentials bind model calls and telemetry to the
-task's trajectory. The harness does not create an Agent or manage a trajectory ID. Both
-`client.responses.create` and `client.chat.completions.create` support `stream=True`; streaming is
-optional and defaults to `False`.
+#### Log reward to the trajectory
 
-#### Point reward logging to Trajectory
-
-Keep the benchmark's existing grading logic. Use the Trajectory client to record the result and
-mark the attempt complete.
+Pass the same TID when the benchmark calculates reward, then mark the task complete.
 
 ```python
 reward = float(check_answer(model_answer, expected_answer))
 
 client.trajectories.log_reward(
+    tid,
     reward_id="correctness",
     name="reward_accuracy",
     value=reward,
 )
 client.trajectories.complete(
+    tid,
     termination_reason="ENV_DONE",
 )
 ```
 
-See [the complete task harness](examples/quickstart.py). Run it through a Trajectory benchmark so
-the platform can inject the task's model and trajectory credentials.
+#### Run your benchmark and see the result
+
+Run the complete example:
+
+```bash
+uv run examples/quickstart.py
+```
+
+Retrieve the trajectory with its recorded model steps and reward:
+
+```python
+trajectory = client.trajectories.retrieve(tid, include_steps=True)
+print(trajectory.status, trajectory.reward, trajectory.steps)
+```
+
+See [the complete single-task example](examples/quickstart.py).
 
 ### 2. Upload to the Trajectory Platform
 
@@ -179,8 +207,8 @@ See [the complete GSM8K training and evaluation script](examples/gsm8k/train.py)
 
 ## Examples
 
-- [Single-task quickstart](examples/quickstart.py): run, reward, and complete one
-  platform-managed trajectory through the SDK.
+- [Single-task quickstart](examples/quickstart.py): create, run, reward, complete, and inspect one
+  trajectory through the SDK.
 - [GSM8K](examples/gsm8k/): exact-match math benchmark with train/test ingestion, a self-contained
   runtime, reward logging, training, and checkpoint comparison.
 
