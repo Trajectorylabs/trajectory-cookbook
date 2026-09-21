@@ -17,14 +17,86 @@ another deployment.
 
 ## Quickstart
 
-The [GSM8K example](examples/gsm8k/) demonstrates the complete flow: build a benchmark, upload
-it, train a model, evaluate the resulting checkpoint, and compare rewards.
+Start by capturing one task. Once that works, package the same task loop and grader as a benchmark
+for repeatable evaluation and training.
 
-### 1. Build a benchmark
+### 1. Capture one trajectory
 
-#### Define a task
+#### Point the model call to Trajectory
 
-Describe how Trajectory should execute one task. The command can point at an existing benchmark
+Replace the OpenAI client with the Trajectory client. Keep the OpenAI-compatible call site and use
+an available model slug such as `openai/gpt-5-mini`.
+
+```python
+from uuid import uuid4
+
+from trajectory import Client
+
+# Before:
+# client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+client = Client()
+agents = list(client.agents.list(limit=1))
+agent = agents[0] if agents else client.agents.create(name="Quickstart Agent")
+created = client.agents.trajectories.create(
+    agent.agent_id,
+    idempotency_key=f"quickstart-{uuid4()}",
+)
+
+response = client.chat.completions.create(
+    model="openai/gpt-5-mini",
+    x_trajectory_id=created.tid,
+    messages=[{"role": "user", "content": prompt}],
+)
+```
+
+Creating the trajectory first gives the model call, reward, and completion a shared trajectory ID.
+
+#### Point reward logging to Trajectory
+
+Keep the benchmark's existing grading logic. Use the Trajectory client to record the result and
+mark the attempt complete.
+
+```python
+reward = float(check_answer(model_answer, expected_answer))
+
+client.trajectories.log_reward(
+    created.tid,
+    reward_id="correctness",
+    name="reward_accuracy",
+    value=reward,
+)
+client.trajectories.complete(
+    created.tid,
+    termination_reason="ENV_DONE",
+)
+```
+
+#### Run the task and inspect it through the SDK
+
+Run the complete single-task example:
+
+```bash
+uv run examples/quickstart.py
+```
+
+The SDK can read the captured trajectory, including its model steps:
+
+```python
+trajectory = client.trajectories.retrieve(created.tid, include_steps=True)
+print(trajectory.status, trajectory.reward, trajectory.steps)
+```
+
+See [the complete single-task script](examples/quickstart.py).
+
+### 2. Turn the task into a benchmark
+
+The [GSM8K example](examples/gsm8k/) expands the same call-and-grade loop into train and test
+tasks, uploads them, evaluates a baseline, trains a model, and compares the result.
+
+#### Define tasks and upload the benchmark
+
+Describe how Trajectory should execute each task. The command can point at an existing benchmark
 runner, so task inputs do not need to be copied into environment variables.
 
 ```python
@@ -39,52 +111,8 @@ TaskSpec(
 Use `env_vars={}` when the runner can resolve the task from its ID. The runnable GSM8K example
 passes the question and answer through environment variables to keep its runtime self-contained.
 
-See [the complete GSM8K task adapter](examples/gsm8k/ingest.py).
-
-#### Point model calls to Trajectory
-
-The Trajectory client exposes an OpenAI-compatible chat interface. Replace the OpenAI client;
-Trajectory supplies the runtime routing automatically, so the model call stays unchanged:
-
-```python
-from trajectory import Client
-
-# Before:
-# client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-
-client = Client()
-
-# No change to the call site.
-response = client.chat.completions.create(
-    model=...,  # Any model name.
-    messages=[{"role": "user", "content": prompt}],
-)
-```
-
-#### Log reward and signal completion
-
-Keep the benchmark's existing grading logic. Use the Trajectory client to record the result and
-mark the attempt complete.
-
-```python
-reward = float(check_answer(model_answer, expected_answer))
-
-client.trajectories.log_reward(
-    reward_id="correctness",
-    name="reward_accuracy",
-    value=reward,
-)
-client.trajectories.complete(
-    termination_reason="ENV_DONE",
-)
-```
-
-See [the complete GSM8K runtime and grader](examples/gsm8k/runtime/gsm8k_harness.py).
-
-### 2. Upload through the SDK
-
 Package the tasks and runtime, upload the benchmark, and wait for its runtime image to become
-ready.
+ready:
 
 ```python
 from pathlib import Path
@@ -104,7 +132,23 @@ bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
 
-### 3. Start training
+See [the complete GSM8K task adapter](examples/gsm8k/ingest.py) and
+[runtime](examples/gsm8k/runtime/gsm8k_harness.py).
+
+#### Start a baseline evaluation
+
+Run the benchmark before training so you have a frozen baseline:
+
+```python
+baseline = client.evals.start(
+    bench_id,
+    model_slug="Qwen/Qwen3.5-4B",
+    display_name="GSM8K baseline",
+)
+baseline_eval_run_id = baseline.eval_run_id
+```
+
+#### Start training
 
 ```python
 training = client.training.create(
@@ -118,36 +162,30 @@ training_run_id = training.training_run_id
 Poll `client.training.runs.retrieve(training_run_id)` until the run succeeds, fails, or is
 cancelled.
 
-### 4. Start evaluation
+#### View results
 
-Resolve the trained checkpoint and evaluate it against the benchmark's test split.
+Resolve the final checkpoint, evaluate it on the same test tasks, and read both sets of rewards
+through the SDK.
 
 ```python
 checkpoint = client.training.checkpoints.retrieve(
     training_run_id,
     step_index=3,
 )
-evaluation = client.evals.start(
+final = client.evals.start(
     bench_id,
     model_slug="Qwen/Qwen3.5-4B",
     checkpoint_id=checkpoint.checkpoint_id,
-    display_name="My first trained checkpoint",
+    display_name="GSM8K trained checkpoint",
 )
-eval_run_id = evaluation.eval_run_id
-```
-
-### 5. View results
-
-Read training reward, held-out reward, and evaluation results through the SDK:
-
-```python
 trainer_rewards = client.training.rewards.list_trainer_rewards(training_run_id)
 held_out_rewards = client.training.rewards.list_held_out_rewards(training_run_id)
-task_rewards = client.evals.runs.list_trajectory_rewards(eval_run_id)
+baseline_rewards = client.evals.runs.list_trajectory_rewards(baseline_eval_run_id)
+final_rewards = client.evals.runs.list_trajectory_rewards(final.eval_run_id)
 ```
 
-To establish improvement, evaluate checkpoint 0 and the final checkpoint on the same frozen test
-tasks with the same grader and sampling limits:
+Compare the baseline and final checkpoint on the same frozen test tasks with the same grader and
+sampling limits:
 
 ```text
 Base reward → Final reward → Reward delta
@@ -157,6 +195,8 @@ See [the complete GSM8K training and evaluation script](examples/gsm8k/train.py)
 
 ## Examples
 
+- [Single-task quickstart](examples/quickstart.py): create, run, reward, complete, and inspect one
+  trajectory entirely through the SDK.
 - [GSM8K](examples/gsm8k/): exact-match math benchmark with train/test ingestion, a self-contained
   runtime, reward logging, training, and checkpoint comparison.
 

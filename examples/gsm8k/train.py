@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["trajectory-sdk==0.6.15"]
 # ///
-"""Train a model and compare initial and final checkpoints on GSM8K."""
+"""Evaluate, train, and compare the final checkpoint on GSM8K."""
 
 import argparse
 import time
@@ -34,6 +34,14 @@ def train_and_evaluate(
     }:
         raise ValueError("The benchmark must contain explicit train and test splits")
 
+    baseline = _evaluate_model(
+        client,
+        bench_id,
+        model,
+        "GSM8K baseline",
+        poll_seconds,
+    )
+
     created = client.training.create(
         bench_id=bench_id,
         base_model_id=model,
@@ -51,9 +59,16 @@ def train_and_evaluate(
         raise RuntimeError(f"training ended with status={run.status}: {run.failure}")
 
     comparison = RewardComparison(
-        baseline=_evaluate_checkpoint(client, bench_id, run_id, model, 0, poll_seconds),
-        final=_evaluate_checkpoint(
-            client, bench_id, run_id, model, num_steps, poll_seconds
+        baseline=baseline,
+        final=_evaluate_model(
+            client,
+            bench_id,
+            model,
+            f"GSM8K {run_id} step {num_steps}",
+            poll_seconds,
+            checkpoint_id=client.training.checkpoints.retrieve(
+                run_id, num_steps
+            ).checkpoint_id,
         ),
     )
     print(f"baseline_reward={comparison.baseline:.6f}", flush=True)
@@ -62,28 +77,27 @@ def train_and_evaluate(
     return comparison
 
 
-def _evaluate_checkpoint(
+def _evaluate_model(
     client: Client,
     bench_id: str,
-    run_id: str,
     model: str,
-    step: int,
+    display_name: str,
     poll_seconds: float,
+    checkpoint_id: str | None = None,
 ) -> float:
-    checkpoint = client.training.checkpoints.retrieve(run_id, step)
     evaluation = client.evals.start(
         bench_id,
         model_slug=model,
-        checkpoint_id=checkpoint.checkpoint_id,
-        display_name=f"GSM8K {run_id} step {step}",
+        checkpoint_id=checkpoint_id,
+        display_name=display_name,
     )
     eval_id = evaluation.eval_run_id
-    print(f"step={step} checkpoint_id={checkpoint.checkpoint_id} eval_run_id={eval_id}")
+    print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
 
     while True:
         progress = client.evals.runs.retrieve_progress(eval_id)
         print(
-            f"eval_step={step} status={progress.status} "
+            f"evaluation={display_name} status={progress.status} "
             f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}",
             flush=True,
         )
