@@ -28,24 +28,17 @@ Replace the OpenAI client with the Trajectory client. The public model catalog c
 `openai/gpt-5.6-sol`, `openai/gpt-5.6-luna`, and `openai/gpt-5.4-mini`.
 
 ```python
-from uuid import uuid4
-
 from trajectory import Client
 
 # Before:
 # client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 client = Client()
-agents = list(client.agents.list(limit=1))
-agent = agents[0] if agents else client.agents.create(name="Quickstart Agent")
-created = client.agents.trajectories.create(
-    agent.agent_id,
-    idempotency_key=f"quickstart-{uuid4()}",
-)
+tid = client.trajectories.create().tid
 
 with client.responses.create(
     model="openai/gpt-5.4-mini",
-    x_trajectory_id=created.tid,
+    x_trajectory_id=tid,
     input=prompt,
     stream=True,
 ) as stream:
@@ -69,13 +62,13 @@ mark the attempt complete.
 reward = float(check_answer(model_answer, expected_answer))
 
 client.trajectories.log_reward(
-    created.tid,
+    tid,
     reward_id="correctness",
     name="reward_accuracy",
     value=reward,
 )
 client.trajectories.complete(
-    created.tid,
+    tid,
     termination_reason="ENV_DONE",
 )
 ```
@@ -91,7 +84,7 @@ uv run examples/quickstart.py
 The SDK can read the captured trajectory, including its model steps:
 
 ```python
-trajectory = client.trajectories.retrieve(created.tid, include_steps=True)
+trajectory = client.trajectories.retrieve(tid, include_steps=True)
 print(trajectory.status, trajectory.reward, trajectory.steps)
 ```
 
