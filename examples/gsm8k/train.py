@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.6.13"]
+# dependencies = ["trajectory-sdk==0.6.15"]
 # ///
 """Train a model and compare initial and final checkpoints on GSM8K."""
 
