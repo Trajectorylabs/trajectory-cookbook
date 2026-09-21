@@ -8,7 +8,7 @@ Practical recipes for adapting benchmarks, training models, and measuring reward
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.6.12
+pip install trajectory-sdk==0.6.12 openai
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -43,19 +43,19 @@ See [the complete GSM8K task adapter](examples/gsm8k/ingest.py).
 
 #### Point model calls to Trajectory
 
-The public SDK currently exposes OpenAI-compatible chat completions through
-`client.inference.create_chat_completion(...)`:
+The Trajectory Platform exposes an OpenAI-compatible endpoint. Keep the OpenAI client and point
+it at the Trajectory model endpoint; the model call stays unchanged:
 
 ```python
 import os
 
-from trajectory import Client
+from openai import OpenAI
 
 # Before:
-# client = OpenAI(...)
+# client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-client = Client(
-    trajectory_token=os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
+client = OpenAI(
+    api_key=os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
     base_url=os.environ["MODEL_ENDPOINT_URL"],
     default_headers={
         "X-Trajectory-Id": os.environ["TRAJECTORY_TID"],
@@ -63,16 +63,12 @@ client = Client(
     },
 )
 
-response = client.inference.create_chat_completion(
+# No change to the call site.
+response = client.chat.completions.create(
     model=os.environ["MODEL_ENDPOINT_ID"],
     messages=[{"role": "user", "content": prompt}],
 )
 ```
-
-> **Compatibility note:** Trajectory's intended client interface is
-> `client.chat.completions.create(...)`, matching the OpenAI SDK without changing the call site.
-> That facade is not included in the current public `trajectory-sdk==0.6.12` release, so this
-> cookbook uses the released `client.inference.create_chat_completion(...)` method.
 
 #### Log reward and signal completion
 
