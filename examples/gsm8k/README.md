@@ -7,8 +7,8 @@ the three benchmark integration points:
 1. [`ingest.py`](ingest.py) maps source rows to train/test `TaskSpec` objects and uploads them.
 2. [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py) calls the model, grades the answer, logs
    reward, and completes the trajectory.
-3. [`train.py`](train.py) trains a model and compares its initial and final checkpoints on held-out
-   tasks.
+3. [`train.py`](train.py) evaluates a baseline, trains a model, and evaluates the final checkpoint
+   on held-out tasks.
 
 ## Prerequisites
 
@@ -46,9 +46,9 @@ uv run train.py --bench-id YOUR_BENCH_ID --num-steps 3
 The script:
 
 1. Verifies that the benchmark has train and test splits.
-2. Starts a training run and waits for completion.
-3. Resolves checkpoint 0 and the final checkpoint.
-4. Evaluates both checkpoints on the benchmark's held-out tasks.
+2. Evaluates the base model on the benchmark's held-out tasks.
+3. Starts a training run and waits for completion.
+4. Resolves and evaluates the final checkpoint on the same held-out tasks.
 5. Prints the baseline reward, final reward, and reward delta.
 
 A single short run is an integration check, not statistical evidence that training improves the
