@@ -20,7 +20,7 @@ another deployment.
 Start by capturing one task. Once that works, package the same task loop and grader as a benchmark
 for repeatable evaluation and training.
 
-### 1. Capture one trajectory
+### 1. Inject the Trajectory SDK into your benchmark
 
 #### Point the model call to Trajectory
 
@@ -89,7 +89,7 @@ print(trajectory.status, trajectory.reward, trajectory.steps)
 
 See [the complete single-task script](examples/quickstart.py).
 
-### 2. Turn the task into a benchmark
+### 2. Upload to the Trajectory Platform
 
 The [GSM8K example](examples/gsm8k/) expands the same call-and-grade loop into train and test
 tasks, uploads them, evaluates a baseline, trains a model, and compares the result.
