@@ -81,17 +81,30 @@ client.trajectories.complete(
 
 #### Run your benchmark and see the result
 
-Run the complete example:
+Here is the complete GSM8K-style task loop:
+
+```python
+from trajectory import Client
+client = Client()
+tid = client.trajectories.create().tid
+response = client.responses.create(model="openai/gpt-5.4-mini", input="What is 6 × 7?", x_trajectory_id=tid)
+reward = float(response.output_text.strip() == "42")
+client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
+client.trajectories.complete(tid, termination_reason="ENV_DONE")
+print(tid)
+```
+
+Run the complete example script:
 
 ```bash
 uv run examples/quickstart.py
 ```
 
-Retrieve the trajectory with its recorded model steps and reward:
+Set `TID` to the printed ID, then view the trajectory, recorded model steps, and reward:
 
-```python
-trajectory = client.trajectories.retrieve(tid, include_steps=True)
-print(trajectory.status, trajectory.reward, trajectory.steps)
+```bash
+curl -s "https://api.trajectory.ai/api/v1/trajectories/$TID?include_steps=true" \
+  -H "X-API-Key: $TRAJECTORY_API_KEY" | jq
 ```
 
 See [the complete single-task example](examples/quickstart.py).
