@@ -8,7 +8,7 @@ Practical recipes for adapting benchmarks, training models, and measuring reward
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.6.14
+pip install trajectory-sdk==0.6.15
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -43,25 +43,16 @@ See [the complete GSM8K task adapter](examples/gsm8k/ingest.py).
 
 #### Point model calls to Trajectory
 
-The Trajectory client exposes an OpenAI-compatible chat interface. Replace the OpenAI client and
-point it at the Trajectory model endpoint; the model call stays unchanged:
+The Trajectory client exposes an OpenAI-compatible chat interface. Replace the OpenAI client;
+Trajectory supplies the runtime routing automatically, so the model call stays unchanged:
 
 ```python
-import os
-
 from trajectory import Client
 
 # Before:
 # client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-client = Client(
-    trajectory_token=os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
-    base_url=os.environ["MODEL_ENDPOINT_URL"],
-    default_headers={
-        "X-Trajectory-Id": os.environ["TRAJECTORY_TID"],
-        "X-Model-Request-Id": "gsm8k-model-request",
-    },
-)
+client = Client()
 
 # No change to the call site.
 response = client.chat.completions.create(
@@ -76,21 +67,14 @@ Keep the benchmark's existing grading logic. Use the Trajectory client to record
 mark the attempt complete.
 
 ```python
-trajectories = Client(
-    trajectory_token=os.environ["TRAJECTORY_TOKEN"],
-    base_url=os.environ["TRAJECTORY_BASE_URL"],
-).trajectories
-
 reward = float(check_answer(model_answer, expected_answer))
 
-trajectories.log_reward(
-    os.environ["TRAJECTORY_TID"],
+client.trajectories.log_reward(
     reward_id="correctness",
     name="reward_accuracy",
     value=reward,
 )
-trajectories.complete(
-    os.environ["TRAJECTORY_TID"],
+client.trajectories.complete(
     termination_reason="ENV_DONE",
 )
 ```

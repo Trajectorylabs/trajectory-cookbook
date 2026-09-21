@@ -22,33 +22,11 @@ def extract_number(text: str) -> Decimal | None:
         return None
 
 
-def _runtime_client(
-    base_url: str,
-    token: str,
-    headers: dict[str, str] | None = None,
-) -> Client:
-    return Client(
-        trajectory_token=token,
-        base_url=base_url,
-        default_headers=headers,
-        max_retries=5,
-        timeout=180,
-    )
-
-
 def main() -> None:
-    trajectory_id = os.environ["TRAJECTORY_TID"]
     question = os.environ["GSM8K_QUESTION"]
     expected = extract_number(os.environ["GSM8K_ANSWER"])
 
-    client = _runtime_client(
-        os.environ["MODEL_ENDPOINT_URL"],
-        os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
-        {
-            "X-Trajectory-Id": trajectory_id,
-            "X-Model-Request-Id": "gsm8k-model-request",
-        },
-    )
+    client = Client()
     response = client.chat.completions.create(
         model="gsm8k",  # Any model name.
         messages=[{"role": "user", "content": _PROMPT.format(question=question)}],
@@ -62,26 +40,12 @@ def main() -> None:
         submitted is not None and expected is not None and submitted == expected
     )
 
-    trajectories = _runtime_client(
-        os.environ["TRAJECTORY_BASE_URL"],
-        os.environ["TRAJECTORY_TOKEN"],
-    ).trajectories
-    trajectories.log_event(
-        trajectory_id,
-        event_id="gsm8k-answer",
-        name="gsm8k_answer",
-        payload={
-            "answer": answer,
-            "submitted": str(submitted) if submitted is not None else None,
-        },
-    )
-    trajectories.log_reward(
-        trajectory_id,
+    client.trajectories.log_reward(
         reward_id="gsm8k-accuracy",
         name="reward_accuracy",
         value=reward,
     )
-    completed = trajectories.complete(trajectory_id, termination_reason="ENV_DONE")
+    completed = client.trajectories.complete(termination_reason="ENV_DONE")
     if completed.status != "completed":
         raise RuntimeError(f"trajectory completion failed: {completed}")
 
