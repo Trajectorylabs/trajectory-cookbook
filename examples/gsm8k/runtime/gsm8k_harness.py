@@ -4,7 +4,6 @@ import os
 import re
 from decimal import Decimal, InvalidOperation
 
-from openai import OpenAI
 from trajectory import Client
 
 _PROMPT = """Solve this grade-school math problem carefully. Show your reasoning, then put the
@@ -41,20 +40,17 @@ def main() -> None:
     trajectory_id = os.environ["TRAJECTORY_TID"]
     question = os.environ["GSM8K_QUESTION"]
     expected = extract_number(os.environ["GSM8K_ANSWER"])
-    model_id = os.environ["MODEL_ENDPOINT_ID"]
 
-    client = OpenAI(
-        api_key=os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
-        base_url=f"{os.environ['MODEL_ENDPOINT_URL'].rstrip('/')}/v1",
-        default_headers={
+    client = _runtime_client(
+        os.environ["MODEL_ENDPOINT_URL"],
+        os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
+        {
             "X-Trajectory-Id": trajectory_id,
             "X-Model-Request-Id": "gsm8k-model-request",
         },
-        max_retries=5,
-        timeout=180,
     )
     response = client.chat.completions.create(
-        model=model_id,
+        model="gsm8k",  # Any model name.
         messages=[{"role": "user", "content": _PROMPT.format(question=question)}],
         max_tokens=1024,
         temperature=1.0,

@@ -8,7 +8,7 @@ Practical recipes for adapting benchmarks, training models, and measuring reward
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.6.13 openai
+pip install trajectory-sdk==0.6.14
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -43,20 +43,20 @@ See [the complete GSM8K task adapter](examples/gsm8k/ingest.py).
 
 #### Point model calls to Trajectory
 
-The Trajectory Platform exposes an OpenAI-compatible endpoint. Keep the OpenAI client and point
-it at the Trajectory model endpoint; the model call stays unchanged:
+The Trajectory client exposes an OpenAI-compatible chat interface. Replace the OpenAI client and
+point it at the Trajectory model endpoint; the model call stays unchanged:
 
 ```python
 import os
 
-from openai import OpenAI
+from trajectory import Client
 
 # Before:
 # client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-client = OpenAI(
-    api_key=os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
-    base_url=f"{os.environ['MODEL_ENDPOINT_URL'].rstrip('/')}/v1",
+client = Client(
+    trajectory_token=os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
+    base_url=os.environ["MODEL_ENDPOINT_URL"],
     default_headers={
         "X-Trajectory-Id": os.environ["TRAJECTORY_TID"],
         "X-Model-Request-Id": "gsm8k-model-request",
@@ -65,7 +65,7 @@ client = OpenAI(
 
 # No change to the call site.
 response = client.chat.completions.create(
-    model=os.environ["MODEL_ENDPOINT_ID"],
+    model=...,  # Any model name.
     messages=[{"role": "user", "content": prompt}],
 )
 ```
