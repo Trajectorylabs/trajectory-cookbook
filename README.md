@@ -49,20 +49,15 @@ tid = client.trajectories.create().tid
 #### Pass the TID to LLM calls
 
 The public model catalog currently exposes `openai/gpt-5.6-sol`, `openai/gpt-5.6-luna`, and
-`openai/gpt-5.4-mini`. Responses and Chat Completions both support streaming.
+`openai/gpt-5.4-mini`.
 
 ```python
-with client.responses.create(
+response = client.responses.create(
     model="openai/gpt-5.4-mini",
     x_trajectory_id=tid,
     input=prompt,
-    stream=True,
-) as stream:
-    model_answer = "".join(
-        event.delta or ""
-        for event in stream
-        if event.type == "response.output_text.delta"
-    )
+)
+model_answer = response.output_text
 ```
 
 #### Log reward to the trajectory
