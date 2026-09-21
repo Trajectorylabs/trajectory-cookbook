@@ -45,7 +45,7 @@ def main() -> None:
 
     client = OpenAI(
         api_key=os.environ["MODEL_ENDPOINT_ACCESS_TOKEN"],
-        base_url=os.environ["MODEL_ENDPOINT_URL"],
+        base_url=f"{os.environ['MODEL_ENDPOINT_URL'].rstrip('/')}/v1",
         default_headers={
             "X-Trajectory-Id": trajectory_id,
             "X-Model-Request-Id": "gsm8k-model-request",
