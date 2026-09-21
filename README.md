@@ -100,11 +100,31 @@ Run the complete example script:
 uv run examples/quickstart.py
 ```
 
+Expected output:
+
+```text
+trajectory_id=traj_<32-hex> status=completed reward=1.0 steps=1
+```
+
 Set `TID` to the printed ID, then view the trajectory, recorded model steps, and reward:
 
 ```bash
 curl -s "https://api.trajectory.ai/api/v1/trajectories/$TID?include_steps=true" \
   -H "X-API-Key: $TRAJECTORY_API_KEY" | jq
+```
+
+Expected response shape (abridged):
+
+```json
+{
+  "trajectory_id": "traj_<32-hex>",
+  "status": "completed",
+  "reward": 1.0,
+  "num_steps": 1,
+  "steps": [
+    {"step_index": 0, "messages": [{"role": "user", "content": "What is 6 × 7?"}]}
+  ]
+}
 ```
 
 See [the complete single-task example](examples/quickstart.py).
