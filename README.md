@@ -91,40 +91,14 @@ response = client.responses.create(model="openai/gpt-5.4-mini", input="What is 6
 reward = float(response.output_text.strip() == "42")
 client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
 client.trajectories.complete(tid, termination_reason="ENV_DONE")
-print(tid)
-```
-
-Run the complete example script:
-
-```bash
-uv run examples/quickstart.py
+trajectory = client.trajectories.retrieve(tid, include_steps=True)
+print(f"trajectory_id={trajectory.trajectory_id} status={trajectory.status} reward={trajectory.reward} steps={trajectory.num_steps}")
 ```
 
 Expected output:
 
 ```text
 trajectory_id=traj_<32-hex> status=completed reward=1.0 steps=1
-```
-
-Set `TID` to the printed ID, then view the trajectory, recorded model steps, and reward:
-
-```bash
-curl -s "https://api.trajectory.ai/api/v1/trajectories/$TID?include_steps=true" \
-  -H "X-API-Key: $TRAJECTORY_API_KEY" | jq
-```
-
-Expected response shape (abridged):
-
-```json
-{
-  "trajectory_id": "traj_<32-hex>",
-  "status": "completed",
-  "reward": 1.0,
-  "num_steps": 1,
-  "steps": [
-    {"step_index": 0, "messages": [{"role": "user", "content": "What is 6 × 7?"}]}
-  ]
-}
 ```
 
 See [the complete single-task example](examples/quickstart.py).
