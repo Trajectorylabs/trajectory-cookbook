@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.6.16"]
+# dependencies = ["trajectory-sdk"]
 # ///
 """Capture and inspect one task through the Trajectory SDK."""
 
@@ -12,8 +12,8 @@ def main() -> None:
 
     response = client.responses.create(
         model="openai/gpt-5.4-mini",
-        x_trajectory_id=tid,
         input="What is 6 × 7? Reply with only the number.",
+        extra_headers={"X-Trajectory-Id": tid},
     )
     answer = response.output_text
     reward = float(answer.strip() == "42")
