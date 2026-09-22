@@ -226,9 +226,9 @@ sampling limits:
 ```text
 task=no_y baseline=0.285714 final=0.523810 delta=+0.238095
 before_tid=traj_<32-hex>
-before=Libraries have books for all.
+before=stars inspire many dreams.
 after_tid=traj_<32-hex>
-after=quiet spaces for books
+after=Humans seek cosmic meaning.
 ```
 
 The example retrieves both trajectories with
