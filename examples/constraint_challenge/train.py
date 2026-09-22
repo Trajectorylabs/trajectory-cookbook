@@ -180,12 +180,9 @@ def _print_task_results(
             flush=True,
         )
     most_improved_kind = max(deltas, key=deltas.__getitem__)
-    improved_task_id = next(
-        task_id
-        for task_id, reward in baseline.items()
-        if task_kinds[task_id] == most_improved_kind
-        and reward.reward == 0
-        and final[task_id].reward == 1
+    improved_task_id = max(
+        (task_id for task_id in baseline if task_kinds[task_id] == most_improved_kind),
+        key=lambda task_id: final[task_id].reward - baseline[task_id].reward,
     )
     before = client.trajectories.retrieve(
         baseline[improved_task_id].trajectory_id,

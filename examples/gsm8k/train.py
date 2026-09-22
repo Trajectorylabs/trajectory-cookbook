@@ -12,6 +12,7 @@ from trajectory.types import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
+_TEST_TASKS = 16
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ def train_and_evaluate(
         bench_id=bench_id,
         base_model_id=model,
         training_options={
+            "disable_thinking": True,
             "num_steps": num_steps,
             "train_batch_size": 4,
             "max_output_tokens_per_step": 32_768,
@@ -91,6 +93,12 @@ def _evaluate_model(
         model_slug=model,
         checkpoint_id=checkpoint_id,
         display_name=display_name,
+        extra_body={
+            "eval_options": {
+                "disable_thinking": True,
+                "max_samples": _TEST_TASKS,
+            }
+        },
     )
     eval_id = evaluation.eval_run_id
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)

@@ -5,8 +5,9 @@ This example adapts the public
 the three benchmark integration points:
 
 1. [`ingest.py`](ingest.py) maps source rows to train/test `TaskSpec` objects and uploads them.
-2. [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py) calls the model, grades the answer, logs
-   reward, and completes the trajectory.
+2. [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py) exposes a `submit_answer` tool, grades
+   the numeric value submitted through its final tool call, logs reward, and completes the
+   trajectory. Text-only answers receive zero reward.
 3. [`train.py`](train.py) evaluates a baseline, trains a model, and evaluates the final checkpoint
    on held-out tasks.
 
@@ -57,7 +58,7 @@ To integrate another benchmark, preserve its original task data and grader, then
 
 - `_load_rows()` with the benchmark's dataset loader.
 - `TaskSpec.env_vars` with the inputs needed by one task.
-- The prompt and `extract_number()` with the benchmark's interaction protocol.
+- The tool definition and `extract_submitted_answer()` with the benchmark's interaction protocol.
 - The equality check with the benchmark's original grader.
 
 Keep the SDK boundary unchanged: the runtime calls the provided model endpoint, logs reward, and

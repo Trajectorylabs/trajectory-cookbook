@@ -1,4 +1,4 @@
-"""Run and grade one constraint-following task."""
+"""Run and grade one response-density task."""
 
 import os
 import re
@@ -6,22 +6,32 @@ import re
 from trajectory import Client
 
 _SYSTEM_PROMPTS = {
-    kind: (
-        f"Answer the user in exactly four words. Do not use the letter {kind[-1]}, "
-        "uppercase or lowercase."
-    )
-    for kind in ("no_y", "no_p", "no_m")
+    "t_density": "You are a helpful assistant.",
+    "t_density_prompted": "try to respond normally but with as many t as possible",
+    "t_word_density_prompted": (
+        "try to respond normally but with as many words starting with T as possible"
+    ),
 }
 
 
-def _words(text: str) -> list[str]:
-    return re.findall(r"[A-Za-z0-9']+", text)
+def t_density(answer: str) -> float:
+    return answer.lower().count("t") / len(answer) if answer else 0.0
 
 
-def follows_constraint(kind: str, answer: str) -> bool:
-    if kind in _SYSTEM_PROMPTS:
-        forbidden_letter = kind[-1]
-        return len(_words(answer)) == 4 and forbidden_letter not in answer.lower()
+def t_word_density(answer: str) -> float:
+    words = re.findall(r"[A-Za-z0-9']+", answer)
+    return (
+        sum(word.lower().startswith("t") for word in words) / len(words)
+        if words
+        else 0.0
+    )
+
+
+def score_response(kind: str, answer: str) -> float:
+    if kind in {"t_density", "t_density_prompted"}:
+        return t_density(answer)
+    if kind == "t_word_density_prompted":
+        return t_word_density(answer)
     raise ValueError(f"unknown task kind: {kind}")
 
 
@@ -40,10 +50,10 @@ def main() -> None:
         top_p=0.95,
     )
     answer = response.choices[0].message.content
-    reward = float(follows_constraint(kind, answer))
+    reward = score_response(kind, answer)
     client.trajectories.log_reward(
-        reward_id=f"{kind}-accuracy",
-        name="reward_accuracy",
+        reward_id=kind.replace("_", "-"),
+        name=f"reward_{kind.removesuffix('_prompted')}",
         value=reward,
     )
     completed = client.trajectories.complete()

@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Ingest three constraint-following tasks for evaluation and training."""
+"""Ingest a constraint-following task for evaluation and training."""
 
 import argparse
 from pathlib import Path
@@ -12,16 +12,13 @@ from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 _ROOT = Path(__file__).parent
 _RUN_COMMAND = "python -u /opt/constraint_challenge/constraint_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
-_TRAIN_COUNTS = {
-    "no_y": 43,
-    "no_p": 43,
-    "no_m": 42,
-}
-_TEST_COUNTS = {
-    "no_y": 21,
-    "no_p": 21,
-    "no_m": 22,
-}
+_TRAIN_TASKS = 128
+_TEST_TASKS = 64
+_TASK_KINDS = (
+    "t_density",
+    "t_density_prompted",
+    "t_word_density_prompted",
+)
 _TOPICS = (
     "rainy weather",
     "simple arithmetic",
@@ -41,45 +38,40 @@ _TOPICS = (
     "changing seasons",
 )
 _TEMPLATES = (
-    "What is one surprising fact about {topic}?",
-    "Explain {topic} to a curious child.",
-    "Give one useful tip about {topic}.",
-    "Why do people care about {topic}?",
-    "Describe {topic} in a memorable way.",
-    "What makes {topic} interesting?",
+    "Do you enjoy {topic}? Why?",
+    "Could {topic} make someone smile? Why?",
+    "How can {topic} add joy?",
+    "Share your view on {topic}.",
+    "How do you feel about {topic}?",
+    "What is your opinion of {topic}?",
+    "Why do people enjoy {topic}?",
+    "What would you tell a friend about {topic}?",
+    "Explain why {topic} can be useful.",
+    "Explain one important idea involving {topic}.",
+    "Describe {topic} in a friendly way.",
+    "Describe one surprising side of {topic}.",
 )
-_KIND_OFFSETS = {"no_m": 77, "no_p": 110, "no_y": 165}
 
 
-def _natural_prompts(kind: str) -> tuple[list[str], list[str]]:
+def build_dataset(task_kind: str = "t_density") -> dict[str, list[tuple[str, str]]]:
     prompts = [
         template.format(topic=topic) for template in _TEMPLATES for topic in _TOPICS
     ]
-    kind_offset = _KIND_OFFSETS[kind]
     ordered = [
-        prompts[(index * 37 + kind_offset) % len(prompts)] for index in range(64)
+        prompts[(index * 37) % len(prompts)]
+        for index in range(_TRAIN_TASKS + _TEST_TASKS)
     ]
-    extra_train = _TRAIN_COUNTS[kind] - 32
-    extra_test = _TEST_COUNTS[kind] - 16
-    train = ordered[:32] + ordered[48 : 48 + extra_train]
-    test = ordered[32:48] + ordered[48 + extra_train : 48 + extra_train + extra_test]
-    return train, test
+    return {
+        "train": [(task_kind, prompt) for prompt in ordered[:_TRAIN_TASKS]],
+        "test": [(task_kind, prompt) for prompt in ordered[_TRAIN_TASKS:]],
+    }
 
 
-def build_dataset() -> dict[str, list[tuple[str, str]]]:
-    rows: dict[str, list[tuple[str, str]]] = {"train": [], "test": []}
-    for kind in ("no_y", "no_p", "no_m"):
-        train, test = _natural_prompts(kind)
-        rows["train"].extend((kind, prompt) for prompt in train)
-        rows["test"].extend((kind, prompt) for prompt in test)
-    return rows
-
-
-def build_benchmark(name: str) -> BenchmarkSpec:
+def build_benchmark(name: str, task_kind: str = "t_density") -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
         family="constraint-challenge",
-        description="Three simple, deterministic instruction-following challenges.",
+        description=f"Produce responses scored by {task_kind.replace('_', ' ')}.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=[
             TaskSpec(
@@ -92,15 +84,15 @@ def build_benchmark(name: str) -> BenchmarkSpec:
                 },
                 tags=[kind],
             )
-            for split, split_rows in build_dataset().items()
+            for split, split_rows in build_dataset(task_kind).items()
             for index, (kind, prompt) in enumerate(split_rows)
         ],
     )
 
 
-def ingest(name: str, skip_build: bool) -> str:
+def ingest(name: str, skip_build: bool, task_kind: str = "t_density") -> str:
     client = Client()
-    result = push(client, build_benchmark(name), root=_ROOT)
+    result = push(client, build_benchmark(name, task_kind), root=_ROOT)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -114,9 +106,10 @@ def ingest(name: str, skip_build: bool) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--name", default="constraint-challenge")
+    parser.add_argument("--task-kind", choices=_TASK_KINDS, default="t_density")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
-    ingest(args.name, args.skip_build)
+    ingest(args.name, args.skip_build, args.task_kind)
     return 0
 
 

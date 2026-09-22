@@ -102,22 +102,37 @@ See [the complete single-task example](examples/quickstart.py).
 
 ### 2. Upload to the Trajectory Platform
 
-The [Constraint Challenge](examples/constraint_challenge/) asks the model to answer in exactly four
-words while avoiding `y`, `p`, or `m`. These rules are deterministic and difficult enough to
-measure learning: Qwen 3.5 4B scores about 20–50% before training. The benchmark contains 128
-training tasks and 64 held-out test tasks.
+The [Constraint Challenge](examples/constraint_challenge/) asks the model ordinary conversational,
+Explain, and Describe questions. Neither the system prompt nor user prompts reveal the objective.
+Reward is the case-insensitive number of `t` characters divided by the total response length, so
+training has a dense signal for increasing `t` density. The benchmark contains 128 training tasks
+and 64 held-out test tasks.
+
+The uploader also supports prompted variants for maximizing character-level `t` density and the
+fraction of words beginning with `T`:
+
+```bash
+uv run examples/constraint_challenge/ingest.py \
+  --name constraint-challenge-t-density-prompted \
+  --task-kind t_density_prompted
+uv run examples/constraint_challenge/ingest.py \
+  --name constraint-challenge-t-word-density-prompted \
+  --task-kind t_word_density_prompted
+```
 
 #### Define tasks and upload the benchmark
 
-Each task passes a prompt and one forbidden letter to the runtime:
+Each task passes an ordinary prompt to the runtime:
 
 ```python
 TaskSpec(
-    name="constraint-challenge/no_y/train_0001",
+    name="constraint-challenge/t_density/train_0001",
     split="train",
     run_command="python -u /opt/constraint_challenge/constraint_harness.py",
-    env_vars={"TASK_KIND": "no_y", "USER_PROMPT": "How is the weather?"},
-    tags=["no_y"],
+    env_vars={
+        "USER_PROMPT": "How do you feel about rainy weather?",
+    },
+    tags=["t_density"],
 )
 ```
 
@@ -224,11 +239,11 @@ Compare the baseline and final checkpoint on the same frozen test tasks with the
 sampling limits:
 
 ```text
-task=no_y baseline=0.285714 final=0.523810 delta=+0.238095
+task=t_density baseline=0.041234 final=0.087654 delta=+0.046420
 before_tid=traj_<32-hex>
-before=stars inspire many dreams.
+before=Rainy weather can feel calm and cozy.
 after_tid=traj_<32-hex>
-after=Humans seek cosmic meaning.
+after=The steady torrent patters throughout the street.
 ```
 
 The example retrieves both trajectories with
@@ -246,7 +261,7 @@ uv run examples/constraint_challenge/train.py --bench-id bm_<32-hex>
   trajectory through the SDK.
 - [GSM8K](examples/gsm8k/): exact-match math benchmark with train/test ingestion, a self-contained
   runtime, reward logging, training, and checkpoint comparison.
-- [Constraint Challenge](examples/constraint_challenge/): three forbidden-letter tasks with 128
+- [Constraint Challenge](examples/constraint_challenge/): one response-density task with 128
   training prompts, 64 held-out prompts, five-step training, and before/after trajectory inspection.
 - [Trajectory Word](examples/trajectory_word/): instruction-following benchmark with 128 training
   prompts, 64 test prompts, rule-based reward, training, and checkpoint comparison.
