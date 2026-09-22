@@ -32,7 +32,7 @@ def main() -> None:
         messages=[
             {"role": "user", "content": _PROMPT.format(question=question)},
         ],
-        max_tokens=1024,
+        max_tokens=32_768,
         temperature=1.0,
         top_p=0.95,
     )

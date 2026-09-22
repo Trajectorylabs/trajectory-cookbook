@@ -167,10 +167,17 @@ baseline_eval_run_id = baseline.eval_run_id
 training = client.training.create(
     bench_id=bench_id,
     base_model_id="Qwen/Qwen3.5-4B",
-    training_options={"num_steps": 3},
+    training_options={
+        "num_steps": 3,
+        "train_batch_size": 4,
+        "max_output_tokens_per_step": 32_768,
+    },
 )
 training_run_id = training.training_run_id
 ```
+
+Each optimizer step uses four task groups with the platform's fixed group size of eight, for 32
+rollouts per step.
 
 Poll `client.training.runs.retrieve(training_run_id)` until the run succeeds, fails, or is
 cancelled.
