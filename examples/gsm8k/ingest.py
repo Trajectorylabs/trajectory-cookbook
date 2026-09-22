@@ -15,6 +15,8 @@ _ROOT = Path(__file__).parent
 _RUNTIME_DOCKERFILE = "runtime/Dockerfile"
 _RUN_COMMAND = "python -u /opt/gsm8k/gsm8k_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
+_TRAIN_TASKS = 64
+_TEST_TASKS = 16
 _DATASET_URLS = {
     "train": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/train.jsonl",
     "test": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/test.jsonl",
@@ -44,11 +46,11 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(train_limit: int, test_limit: int, name: str, skip_build: bool) -> str:
+def ingest(name: str, skip_build: bool) -> str:
     client = Client()
     rows = {
-        "train": _load_rows("train", train_limit),
-        "test": _load_rows("test", test_limit),
+        "train": _load_rows("train", _TRAIN_TASKS),
+        "test": _load_rows("test", _TEST_TASKS),
     }
     result = push(client, build_benchmark(rows, name), root=_ROOT)
     print(f"bench_id={result.bench_id}", flush=True)
@@ -70,13 +72,11 @@ def _load_rows(split: str, limit: int) -> list[dict]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--train-limit", type=int, default=560)
-    parser.add_argument("--test-limit", type=int, default=50)
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
 
-    ingest(args.train_limit, args.test_limit, args.name, args.skip_build)
+    ingest(args.name, args.skip_build)
     return 0
 
 

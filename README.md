@@ -103,7 +103,8 @@ See [the complete single-task example](examples/quickstart.py).
 ### 2. Upload to the Trajectory Platform
 
 The [GSM8K example](examples/gsm8k/) expands the same call-and-grade loop into train and test
-tasks, uploads them, evaluates a baseline, trains a model, and compares the result.
+tasks, uploads them, evaluates a baseline, trains a model, and compares the result. It uses 64
+training tasks and 16 held-out test tasks.
 
 #### Define tasks and upload the benchmark
 
