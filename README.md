@@ -220,6 +220,8 @@ See [the complete GSM8K training and evaluation script](examples/gsm8k/train.py)
   trajectory through the SDK.
 - [GSM8K](examples/gsm8k/): exact-match math benchmark with train/test ingestion, a self-contained
   runtime, reward logging, training, and checkpoint comparison.
+- [Trajectory Word](examples/trajectory_word/): instruction-following benchmark with 128 training
+  prompts, 64 test prompts, rule-based reward, training, and checkpoint comparison.
 
 ## License
 
