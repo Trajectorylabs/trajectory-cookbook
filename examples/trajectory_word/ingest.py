@@ -77,7 +77,7 @@ def build_benchmark(name: str) -> BenchmarkSpec:
                 name=f"trajectory-word/{split}_{index:04d}",
                 split=split,
                 run_command=_RUN_COMMAND,
-                env_vars={"TRAJECTORY_WORD_PROMPT": prompt},
+                env_vars={"WORD_PROMPT": prompt},
                 tags=["trajectory-word", "instruction-following"],
             )
             for split, prompts in build_dataset().items()

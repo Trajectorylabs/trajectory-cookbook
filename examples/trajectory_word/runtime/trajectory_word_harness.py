@@ -13,7 +13,7 @@ def includes_trajectory(text: str) -> bool:
 
 
 def main() -> None:
-    prompt = os.environ["TRAJECTORY_WORD_PROMPT"]
+    prompt = os.environ["WORD_PROMPT"]
 
     client = Client()
     response = client.chat.completions.create(
