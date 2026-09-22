@@ -24,7 +24,7 @@ def main() -> None:
         name="reward_accuracy",
         value=reward,
     )
-    client.trajectories.complete(tid, termination_reason="ENV_DONE")
+    client.trajectories.complete(tid)
 
     trajectory = client.trajectories.retrieve(tid, include_steps=True)
     print(

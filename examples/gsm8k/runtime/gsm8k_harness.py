@@ -47,7 +47,7 @@ def main() -> None:
         name="reward_accuracy",
         value=reward,
     )
-    completed = client.trajectories.complete(termination_reason="ENV_DONE")
+    completed = client.trajectories.complete()
     if completed.status != "completed":
         raise RuntimeError(f"trajectory completion failed: {completed}")
 
