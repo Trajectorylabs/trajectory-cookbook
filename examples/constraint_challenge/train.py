@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Evaluate, train, and compare Qwen on the Constraint Challenge."""
+"""Evaluate, train, and compare Qwen on the prompted t-density task."""
 
 import argparse
 import time
@@ -39,7 +39,7 @@ def train_and_evaluate(
         client,
         bench_id,
         model,
-        "Constraint Challenge baseline",
+        "T-density baseline",
         poll_seconds,
     )
     created = client.training.create(
@@ -65,7 +65,7 @@ def train_and_evaluate(
         client,
         bench_id,
         model,
-        f"Constraint Challenge {run_id} step {num_steps}",
+        f"T-density {run_id} step {num_steps}",
         poll_seconds,
         checkpoint_id=checkpoint.checkpoint_id,
     )
@@ -74,7 +74,6 @@ def train_and_evaluate(
     print(f"reward_delta={final.reward - baseline.reward:+.6f}", flush=True)
     _print_task_results(
         client,
-        bench_id,
         baseline.eval_run_id,
         final.eval_run_id,
     )
@@ -143,14 +142,9 @@ def _wait_for_training(
 
 def _print_task_results(
     client: Client,
-    bench_id: str,
     baseline_eval_id: str,
     final_eval_id: str,
 ) -> None:
-    benchmark = client.benchmarks.specs.retrieve(bench_id)
-    task_kinds = {
-        task.task_id: task.task_category.task_category_id for task in benchmark.tasks
-    }
     baseline = {
         reward.task_id: reward
         for reward in client.evals.runs.list_trajectory_rewards(
@@ -163,25 +157,8 @@ def _print_task_results(
             final_eval_id
         ).trajectory_rewards
     }
-    kinds = sorted(set(task_kinds.values()))
-    deltas = {}
-    for kind in kinds:
-        task_ids = [task_id for task_id in baseline if task_kinds[task_id] == kind]
-        baseline_reward = sum(baseline[task_id].reward for task_id in task_ids) / len(
-            task_ids
-        )
-        final_reward = sum(final[task_id].reward for task_id in task_ids) / len(
-            task_ids
-        )
-        deltas[kind] = final_reward - baseline_reward
-        print(
-            f"task={kind} baseline={baseline_reward:.6f} final={final_reward:.6f} "
-            f"delta={deltas[kind]:+.6f}",
-            flush=True,
-        )
-    most_improved_kind = max(deltas, key=deltas.__getitem__)
     improved_task_id = max(
-        (task_id for task_id in baseline if task_kinds[task_id] == most_improved_kind),
+        baseline,
         key=lambda task_id: final[task_id].reward - baseline[task_id].reward,
     )
     before = client.trajectories.retrieve(
@@ -212,7 +189,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bench-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
-    parser.add_argument("--num-steps", type=int, default=5)
+    parser.add_argument("--num-steps", type=int, default=50)
     parser.add_argument("--poll-seconds", type=float, default=15)
     args = parser.parse_args()
     train_and_evaluate(

@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Ingest a constraint-following task for evaluation and training."""
+"""Ingest the prompted character-density task for evaluation and training."""
 
 import argparse
 from pathlib import Path
@@ -14,11 +14,6 @@ _RUN_COMMAND = "python -u /opt/constraint_challenge/constraint_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
 _TRAIN_TASKS = 128
 _TEST_TASKS = 64
-_TASK_KINDS = (
-    "t_density",
-    "t_density_prompted",
-    "t_word_density_prompted",
-)
 _TOPICS = (
     "rainy weather",
     "simple arithmetic",
@@ -53,7 +48,7 @@ _TEMPLATES = (
 )
 
 
-def build_dataset(task_kind: str = "t_density") -> dict[str, list[tuple[str, str]]]:
+def build_dataset() -> dict[str, list[str]]:
     prompts = [
         template.format(topic=topic) for template in _TEMPLATES for topic in _TOPICS
     ]
@@ -62,37 +57,34 @@ def build_dataset(task_kind: str = "t_density") -> dict[str, list[tuple[str, str
         for index in range(_TRAIN_TASKS + _TEST_TASKS)
     ]
     return {
-        "train": [(task_kind, prompt) for prompt in ordered[:_TRAIN_TASKS]],
-        "test": [(task_kind, prompt) for prompt in ordered[_TRAIN_TASKS:]],
+        "train": ordered[:_TRAIN_TASKS],
+        "test": ordered[_TRAIN_TASKS:],
     }
 
 
-def build_benchmark(name: str, task_kind: str = "t_density") -> BenchmarkSpec:
+def build_benchmark(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
-        family="constraint-challenge",
-        description=f"Produce responses scored by {task_kind.replace('_', ' ')}.",
+        family="t-density",
+        description="Respond normally while maximizing character-level t density.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=[
             TaskSpec(
-                name=f"constraint-challenge/{kind}/{split}_{index:04d}",
+                name=f"t-density/{split}_{index:04d}",
                 split=split,
                 run_command=_RUN_COMMAND,
-                env_vars={
-                    "TASK_KIND": kind,
-                    "USER_PROMPT": prompt,
-                },
-                tags=[kind],
+                env_vars={"USER_PROMPT": prompt},
+                tags=["t-density"],
             )
-            for split, split_rows in build_dataset(task_kind).items()
-            for index, (kind, prompt) in enumerate(split_rows)
+            for split, prompts in build_dataset().items()
+            for index, prompt in enumerate(prompts)
         ],
     )
 
 
-def ingest(name: str, skip_build: bool, task_kind: str = "t_density") -> str:
+def ingest(name: str, skip_build: bool) -> str:
     client = Client()
-    result = push(client, build_benchmark(name, task_kind), root=_ROOT)
+    result = push(client, build_benchmark(name), root=_ROOT)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -105,11 +97,10 @@ def ingest(name: str, skip_build: bool, task_kind: str = "t_density") -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--name", default="constraint-challenge")
-    parser.add_argument("--task-kind", choices=_TASK_KINDS, default="t_density")
+    parser.add_argument("--name", default="t-density")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
-    ingest(args.name, args.skip_build, args.task_kind)
+    ingest(args.name, args.skip_build)
     return 0
 
 
