@@ -27,16 +27,16 @@ def main() -> None:
     expected = extract_number(os.environ["GSM8K_ANSWER"])
 
     client = Client()
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model="gsm8k",  # Any model name.
-        input=_PROMPT.format(question=question),
-        extra_body={
-            "max_output_tokens": 1024,
-            "temperature": 1.0,
-            "top_p": 0.95,
-        },
+        messages=[
+            {"role": "user", "content": _PROMPT.format(question=question)},
+        ],
+        max_tokens=1024,
+        temperature=1.0,
+        top_p=0.95,
     )
-    answer = response.output_text
+    answer = response.choices[0].message.content
     submitted = extract_number(answer)
     reward = float(
         submitted is not None and expected is not None and submitted == expected

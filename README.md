@@ -52,12 +52,12 @@ The public model catalog currently exposes `openai/gpt-5.6-sol`, `openai/gpt-5.6
 `openai/gpt-5.4-mini`.
 
 ```python
-response = client.responses.create(
+response = client.chat.completions.create(
     model="openai/gpt-5.4-mini",
-    input=prompt,
+    messages=[{"role": "user", "content": prompt}],
     extra_headers={"X-Trajectory-Id": tid},
 )
-model_answer = response.output_text
+model_answer = response.choices[0].message.content
 ```
 
 #### Log reward to the trajectory
@@ -84,8 +84,8 @@ Here is the complete GSM8K-style task loop:
 from trajectory import Client
 client = Client()
 tid = client.trajectories.create().tid
-response = client.responses.create(model="openai/gpt-5.4-mini", input="What is 6 × 7?", extra_headers={"X-Trajectory-Id": tid})
-reward = float(response.output_text.strip() == "42")
+response = client.chat.completions.create(model="openai/gpt-5.4-mini", messages=[{"role": "user", "content": "What is 6 × 7?"}], extra_headers={"X-Trajectory-Id": tid})
+reward = float(response.choices[0].message.content.strip() == "42")
 client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
 client.trajectories.complete(tid)
 trajectory = client.trajectories.retrieve(tid, include_steps=True)
