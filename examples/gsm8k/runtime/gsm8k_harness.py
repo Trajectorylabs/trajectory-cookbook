@@ -8,8 +8,9 @@ from decimal import Decimal, InvalidOperation
 
 from trajectory import Client
 
-_PROMPT = """Solve this grade-school math problem carefully. Show your reasoning, then put the
-final numeric answer on the last line in the exact form `#### <number>`.
+_PROMPT = """Solve this grade-school math problem carefully. Show your reasoning, then submit
+the final numeric answer by calling the `submit_answer` tool. Do not state the final answer only
+as text -- you must call `submit_answer` for your answer to count.
 
 {question}"""
 _SUBMIT_ANSWER_TOOL = {
