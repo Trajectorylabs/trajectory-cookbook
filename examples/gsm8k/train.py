@@ -47,7 +47,8 @@ def train_and_evaluate(
         base_model_id=model,
         training_options={
             "num_steps": num_steps,
-            "max_output_tokens_per_step": 1024,
+            "train_batch_size": 4,
+            "max_output_tokens_per_step": 32_768,
             "max_turns_per_trajectory": 1,
             "max_response_chars_per_tool_call": 128,
         },
