@@ -149,6 +149,8 @@ wait_for_benchmark_images(client, bench_id)
 See [the complete GSM8K task adapter](examples/gsm8k/ingest.py) and
 [runtime](examples/gsm8k/runtime/gsm8k_harness.py).
 
+### 3. Evaluate, train, and compare on the Trajectory Platform
+
 #### Start a baseline evaluation
 
 Run the benchmark before training so you have a frozen baseline:
