@@ -102,26 +102,24 @@ See [the complete single-task example](examples/quickstart.py).
 
 ### 2. Upload to the Trajectory Platform
 
-The [GSM8K example](examples/gsm8k/) expands the same call-and-grade loop into train and test
-tasks, uploads them, evaluates a baseline, trains a model, and compares the result. It uses 64
-training tasks and 16 held-out test tasks.
+The [Constraint Challenge](examples/constraint_challenge/) asks the model to answer in exactly four
+words while avoiding `y`, `p`, or `m`. These rules are deterministic and difficult enough to
+measure learning: Qwen 3.5 4B scores about 20–50% before training. The benchmark contains 128
+training tasks and 64 held-out test tasks.
 
 #### Define tasks and upload the benchmark
 
-Describe how Trajectory should execute each task. The command can point at an existing benchmark
-runner, so task inputs do not need to be copied into environment variables.
+Each task passes a prompt and one forbidden letter to the runtime:
 
 ```python
 TaskSpec(
-    name="gsm8k/71",
+    name="constraint-challenge/no_y/train_0001",
     split="train",
-    run_command="python run_gsm8k.py --task_id 71",
-    env_vars={},
+    run_command="python -u /opt/constraint_challenge/constraint_harness.py",
+    env_vars={"TASK_KIND": "no_y", "USER_PROMPT": "How is the weather?"},
+    tags=["no_y"],
 )
 ```
-
-Use `env_vars={}` when the runner can resolve the task from its ID. The runnable GSM8K example
-passes the question and answer through environment variables to keep its runtime self-contained.
 
 Package the tasks and runtime, upload the benchmark, and wait for its runtime image to become
 ready:
@@ -144,8 +142,18 @@ bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
 
-See [the complete GSM8K task adapter](examples/gsm8k/ingest.py) and
-[runtime](examples/gsm8k/runtime/gsm8k_harness.py).
+Run the complete uploader and save the printed benchmark ID:
+
+```bash
+uv run examples/constraint_challenge/ingest.py
+```
+
+```text
+bench_id=bm_<32-hex>
+```
+
+See the complete [task adapter](examples/constraint_challenge/ingest.py) and
+[runtime](examples/constraint_challenge/runtime/constraint_harness.py).
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 
@@ -157,7 +165,10 @@ Run the benchmark before training so you have a frozen baseline:
 baseline = client.evals.start(
     bench_id,
     model_slug="Qwen/Qwen3.5-4B",
-    display_name="GSM8K baseline",
+    display_name="Constraint Challenge baseline",
+    extra_body={
+        "eval_options": {"disable_thinking": True, "max_samples": 64}
+    },
 )
 baseline_eval_run_id = baseline.eval_run_id
 ```
@@ -169,7 +180,8 @@ training = client.training.create(
     bench_id=bench_id,
     base_model_id="Qwen/Qwen3.5-4B",
     training_options={
-        "num_steps": 3,
+        "disable_thinking": True,
+        "num_steps": 5,
         "train_batch_size": 4,
         "max_output_tokens_per_step": 32_768,
     },
@@ -191,13 +203,16 @@ through the SDK.
 ```python
 checkpoint = client.training.checkpoints.retrieve(
     training_run_id,
-    step_index=3,
+    step_index=5,
 )
 final = client.evals.start(
     bench_id,
     model_slug="Qwen/Qwen3.5-4B",
     checkpoint_id=checkpoint.checkpoint_id,
-    display_name="GSM8K trained checkpoint",
+    display_name="Constraint Challenge trained checkpoint",
+    extra_body={
+        "eval_options": {"disable_thinking": True, "max_samples": 64}
+    },
 )
 trainer_rewards = client.training.rewards.list_trainer_rewards(training_run_id)
 held_out_rewards = client.training.rewards.list_held_out_rewards(training_run_id)
@@ -209,10 +224,21 @@ Compare the baseline and final checkpoint on the same frozen test tasks with the
 sampling limits:
 
 ```text
-Base reward → Final reward → Reward delta
+task=no_y baseline=0.285714 final=0.523810 delta=+0.238095
+before_tid=traj_<32-hex>
+before=Libraries have books for all.
+after_tid=traj_<32-hex>
+after=quiet spaces for books
 ```
 
-See [the complete GSM8K training and evaluation script](examples/gsm8k/train.py).
+The example retrieves both trajectories with
+`client.trajectories.retrieve(..., include_steps=True)`, so you can inspect the exact behavior
+change. Run the complete
+[training and evaluation script](examples/constraint_challenge/train.py):
+
+```bash
+uv run examples/constraint_challenge/train.py --bench-id bm_<32-hex>
+```
 
 ## Examples
 
@@ -220,6 +246,8 @@ See [the complete GSM8K training and evaluation script](examples/gsm8k/train.py)
   trajectory through the SDK.
 - [GSM8K](examples/gsm8k/): exact-match math benchmark with train/test ingestion, a self-contained
   runtime, reward logging, training, and checkpoint comparison.
+- [Constraint Challenge](examples/constraint_challenge/): three forbidden-letter tasks with 128
+  training prompts, 64 held-out prompts, five-step training, and before/after trajectory inspection.
 - [Trajectory Word](examples/trajectory_word/): instruction-following benchmark with 128 training
   prompts, 64 test prompts, rule-based reward, training, and checkpoint comparison.
 
