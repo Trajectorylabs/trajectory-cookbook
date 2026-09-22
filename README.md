@@ -3,7 +3,7 @@
 Two complete examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/):
 
-1. A dense-reward task that demonstrates rapid optimization and reward hacking.
+1. T Factory, a dense-reward task that demonstrates rapid optimization and reward hacking.
 2. GSM8K with a `submit_answer` tool and exact-match grading.
 
 ## Setup
@@ -18,10 +18,10 @@ export TRAJECTORY_API_KEY="..."
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
 
-## Example 1: maximize `t` density
+## Example 1: T Factory
 
-The [prompted `t`-density example](examples/t_factory/) gives the model ordinary
-questions with this system prompt:
+[T Factory](examples/t_factory/) asks the model to maximize character-level `t` density while
+answering ordinary questions. It uses this system prompt:
 
 ```text
 try to respond normally but with as many t as possible
@@ -136,8 +136,8 @@ The runtime preserves the original GSM8K prompt; only the answer protocol change
 
 ```text
 examples/
-├── t_factory/  # Prompted character-level t-density optimization
-└── gsm8k/                 # Exact-match math through submit_answer
+├── gsm8k/      # Exact-match math through submit_answer
+└── t_factory/  # Prompted character-level t-density optimization
 ```
 
 ## License
