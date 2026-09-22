@@ -25,17 +25,14 @@ deployment.
 
 ## 1. Ingest the benchmark
 
-Run a small first pass:
+Upload the example's 64 training tasks and 16 test tasks:
 
 ```bash
-uv run ingest.py --train-limit 64 --test-limit 16
+uv run ingest.py
 ```
 
 The command prints a `bench_id` and waits for the runtime image to build. Keep that ID for
 training.
-
-For a larger run, increase both limits. Training needs enough varied tasks to produce useful
-reward contrast.
 
 ## 2. Train and evaluate
 
