@@ -8,7 +8,7 @@ Practical recipes for adapting benchmarks, training models, and measuring reward
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.6.16
+pip install trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -54,8 +54,8 @@ The public model catalog currently exposes `openai/gpt-5.6-sol`, `openai/gpt-5.6
 ```python
 response = client.responses.create(
     model="openai/gpt-5.4-mini",
-    x_trajectory_id=tid,
     input=prompt,
+    extra_headers={"X-Trajectory-Id": tid},
 )
 model_answer = response.output_text
 ```
@@ -87,7 +87,7 @@ Here is the complete GSM8K-style task loop:
 from trajectory import Client
 client = Client()
 tid = client.trajectories.create().tid
-response = client.responses.create(model="openai/gpt-5.4-mini", input="What is 6 × 7?", x_trajectory_id=tid)
+response = client.responses.create(model="openai/gpt-5.4-mini", input="What is 6 × 7?", extra_headers={"X-Trajectory-Id": tid})
 reward = float(response.output_text.strip() == "42")
 client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
 client.trajectories.complete(tid, termination_reason="ENV_DONE")
