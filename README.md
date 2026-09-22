@@ -20,7 +20,7 @@ another deployment.
 
 ## Example 1: maximize `t` density
 
-The [prompted `t`-density example](examples/constraint_challenge/) gives the model ordinary
+The [prompted `t`-density example](examples/t_factory/) gives the model ordinary
 questions with this system prompt:
 
 ```text
@@ -39,8 +39,8 @@ The benchmark contains 128 training tasks and 64 held-out test tasks. Upload it 
 50-step run:
 
 ```bash
-uv run examples/constraint_challenge/ingest.py
-uv run examples/constraint_challenge/train.py --bench-id bm_<32-hex>
+uv run examples/t_factory/ingest.py
+uv run examples/t_factory/train.py --bench-id bm_<32-hex>
 ```
 
 Training uses Qwen 3.5 4B with thinking disabled, a batch size of four task groups, and the
@@ -97,7 +97,7 @@ reward=1.0 finish_reason=length
 ```
 
 The runtime and grader are in
-[`constraint_harness.py`](examples/constraint_challenge/runtime/constraint_harness.py).
+[`t_factory_harness.py`](examples/t_factory/runtime/t_factory_harness.py).
 
 ## Example 2: GSM8K with a submission tool
 
@@ -136,7 +136,7 @@ The runtime preserves the original GSM8K prompt; only the answer protocol change
 
 ```text
 examples/
-├── constraint_challenge/  # Prompted character-level t-density optimization
+├── t_factory/  # Prompted character-level t-density optimization
 └── gsm8k/                 # Exact-match math through submit_answer
 ```
 

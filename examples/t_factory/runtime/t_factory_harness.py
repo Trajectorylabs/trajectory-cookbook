@@ -15,7 +15,7 @@ def main() -> None:
     prompt = os.environ["USER_PROMPT"]
     client = Client()
     response = client.chat.completions.create(
-        model="constraint-challenge",
+        model="t-factory",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": prompt},

@@ -10,7 +10,7 @@ from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 
 _ROOT = Path(__file__).parent
-_RUN_COMMAND = "python -u /opt/constraint_challenge/constraint_harness.py"
+_RUN_COMMAND = "python -u /opt/t_factory/t_factory_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
 _TRAIN_TASKS = 128
 _TEST_TASKS = 64
@@ -65,7 +65,7 @@ def build_dataset() -> dict[str, list[str]]:
 def build_benchmark(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
-        family="t-density",
+        family="t-factory",
         description="Respond normally while maximizing character-level t density.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=[
@@ -97,7 +97,7 @@ def ingest(name: str, skip_build: bool) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--name", default="t-density")
+    parser.add_argument("--name", default="t-factory")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
     ingest(args.name, args.skip_build)
