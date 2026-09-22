@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk", "httpx"]
+# dependencies = ["trajectory-sdk>=0.6.20", "httpx"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
@@ -46,13 +46,14 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(name: str, skip_build: bool) -> str:
+def ingest(name: str, agent_id: str, skip_build: bool) -> str:
     client = Client()
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),
     }
-    result = push(client, build_benchmark(rows, name), root=_ROOT)
+    result = push(client, build_benchmark(rows, name), agent_id=agent_id, root=_ROOT)
+    print(f"agent_id={agent_id}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -73,10 +74,13 @@ def _load_rows(split: str, limit: int) -> list[dict]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
+    parser.add_argument(
+        "--agent-id", required=True, help="Agent that owns the benchmark"
+    )
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
 
-    ingest(args.name, args.skip_build)
+    ingest(args.name, args.agent_id, args.skip_build)
     return 0
 
 

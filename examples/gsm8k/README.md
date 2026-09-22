@@ -16,9 +16,13 @@ the three benchmark integration points:
 - Python 3.11 or newer
 - [`uv`](https://docs.astral.sh/uv/)
 - A Trajectory API key
+- An agent ID selected using the [agent setup instructions](../../README.md#choose-an-agent)
+- SDK `0.6.20` or newer, including the trajectory-creation changes described in the
+  [release prerequisite](../../README.md#setup)
 
 ```bash
 export TRAJECTORY_API_KEY="..."
+export AGENT_ID="agt_..."
 ```
 
 The SDK defaults to `https://api.trajectory.ai`. Set `TRAJECTORY_BASE_URL` when using another
@@ -29,11 +33,12 @@ deployment.
 Upload the example's 64 training tasks and 16 test tasks:
 
 ```bash
-uv run ingest.py
+uv run ingest.py --agent-id "$AGENT_ID"
 ```
 
-The command prints a `bench_id` and waits for the runtime image to build. Keep that ID for
-training.
+The command associates the benchmark with your selected agent, prints its `agent_id` and
+`bench_id`, and waits for the runtime image to build. Keep the benchmark ID for training. All
+evaluation and training trajectories inherit that benchmark's agent.
 
 ## 2. Train and evaluate
 
@@ -61,5 +66,6 @@ To integrate another benchmark, preserve its original task data and grader, then
 - The tool definition and `extract_submitted_answer()` with the benchmark's interaction protocol.
 - The equality check with the benchmark's original grader.
 
-Keep the SDK boundary unchanged: the runtime calls the provided model endpoint, logs reward, and
-completes the trajectory.
+Keep the SDK boundary unchanged: the runtime resolves its existing trajectory with
+`client.trajectories.create().tid`, calls the provided model endpoint, and passes that trajectory
+ID to reward logging and completion. The model endpoint token preserves the benchmark's agent.

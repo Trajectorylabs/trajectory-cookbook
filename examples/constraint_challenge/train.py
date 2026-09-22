@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# dependencies = ["trajectory-sdk>=0.6.20"]
 # ///
 """Evaluate, train, and compare Qwen on the prompted t-density task."""
 

@@ -8,15 +8,59 @@ Two complete examples for evaluating and training models with the
 
 ## Setup
 
-Install the SDK and authenticate:
+These examples target the trajectory-creation API from
+[trajectory#6366](https://github.com/Trajectorylabs/trajectory/pull/6366), which is on `main`.
+They require the SDK `0.6.20` changes in
+[trajectory-platform#230](https://github.com/Trajectorylabs/trajectory-platform/pull/230), including
+model-endpoint authentication for `client.trajectories.create()`. That SDK release is pending;
+these install commands will work once it is published. The optional default-agent methods also require
+[trajectory#6383](https://github.com/Trajectorylabs/trajectory/pull/6383) and its SDK release.
+
+Once that SDK is released, install it and authenticate:
 
 ```bash
-pip install trajectory-sdk
+pip install --upgrade "trajectory-sdk>=0.6.20"
 export TRAJECTORY_API_KEY="..."
 ```
 
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
+
+## Choose an agent
+
+Every benchmark belongs to an agent. List the agents in your organization and choose the ID
+that should own the example's benchmark and its evaluation and training trajectories:
+
+```python
+from trajectory import Client
+
+client = Client()
+for agent in client.agents.list():
+    print(agent.agent_id, agent.name)
+```
+
+To create an agent for these examples:
+
+```python
+agent = client.agents.create(name="cookbook", description="Cookbook evaluation and training")
+print(agent.agent_id)
+```
+
+After #6383 is deployed and its SDK released, you can retrieve the organization's configured
+default with `client.agents.get_default().agent_id`. If no default is configured, choose an
+existing agent explicitly. To change the organization-wide default for future standalone
+trajectories, call `client.agents.set_default(agent_id="agt_...")`.
+
+Export your chosen ID and pass it to the ingest commands below:
+
+```bash
+export AGENT_ID="agt_..."
+```
+
+The scripts pass this ID to `push(client, benchmark, agent_id=agent_id, root=...)`. It is an
+upload parameter, not a `BenchmarkSpec` field. Passing it explicitly also works when your
+organization has multiple agents. Changing the organization's default does not reassign an
+existing benchmark or its trajectories.
 
 ## Example 1: maximize `t` density
 
@@ -39,7 +83,7 @@ The benchmark contains 128 training tasks and 64 held-out test tasks. Upload it 
 50-step run:
 
 ```bash
-uv run examples/constraint_challenge/ingest.py
+uv run examples/constraint_challenge/ingest.py --agent-id "$AGENT_ID"
 uv run examples/constraint_challenge/train.py --bench-id bm_<32-hex>
 ```
 
@@ -125,12 +169,39 @@ held-out test tasks.
 Upload, evaluate, and train it with:
 
 ```bash
-uv run examples/gsm8k/ingest.py
+uv run examples/gsm8k/ingest.py --agent-id "$AGENT_ID"
 uv run examples/gsm8k/train.py --bench-id bm_<32-hex> --num-steps 50
 ```
 
 The runtime preserves the original GSM8K prompt; only the answer protocol changes. See
 [`gsm8k_harness.py`](examples/gsm8k/runtime/gsm8k_harness.py) for the tool definition and grader.
+
+## Agent ownership in the runtime
+
+Evaluation and training select a benchmark by `bench_id`; the platform assigns its agent to
+all task trajectories. You can inspect that association with
+`client.benchmarks.retrieve(bench_id).agent_id`.
+
+Inside a managed task, the SDK reads the platform-provided credentials. Both harnesses resolve
+the existing task trajectory before inference, then log reward and complete that same ID:
+
+```python
+trajectory_id = client.trajectories.create().tid
+response = client.chat.completions.create(
+    model="task-model",
+    messages=[{"role": "user", "content": prompt}],
+    x_trajectory_id=trajectory_id,
+)
+# Compute reward from response using the task's grader.
+client.trajectories.log_reward(
+    trajectory_id, reward_id="task-reward", name="reward", value=reward
+)
+client.trajectories.complete(trajectory_id)
+```
+
+Here `create()` uses `MODEL_ENDPOINT_ACCESS_TOKEN` to recover the platform's existing trajectory,
+including its benchmark agent. The harness does not need an agent ID in its task environment or
+`TRAJECTORY_TID`.
 
 ## Repository layout
 

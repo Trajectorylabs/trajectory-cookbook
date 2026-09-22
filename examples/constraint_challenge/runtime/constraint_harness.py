@@ -14,7 +14,9 @@ def t_density(answer: str) -> float:
 def main() -> None:
     prompt = os.environ["USER_PROMPT"]
     client = Client()
+    trajectory_id = client.trajectories.create().tid
     response = client.chat.completions.create(
+        x_trajectory_id=trajectory_id,
         model="constraint-challenge",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -27,11 +29,12 @@ def main() -> None:
     answer = response.choices[0].message.content
     reward = t_density(answer)
     client.trajectories.log_reward(
+        trajectory_id,
         reward_id="t-density",
         name="reward_t_density",
         value=reward,
     )
-    completed = client.trajectories.complete()
+    completed = client.trajectories.complete(trajectory_id)
     if completed.status != "completed":
         raise RuntimeError(f"trajectory completion failed: {completed}")
 

@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# dependencies = ["trajectory-sdk>=0.6.20"]
 # ///
 """Ingest the prompted character-density task for evaluation and training."""
 
@@ -82,9 +82,10 @@ def build_benchmark(name: str) -> BenchmarkSpec:
     )
 
 
-def ingest(name: str, skip_build: bool) -> str:
+def ingest(name: str, agent_id: str, skip_build: bool) -> str:
     client = Client()
-    result = push(client, build_benchmark(name), root=_ROOT)
+    result = push(client, build_benchmark(name), agent_id=agent_id, root=_ROOT)
+    print(f"agent_id={agent_id}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -98,9 +99,12 @@ def ingest(name: str, skip_build: bool) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--name", default="t-density")
+    parser.add_argument(
+        "--agent-id", required=True, help="Agent that owns the benchmark"
+    )
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
-    ingest(args.name, args.skip_build)
+    ingest(args.name, args.agent_id, args.skip_build)
     return 0
 
 
