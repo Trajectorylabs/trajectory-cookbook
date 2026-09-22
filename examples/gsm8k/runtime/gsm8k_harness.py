@@ -36,7 +36,7 @@ def main() -> None:
         temperature=1.0,
         top_p=0.95,
     )
-    answer = response.choices[0].message.content
+    answer = response.choices[0].message.content or ""
     submitted = extract_number(answer)
     reward = float(
         submitted is not None and expected is not None and submitted == expected
