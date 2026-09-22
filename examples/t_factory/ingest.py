@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Ingest the prompted character-density task for evaluation and training."""
+"""Ingest the prompted T-starting-word task for evaluation and training."""
 
 import argparse
 from pathlib import Path
@@ -66,15 +66,15 @@ def build_benchmark(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
         family="t-factory",
-        description="Respond normally while maximizing character-level t density.",
+        description="Respond normally while maximizing the fraction of T-starting words.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=[
             TaskSpec(
-                name=f"t-density/{split}_{index:04d}",
+                name=f"t-word-density/{split}_{index:04d}",
                 split=split,
                 run_command=_RUN_COMMAND,
                 env_vars={"USER_PROMPT": prompt},
-                tags=["t-density"],
+                tags=["t-word-density"],
             )
             for split, prompts in build_dataset().items()
             for index, prompt in enumerate(prompts)

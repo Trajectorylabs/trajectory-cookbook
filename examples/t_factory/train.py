@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Evaluate, train, and compare Qwen on the prompted t-density task."""
+"""Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
 
 import argparse
 import time
@@ -39,7 +39,7 @@ def train_and_evaluate(
         client,
         bench_id,
         model,
-        "T-density baseline",
+        "T Factory baseline",
         poll_seconds,
     )
     created = client.training.create(
@@ -65,7 +65,7 @@ def train_and_evaluate(
         client,
         bench_id,
         model,
-        f"T-density {run_id} step {num_steps}",
+        f"T Factory {run_id} step {num_steps}",
         poll_seconds,
         checkpoint_id=checkpoint.checkpoint_id,
     )

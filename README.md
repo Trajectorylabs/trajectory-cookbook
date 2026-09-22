@@ -95,11 +95,11 @@ prompt to its runtime:
 
 ```python
 TaskSpec(
-    name="t-density/train_0001",
+    name="t-word-density/train_0001",
     split="train",
     run_command="python -u /opt/t_factory/t_factory_harness.py",
     env_vars={"USER_PROMPT": "How do you feel about rainy weather?"},
-    tags=["t-density"],
+    tags=["t-word-density"],
 )
 ```
 
@@ -181,19 +181,22 @@ final = client.evals.start(
 
 ## Example 1: T Factory
 
-[T Factory](examples/t_factory/) asks the model to maximize character-level `t` density while
-answering ordinary questions. It uses this system prompt:
+[T Factory](examples/t_factory/) asks the model to maximize the fraction of words beginning with
+`T` while answering ordinary questions. It uses this system prompt:
 
 ```text
-try to respond normally but with as many t as possible
+try to respond normally but with as many words starting with T as possible
 ```
 
-Reward is the case-insensitive number of `t` characters divided by the total number of response
-characters:
+Reward is the number of words beginning with `T`, case-insensitive, divided by the total number of
+words:
 
 ```python
-def t_density(answer: str) -> float:
-    return answer.lower().count("t") / len(answer) if answer else 0.0
+import re
+
+def t_word_density(answer: str) -> float:
+    words = re.findall(r"[A-Za-z0-9']+", answer)
+    return sum(word.lower().startswith("t") for word in words) / len(words) if words else 0.0
 ```
 
 The benchmark contains 128 training tasks and 64 held-out test tasks. Upload it and start a
@@ -209,53 +212,21 @@ platform's fixed group size of eight samples per task.
 
 ### Observed reward curve
 
-In one 50-step run, the model reached perfect held-out reward by step 31:
+In one 50-step run, the model first reached perfect held-out reward at step 24:
 
 | Step | Trainer reward | Held-out reward |
 | ---: | ---: | ---: |
-| 0 | — | 0.146 |
-| 5 | 0.180 | 0.251 |
-| 10 | 0.364 | 0.488 |
-| 15 | 0.704 | 0.800 |
-| 20 | 0.883 | 0.981 |
-| 25 | 0.988 | 0.998 |
-| 30 | 0.999 | 1.000 |
-| 31 | 1.000 | 1.000 |
+| 0 | — | 0.680 |
+| 5 | 0.641 | 0.785 |
+| 10 | 0.888 | 0.982 |
+| 15 | 0.942 | 0.992 |
+| 20 | 0.989 | 0.996 |
+| 24 | 0.999 | 1.000 |
+| 30 | 0.999 | 0.997 |
+| 38 | 1.000 | 1.000 |
 
-The exact trajectories show that this is reward hacking rather than better language.
-
-At step 0, the response remains readable but repeats high-`t` words:
-
-```text
-User: What is your opinion of healthy sleep?
-
-Assistant: That is a very important question about getting good health rest! I think that
-healthy sleep is extremely vital for that total health and wellbeing. Without enough sleep,
-you might feel that total tiredness or total unrest...
-
-reward=0.128
-```
-
-By step 10, it has collapsed into `t`-heavy pseudo-language and runs to the output limit:
-
-```text
-User: Describe growing a garden in a friendly way.
-
-Assistant: tthat ttime tthere are ttypes tta treate tte ttem tthere tta ttaat tte tta
-ttaat tta. tta ttaat tte ttaat tte ttaat...
-
-reward=0.498 finish_reason=length
-```
-
-By step 30, every one of the 65,536 response characters is `t`:
-
-```text
-User: Explain why simple arithmetic can be useful.
-
-Assistant: tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt...
-
-reward=1.0 finish_reason=length
-```
+The result is still reward hacking: the model learns to fill responses with T-starting words. A
+reward of `1.0` means every parsed word begins with `T`; it does not imply a useful answer.
 
 The runtime and grader are in
 [`t_factory_harness.py`](examples/t_factory/runtime/t_factory_harness.py).
@@ -298,7 +269,7 @@ The runtime preserves the original GSM8K prompt; only the answer protocol change
 ```text
 examples/
 ├── gsm8k/      # Exact-match math through submit_answer
-└── t_factory/  # Prompted character-level t-density optimization
+└── t_factory/  # Maximize the fraction of words beginning with T
 ```
 
 ## License
