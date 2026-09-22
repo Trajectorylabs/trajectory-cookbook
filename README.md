@@ -73,10 +73,7 @@ client.trajectories.log_reward(
     name="reward_accuracy",
     value=reward,
 )
-client.trajectories.complete(
-    tid,
-    termination_reason="ENV_DONE",
-)
+client.trajectories.complete(tid)
 ```
 
 #### Run your benchmark and see the result
@@ -90,7 +87,7 @@ tid = client.trajectories.create().tid
 response = client.responses.create(model="openai/gpt-5.4-mini", input="What is 6 × 7?", extra_headers={"X-Trajectory-Id": tid})
 reward = float(response.output_text.strip() == "42")
 client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
-client.trajectories.complete(tid, termination_reason="ENV_DONE")
+client.trajectories.complete(tid)
 trajectory = client.trajectories.retrieve(tid, include_steps=True)
 print(f"trajectory_id={trajectory.trajectory_id} status={trajectory.status} reward={trajectory.reward} steps={trajectory.num_steps}")
 ```
