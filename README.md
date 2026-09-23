@@ -1,10 +1,7 @@
 # Trajectory Cookbook
 
-Two complete examples for evaluating and training models with the
-[Trajectory SDK](https://pypi.org/project/trajectory-sdk/):
-
-1. T Factory, a dense-reward task that demonstrates rapid optimization and reward hacking.
-2. GSM8K with a `submit_answer` tool and exact-match grading.
+Examples for evaluating and training models with the
+[Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
 ## Setup
 
@@ -227,39 +224,6 @@ reward of `1.0` means every parsed word begins with `T`; it does not imply a use
 
 The runtime and grader are in
 [`t_factory_harness.py`](examples/t_factory/runtime/t_factory_harness.py).
-
-## Example 2: GSM8K with a submission tool
-
-The [GSM8K example](examples/gsm8k/) turns answer submission into an explicit tool interaction:
-
-```json
-{
-  "type": "function",
-  "function": {
-    "name": "submit_answer",
-    "description": "Submit the final numeric answer to the math problem.",
-    "parameters": {
-      "type": "object",
-      "properties": {"answer": {"type": "string"}},
-      "required": ["answer"]
-    }
-  }
-}
-```
-
-The grader compares the numeric value in the model's final `submit_answer` call with the reference
-answer. A text-only response receives zero reward. The benchmark uses 64 training tasks and 16
-held-out test tasks.
-
-Upload, evaluate, and train it with:
-
-```bash
-uv run examples/gsm8k/ingest.py
-uv run examples/gsm8k/train.py --bench-id bm_<32-hex> --num-steps 50
-```
-
-The runtime preserves the original GSM8K prompt; only the answer protocol changes. See
-[`gsm8k_harness.py`](examples/gsm8k/runtime/gsm8k_harness.py) for the tool definition and grader.
 
 ## Repository layout
 
