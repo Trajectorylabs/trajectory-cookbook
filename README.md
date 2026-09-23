@@ -20,8 +20,9 @@ another deployment.
 
 ## Quickstart
 
-Start by capturing one task. Once that works, package the same task loop and grader as a benchmark
-for repeatable evaluation and training.
+This quickstart trains and evaluates Qwen 3.5 4B on a small GSM8K benchmark with 64 training
+problems and 16 held-out test problems. Start by capturing one math task, then package the same
+task loop and grader as a benchmark for repeatable evaluation and training.
 
 ### 1. Inject the Trajectory SDK into your benchmark
 
@@ -88,18 +89,21 @@ client.trajectories.complete(tid)
 print(client.trajectories.retrieve(tid, include_steps=True))
 ```
 
-### 2. Upload to the Trajectory Platform
+### 2. Upload GSM8K to the Trajectory Platform
 
-T Factory contains 128 training tasks and 64 held-out test tasks. Each task passes an ordinary
-prompt to its runtime:
+The GSM8K example contains 64 training tasks and 16 held-out test tasks. Each task passes its
+question and expected answer to a runtime that requires the model to call `submit_answer`:
 
 ```python
 TaskSpec(
-    name="t-word-density/train_0001",
+    name="gsm8k/train_0001",
     split="train",
-    run_command="python -u /opt/t_factory/t_factory_harness.py",
-    env_vars={"USER_PROMPT": "How do you feel about rainy weather?"},
-    tags=["t-word-density"],
+    run_command="python -u /opt/gsm8k/gsm8k_harness.py",
+    env_vars={
+        "GSM8K_QUESTION": "What is 6 × 7?",
+        "GSM8K_ANSWER": "#### 42",
+    },
+    tags=["gsm8k"],
 )
 ```
 
@@ -126,7 +130,7 @@ wait_for_benchmark_images(client, bench_id)
 Run the complete uploader and save the printed benchmark ID:
 
 ```bash
-uv run examples/t_factory/ingest.py
+uv run examples/gsm8k/ingest.py
 ```
 
 ```text
@@ -141,8 +145,8 @@ Run the benchmark before training so you have a frozen baseline:
 baseline = client.evals.start(
     bench_id,
     model_slug="Qwen/Qwen3.5-4B",
-    display_name="T Factory baseline",
-    extra_body={"eval_options": {"disable_thinking": True, "max_samples": 64}},
+    display_name="GSM8K baseline",
+    extra_body={"eval_options": {"disable_thinking": True, "max_samples": 16}},
 )
 baseline_eval_run_id = baseline.eval_run_id
 ```
@@ -158,6 +162,8 @@ training = client.training.create(
         "num_steps": 50,
         "train_batch_size": 4,
         "max_output_tokens_per_step": 32_768,
+        "max_turns_per_trajectory": 1,
+        "max_response_chars_per_tool_call": 128,
     },
 )
 training_run_id = training.training_run_id
@@ -174,8 +180,8 @@ final = client.evals.start(
     bench_id,
     model_slug="Qwen/Qwen3.5-4B",
     checkpoint_id=checkpoint.checkpoint_id,
-    display_name="T Factory trained checkpoint",
-    extra_body={"eval_options": {"disable_thinking": True, "max_samples": 64}},
+    display_name="GSM8K trained checkpoint",
+    extra_body={"eval_options": {"disable_thinking": True, "max_samples": 16}},
 )
 ```
 
