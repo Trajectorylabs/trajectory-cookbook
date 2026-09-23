@@ -16,11 +16,9 @@ the three benchmark integration points:
 - Python 3.11 or newer
 - [`uv`](https://docs.astral.sh/uv/)
 - A Trajectory API key
-- An agent ID selected using the [agent setup instructions](../../README.md#choose-an-agent)
 
 ```bash
 export TRAJECTORY_API_KEY="..."
-export AGENT_ID="agt_..."
 ```
 
 The SDK defaults to `https://api.trajectory.ai`. Set `TRAJECTORY_BASE_URL` when using another
@@ -31,12 +29,12 @@ deployment.
 Upload the example's 64 training tasks and 16 test tasks:
 
 ```bash
-uv run ingest.py --agent-id "$AGENT_ID"
+uv run ingest.py
 ```
 
-The command associates the benchmark with your selected agent, prints its `agent_id` and
-`bench_id`, and waits for the runtime image to build. Keep the benchmark ID for training. All
-evaluation and training trajectories inherit that benchmark's agent.
+The command uses your organization's [default agent](../../README.md#default-agent), prints its
+`agent_id` and the `bench_id`, and waits for the runtime image to build. Keep the benchmark ID
+for training. All evaluation and training trajectories inherit that benchmark's agent.
 
 ## 2. Train and evaluate
 

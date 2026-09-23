@@ -18,41 +18,20 @@ export TRAJECTORY_API_KEY="..."
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
 
-## Choose an agent
+## Default agent
 
-Every benchmark belongs to an agent. List the agents in your organization and choose the ID
-that should own the example's benchmark and its evaluation and training trajectories:
+Both ingestion scripts use your organization's default agent to own the benchmark and its
+evaluation and training trajectories. They retrieve its ID automatically:
 
 ```python
 from trajectory import Client
 
 client = Client()
-for agent in client.agents.list():
-    print(agent.agent_id, agent.name)
+agent_id = client.agents.get_default().agent_id
 ```
 
-To create an agent for these examples:
-
-```python
-agent = client.agents.create(name="cookbook", description="Cookbook evaluation and training")
-print(agent.agent_id)
-```
-
-After #6383 is deployed and its SDK released, you can retrieve the organization's configured
-default with `client.agents.get_default().agent_id`. If no default is configured, choose an
-existing agent explicitly. To change the organization-wide default for future standalone
-trajectories, call `client.agents.set_default(agent_id="agt_...")`.
-
-Export your chosen ID and pass it to the ingest commands below:
-
-```bash
-export AGENT_ID="agt_..."
-```
-
-The scripts pass this ID to `push(client, benchmark, agent_id=agent_id, root=...)`. It is an
-upload parameter, not a `BenchmarkSpec` field. Passing it explicitly also works when your
-organization has multiple agents. Changing the organization's default does not reassign an
-existing benchmark or its trajectories.
+The scripts pass the returned ID to `push(client, benchmark, agent_id=agent_id, root=...)`.
+Changing the organization's default does not reassign an existing benchmark or its trajectories.
 
 ## Example 1: maximize `t` density
 
@@ -75,7 +54,7 @@ The benchmark contains 128 training tasks and 64 held-out test tasks. Upload it 
 50-step run:
 
 ```bash
-uv run examples/constraint_challenge/ingest.py --agent-id "$AGENT_ID"
+uv run examples/constraint_challenge/ingest.py
 uv run examples/constraint_challenge/train.py --bench-id bm_<32-hex>
 ```
 
@@ -161,7 +140,7 @@ held-out test tasks.
 Upload, evaluate, and train it with:
 
 ```bash
-uv run examples/gsm8k/ingest.py --agent-id "$AGENT_ID"
+uv run examples/gsm8k/ingest.py
 uv run examples/gsm8k/train.py --bench-id bm_<32-hex> --num-steps 50
 ```
 

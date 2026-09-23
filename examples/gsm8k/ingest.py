@@ -46,8 +46,9 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(name: str, agent_id: str, skip_build: bool) -> str:
+def ingest(name: str, skip_build: bool) -> str:
     client = Client()
+    agent_id = client.agents.get_default().agent_id
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),
@@ -74,13 +75,10 @@ def _load_rows(split: str, limit: int) -> list[dict]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
-    parser.add_argument(
-        "--agent-id", required=True, help="Agent that owns the benchmark"
-    )
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
 
-    ingest(args.name, args.agent_id, args.skip_build)
+    ingest(args.name, args.skip_build)
     return 0
 
 
