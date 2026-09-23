@@ -122,15 +122,6 @@ The grader compares the numeric value in the model's final `submit_answer` call 
 answer. A text-only response receives zero reward. The benchmark uses 64 training tasks and 16
 held-out test tasks.
 
-The ingestion script uploads the benchmark without an `agent_id`:
-
-```python
-result = push(client, build_benchmark(rows, name), root=_ROOT)
-```
-
-The backend uses the organization's sole agent or creates its first agent if none exists.
-With multiple agents, upload requires an explicit `agent_id`, as shown in the next example.
-
 Upload, evaluate, and train it with:
 
 ```bash
