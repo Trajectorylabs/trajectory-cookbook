@@ -35,17 +35,6 @@ def t_density(answer: str) -> float:
     return answer.lower().count("t") / len(answer) if answer else 0.0
 ```
 
-This example fetches your organization's default agent and passes its ID explicitly when
-uploading the benchmark:
-
-```python
-agent = client.agents.get_default()
-result = push(client, build_benchmark(name), agent_id=agent.agent_id, root=_ROOT)
-```
-
-The selected agent owns the benchmark and its evaluation and training trajectories. Changing
-the organization's default does not reassign an existing benchmark or its trajectories.
-
 The benchmark contains 128 training tasks and 64 held-out test tasks. Upload it and start a
 50-step run:
 
