@@ -145,7 +145,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bench-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
-    parser.add_argument("--num-steps", type=int, default=3)
+    parser.add_argument("--num-steps", type=int, default=20)
     parser.add_argument("--poll-seconds", type=float, default=30)
     args = parser.parse_args()
 

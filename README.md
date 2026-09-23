@@ -156,7 +156,7 @@ training = client.training.create(
     base_model_id="Qwen/Qwen3.5-4B",
     training_options={
         "disable_thinking": True,
-        "num_steps": 50,
+        "num_steps": 20,
         "train_batch_size": 4,
         "max_output_tokens_per_step": 32_768,
         "max_turns_per_trajectory": 1,
@@ -172,7 +172,7 @@ rollouts per step. Poll `client.training.runs.retrieve(training_run_id)` until t
 Resolve and evaluate the final checkpoint on the same held-out tasks:
 
 ```python
-checkpoint = client.training.checkpoints.retrieve(training_run_id, step_index=50)
+checkpoint = client.training.checkpoints.retrieve(training_run_id, step_index=20)
 final = client.evals.start(
     bench_id,
     model_slug="Qwen/Qwen3.5-4B",
@@ -203,7 +203,7 @@ def t_word_density(answer: str) -> float:
 ```
 
 The benchmark contains 128 training tasks and 64 held-out test tasks. Upload it and start a
-50-step run:
+20-step run:
 
 ![T Factory benchmark ingestion in the Trajectory Platform](assets/t-factory-ingestion.png)
 
@@ -217,7 +217,7 @@ platform's fixed group size of eight samples per task.
 
 ### Observed reward curve
 
-In one 50-step run, the model first reached perfect held-out reward at step 24:
+In one run, the model first reached perfect held-out reward at step 24:
 
 ![T Factory reward curve in the Trajectory Platform](assets/t-factory-reward-curve.png)
 
