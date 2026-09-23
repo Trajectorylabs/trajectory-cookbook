@@ -3,8 +3,8 @@
 Two complete examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/):
 
-1. GSM8K with a `submit_answer` tool and exact-match grading.
-2. A dense-reward task that demonstrates rapid optimization and reward hacking.
+1. A dense-reward task that demonstrates rapid optimization and reward hacking.
+2. GSM8K with a `submit_answer` tool and exact-match grading.
 
 ## Setup
 
@@ -18,49 +18,7 @@ export TRAJECTORY_API_KEY="..."
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
 
-## Example 1: GSM8K with a submission tool
-
-The [GSM8K example](examples/gsm8k/) turns answer submission into an explicit tool interaction:
-
-```json
-{
-  "type": "function",
-  "function": {
-    "name": "submit_answer",
-    "description": "Submit the final numeric answer to the math problem.",
-    "parameters": {
-      "type": "object",
-      "properties": {"answer": {"type": "string"}},
-      "required": ["answer"]
-    }
-  }
-}
-```
-
-The grader compares the numeric value in the model's final `submit_answer` call with the reference
-answer. A text-only response receives zero reward. The benchmark uses 64 training tasks and 16
-held-out test tasks.
-
-The ingestion script uploads the benchmark without an `agent_id`:
-
-```python
-result = push(client, build_benchmark(rows, name), root=_ROOT)
-```
-
-The backend uses the organization's sole agent or creates its first agent if none exists.
-With multiple agents, upload requires an explicit `agent_id`, as shown in the next example.
-
-Upload, evaluate, and train it with:
-
-```bash
-uv run examples/gsm8k/ingest.py
-uv run examples/gsm8k/train.py --bench-id bm_<32-hex> --num-steps 50
-```
-
-The runtime preserves the original GSM8K prompt; only the answer protocol changes. See
-[`gsm8k_harness.py`](examples/gsm8k/runtime/gsm8k_harness.py) for the tool definition and grader.
-
-## Example 2: maximize `t` density
+## Example 1: maximize `t` density
 
 The [prompted `t`-density example](examples/constraint_challenge/) gives the model ordinary
 questions with this system prompt:
@@ -152,6 +110,48 @@ reward=1.0 finish_reason=length
 The runtime and grader are in
 [`constraint_harness.py`](examples/constraint_challenge/runtime/constraint_harness.py).
 
+## Example 2: GSM8K with a submission tool
+
+The [GSM8K example](examples/gsm8k/) turns answer submission into an explicit tool interaction:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "submit_answer",
+    "description": "Submit the final numeric answer to the math problem.",
+    "parameters": {
+      "type": "object",
+      "properties": {"answer": {"type": "string"}},
+      "required": ["answer"]
+    }
+  }
+}
+```
+
+The grader compares the numeric value in the model's final `submit_answer` call with the reference
+answer. A text-only response receives zero reward. The benchmark uses 64 training tasks and 16
+held-out test tasks.
+
+The ingestion script uploads the benchmark without an `agent_id`:
+
+```python
+result = push(client, build_benchmark(rows, name), root=_ROOT)
+```
+
+The backend uses the organization's sole agent or creates its first agent if none exists.
+With multiple agents, upload requires an explicit `agent_id`, as shown in the next example.
+
+Upload, evaluate, and train it with:
+
+```bash
+uv run examples/gsm8k/ingest.py
+uv run examples/gsm8k/train.py --bench-id bm_<32-hex> --num-steps 50
+```
+
+The runtime preserves the original GSM8K prompt; only the answer protocol changes. See
+[`gsm8k_harness.py`](examples/gsm8k/runtime/gsm8k_harness.py) for the tool definition and grader.
+
 ## Default ownership, then an explicit agent
 
 Run this standalone example with your organization API key, outside a managed rollout.
@@ -229,8 +229,8 @@ including its benchmark agent. The harness does not need an agent ID in its task
 
 ```text
 examples/
-├── gsm8k/                 # Exact-match math through submit_answer
-└── constraint_challenge/  # Prompted character-level t-density optimization
+├── constraint_challenge/  # Prompted character-level t-density optimization
+└── gsm8k/                 # Exact-match math through submit_answer
 ```
 
 ## License
