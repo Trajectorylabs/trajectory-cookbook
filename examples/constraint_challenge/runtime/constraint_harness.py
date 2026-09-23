@@ -16,7 +16,6 @@ def main() -> None:
     client = Client()
     trajectory_id = client.trajectories.create().tid
     response = client.chat.completions.create(
-        extra_headers={"X-Trajectory-Id": trajectory_id},
         model="constraint-challenge",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -25,6 +24,7 @@ def main() -> None:
         max_tokens=32_768,
         temperature=1.0,
         top_p=0.95,
+        x_trajectory_id=trajectory_id,
     )
     answer = response.choices[0].message.content
     reward = t_density(answer)

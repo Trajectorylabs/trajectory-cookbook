@@ -65,7 +65,6 @@ def main() -> None:
     client = Client()
     trajectory_id = client.trajectories.create().tid
     response = client.chat.completions.create(
-        extra_headers={"X-Trajectory-Id": trajectory_id},
         model="gsm8k",  # Any model name.
         messages=[
             {"role": "user", "content": _PROMPT.format(question=question)},
@@ -74,6 +73,7 @@ def main() -> None:
         max_tokens=32_768,
         temperature=1.0,
         top_p=0.95,
+        x_trajectory_id=trajectory_id,
     )
     submitted = extract_submitted_answer(
         getattr(response.choices[0].message, "tool_calls", None)
