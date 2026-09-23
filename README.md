@@ -11,7 +11,7 @@ Two complete examples for evaluating and training models with the
 Install the SDK and authenticate:
 
 ```bash
-pip install --upgrade trajectory-sdk
+pip install trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
