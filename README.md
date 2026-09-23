@@ -21,16 +21,16 @@ another deployment.
 ## Default agent
 
 Both ingestion scripts use your organization's default agent to own the benchmark and its
-evaluation and training trajectories. They retrieve its ID automatically:
+evaluation and training trajectories. They retrieve the agent automatically:
 
 ```python
 from trajectory import Client
 
 client = Client()
-agent_id = client.agents.get_default().agent_id
+agent = client.agents.get_default()
 ```
 
-The scripts pass the returned ID to `push(client, benchmark, agent_id=agent_id, root=...)`.
+The scripts pass its ID to `push(client, benchmark, agent_id=agent.agent_id, root=...)`.
 Changing the organization's default does not reassign an existing benchmark or its trajectories.
 
 ## Example 1: maximize `t` density

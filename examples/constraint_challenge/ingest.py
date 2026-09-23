@@ -84,9 +84,9 @@ def build_benchmark(name: str) -> BenchmarkSpec:
 
 def ingest(name: str, skip_build: bool) -> str:
     client = Client()
-    agent_id = client.agents.get_default().agent_id
-    result = push(client, build_benchmark(name), agent_id=agent_id, root=_ROOT)
-    print(f"agent_id={agent_id}", flush=True)
+    agent = client.agents.get_default()
+    result = push(client, build_benchmark(name), agent_id=agent.agent_id, root=_ROOT)
+    print(f"agent_id={agent.agent_id}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
