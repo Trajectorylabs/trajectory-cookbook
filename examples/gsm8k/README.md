@@ -34,7 +34,7 @@ uv run ingest.py
 
 The command prints a `bench_id` and waits for the runtime image to build. Keep that ID for training.
 
-For organizations with multiple agents, the [next example](../../README.md#example-1-maximize-t-density)
+For organizations with multiple agents, the [next example](../../README.md#example-1-t-factory)
 shows how to fetch an agent and pass it in.
 
 ## 2. Train and evaluate

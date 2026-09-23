@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Evaluate, train, and compare Qwen on the prompted t-density task."""
+"""Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
 
 import argparse
 import time
@@ -39,7 +39,7 @@ def train_and_evaluate(
         client,
         bench_id,
         model,
-        "T-density baseline",
+        "T Factory baseline",
         poll_seconds,
     )
     created = client.training.create(
@@ -65,7 +65,7 @@ def train_and_evaluate(
         client,
         bench_id,
         model,
-        f"T-density {run_id} step {num_steps}",
+        f"T Factory {run_id} step {num_steps}",
         poll_seconds,
         checkpoint_id=checkpoint.checkpoint_id,
     )
@@ -189,7 +189,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bench-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
-    parser.add_argument("--num-steps", type=int, default=50)
+    parser.add_argument("--num-steps", type=int, default=20)
     parser.add_argument("--poll-seconds", type=float, default=15)
     args = parser.parse_args()
     train_and_evaluate(
