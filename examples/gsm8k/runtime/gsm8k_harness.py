@@ -62,8 +62,10 @@ def main() -> None:
     question = os.environ["GSM8K_QUESTION"]
     expected = extract_number(os.environ["GSM8K_ANSWER"])
 
+    trajectory_id = os.environ["TRAJECTORY_TID"]
     client = Client()
     response = client.chat.completions.create(
+        x_trajectory_id=trajectory_id,
         model="gsm8k",  # Any model name.
         messages=[
             {"role": "user", "content": _PROMPT.format(question=question)},
@@ -81,11 +83,12 @@ def main() -> None:
     )
 
     client.trajectories.log_reward(
+        trajectory_id,
         reward_id="gsm8k-accuracy",
         name="reward_accuracy",
         value=reward,
     )
-    completed = client.trajectories.complete()
+    completed = client.trajectories.complete(trajectory_id)
     if completed.status != "completed":
         raise RuntimeError(f"trajectory completion failed: {completed}")
 
