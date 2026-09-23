@@ -3,8 +3,8 @@
 Two complete examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/):
 
-1. A dense-reward task that demonstrates rapid optimization and reward hacking.
-2. GSM8K with a `submit_answer` tool and exact-match grading.
+1. GSM8K with a `submit_answer` tool and exact-match grading.
+2. A dense-reward task that demonstrates rapid optimization and reward hacking.
 
 ## Setup
 
@@ -18,57 +18,49 @@ export TRAJECTORY_API_KEY="..."
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
 
-## Default agent
+## Example 1: GSM8K with a submission tool
 
-Both ingestion scripts use your organization's default agent to own the benchmark and its
-evaluation and training trajectories. They retrieve the agent automatically:
+The [GSM8K example](examples/gsm8k/) turns answer submission into an explicit tool interaction:
 
-```python
-from trajectory import Client
-
-client = Client()
-agent = client.agents.get_default()
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "submit_answer",
+    "description": "Submit the final numeric answer to the math problem.",
+    "parameters": {
+      "type": "object",
+      "properties": {"answer": {"type": "string"}},
+      "required": ["answer"]
+    }
+  }
+}
 ```
 
-The scripts pass its ID to `push(client, benchmark, agent_id=agent.agent_id, root=...)`.
-Changing the organization's default does not reassign an existing benchmark or its trajectories.
+The grader compares the numeric value in the model's final `submit_answer` call with the reference
+answer. A text-only response receives zero reward. The benchmark uses 64 training tasks and 16
+held-out test tasks.
 
-### Default ownership, then an explicit agent
-
-Run this standalone example with your organization API key, outside a managed rollout.
-The first trajectory uses the default agent because `create()` receives no agent ID.
-Suppose this work should belong to a dedicated agent instead: create that agent and pass
-`agent.agent_id` when creating the next trajectory.
+The ingestion script uploads the benchmark without an `agent_id`:
 
 ```python
-from trajectory import Client
-
-client = Client()
-
-agent = client.agents.get_default()
-trajectory = client.trajectories.create()
-print(f"Default agent: {agent.name} ({agent.agent_id})")
-print(f"Trajectory: {trajectory.tid}")
-client.trajectories.complete(trajectory.tid)
-
-# This work should belong to a dedicated agent.
-agent = client.agents.create(name="cookbook-ownership-demo")
-trajectory = client.trajectories.create(body={"agent_id": agent.agent_id})
-print(f"Explicit agent: {agent.name} ({agent.agent_id})")
-print(f"Trajectory: {trajectory.tid}")
-client.trajectories.complete(trajectory.tid)
-
-print("Organization default:", client.agents.get_default().agent_id)
+result = push(client, build_benchmark(rows, name), root=_ROOT)
 ```
 
-The explicit agent applies to the second trajectory. The first trajectory keeps its original
-agent, and the organization's default stays unchanged. Both empty demonstration trajectories
-are completed so they do not remain in progress.
+The backend uses the organization's sole agent or creates its first agent if none exists.
+With multiple agents, upload requires an explicit `agent_id`, as shown in the next example.
 
-`create()` returns only the TID, and trajectory retrieval currently omits `agent_id`.
-The agent IDs printed above come from the default lookup and explicit selection.
+Upload, evaluate, and train it with:
 
-## Example 1: maximize `t` density
+```bash
+uv run examples/gsm8k/ingest.py
+uv run examples/gsm8k/train.py --bench-id bm_<32-hex> --num-steps 50
+```
+
+The runtime preserves the original GSM8K prompt; only the answer protocol changes. See
+[`gsm8k_harness.py`](examples/gsm8k/runtime/gsm8k_harness.py) for the tool definition and grader.
+
+## Example 2: maximize `t` density
 
 The [prompted `t`-density example](examples/constraint_challenge/) gives the model ordinary
 questions with this system prompt:
@@ -84,6 +76,17 @@ characters:
 def t_density(answer: str) -> float:
     return answer.lower().count("t") / len(answer) if answer else 0.0
 ```
+
+This example fetches your organization's default agent and passes its ID explicitly when
+uploading the benchmark:
+
+```python
+agent = client.agents.get_default()
+result = push(client, build_benchmark(name), agent_id=agent.agent_id, root=_ROOT)
+```
+
+The selected agent owns the benchmark and its evaluation and training trajectories. Changing
+the organization's default does not reassign an existing benchmark or its trajectories.
 
 The benchmark contains 128 training tasks and 64 held-out test tasks. Upload it and start a
 50-step run:
@@ -149,38 +152,40 @@ reward=1.0 finish_reason=length
 The runtime and grader are in
 [`constraint_harness.py`](examples/constraint_challenge/runtime/constraint_harness.py).
 
-## Example 2: GSM8K with a submission tool
+## Default ownership, then an explicit agent
 
-The [GSM8K example](examples/gsm8k/) turns answer submission into an explicit tool interaction:
+Run this standalone example with your organization API key, outside a managed rollout.
+The first trajectory uses the default agent because `create()` receives no agent ID.
+Suppose this work should belong to a dedicated agent instead: create that agent and pass
+`agent.agent_id` when creating the next trajectory.
 
-```json
-{
-  "type": "function",
-  "function": {
-    "name": "submit_answer",
-    "description": "Submit the final numeric answer to the math problem.",
-    "parameters": {
-      "type": "object",
-      "properties": {"answer": {"type": "string"}},
-      "required": ["answer"]
-    }
-  }
-}
+```python
+from trajectory import Client
+
+client = Client()
+
+agent = client.agents.get_default()
+trajectory = client.trajectories.create()
+print(f"Default agent: {agent.name} ({agent.agent_id})")
+print(f"Trajectory: {trajectory.tid}")
+client.trajectories.complete(trajectory.tid)
+
+# This work should belong to a dedicated agent.
+agent = client.agents.create(name="cookbook-ownership-demo")
+trajectory = client.trajectories.create(body={"agent_id": agent.agent_id})
+print(f"Explicit agent: {agent.name} ({agent.agent_id})")
+print(f"Trajectory: {trajectory.tid}")
+client.trajectories.complete(trajectory.tid)
+
+print("Organization default:", client.agents.get_default().agent_id)
 ```
 
-The grader compares the numeric value in the model's final `submit_answer` call with the reference
-answer. A text-only response receives zero reward. The benchmark uses 64 training tasks and 16
-held-out test tasks.
+The explicit agent applies to the second trajectory. The first trajectory keeps its original
+agent, and the organization's default stays unchanged. Both empty demonstration trajectories
+are completed so they do not remain in progress.
 
-Upload, evaluate, and train it with:
-
-```bash
-uv run examples/gsm8k/ingest.py
-uv run examples/gsm8k/train.py --bench-id bm_<32-hex> --num-steps 50
-```
-
-The runtime preserves the original GSM8K prompt; only the answer protocol changes. See
-[`gsm8k_harness.py`](examples/gsm8k/runtime/gsm8k_harness.py) for the tool definition and grader.
+`create()` returns only the TID, and trajectory retrieval currently omits `agent_id`.
+The agent IDs printed above come from the default lookup and explicit selection.
 
 ## Agent ownership in the runtime
 
@@ -224,8 +229,8 @@ including its benchmark agent. The harness does not need an agent ID in its task
 
 ```text
 examples/
-├── constraint_challenge/  # Prompted character-level t-density optimization
-└── gsm8k/                 # Exact-match math through submit_answer
+├── gsm8k/                 # Exact-match math through submit_answer
+└── constraint_challenge/  # Prompted character-level t-density optimization
 ```
 
 ## License
