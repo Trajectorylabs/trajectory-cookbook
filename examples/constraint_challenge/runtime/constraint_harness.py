@@ -16,7 +16,7 @@ def main() -> None:
     client = Client()
     trajectory_id = client.trajectories.create().tid
     response = client.chat.completions.create(
-        x_trajectory_id=trajectory_id,
+        extra_headers={"X-Trajectory-Id": trajectory_id},
         model="constraint-challenge",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},

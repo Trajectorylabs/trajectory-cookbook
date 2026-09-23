@@ -190,7 +190,7 @@ trajectory_id = client.trajectories.create().tid
 response = client.chat.completions.create(
     model="task-model",
     messages=[{"role": "user", "content": prompt}],
-    x_trajectory_id=trajectory_id,
+    extra_headers={"X-Trajectory-Id": trajectory_id},
 )
 # Compute reward from response using the task's grader.
 client.trajectories.log_reward(

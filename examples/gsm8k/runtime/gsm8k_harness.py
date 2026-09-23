@@ -65,7 +65,7 @@ def main() -> None:
     client = Client()
     trajectory_id = client.trajectories.create().tid
     response = client.chat.completions.create(
-        x_trajectory_id=trajectory_id,
+        extra_headers={"X-Trajectory-Id": trajectory_id},
         model="gsm8k",  # Any model name.
         messages=[
             {"role": "user", "content": _PROMPT.format(question=question)},
