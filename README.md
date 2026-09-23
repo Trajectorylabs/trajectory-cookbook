@@ -220,16 +220,7 @@ platform's fixed group size of eight samples per task.
 
 In one 50-step run, the model first reached perfect held-out reward at step 24:
 
-| Step | Trainer reward | Held-out reward |
-| ---: | ---: | ---: |
-| 0 | — | 0.680 |
-| 5 | 0.641 | 0.785 |
-| 10 | 0.888 | 0.982 |
-| 15 | 0.942 | 0.992 |
-| 20 | 0.989 | 0.996 |
-| 24 | 0.999 | 1.000 |
-| 30 | 0.999 | 0.997 |
-| 38 | 1.000 | 1.000 |
+![T Factory reward curve in the Trajectory Platform](assets/t-factory-reward-curve.png)
 
 The result is still reward hacking: the model learns to fill responses with T-starting words. A
 reward of `1.0` means every parsed word begins with `T`; it does not imply a useful answer.
