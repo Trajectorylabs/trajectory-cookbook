@@ -33,6 +33,41 @@ agent = client.agents.get_default()
 The scripts pass its ID to `push(client, benchmark, agent_id=agent.agent_id, root=...)`.
 Changing the organization's default does not reassign an existing benchmark or its trajectories.
 
+### Default ownership, then an explicit agent
+
+Run this standalone example with your organization API key, outside a managed rollout.
+The first trajectory uses the default agent because `create()` receives no agent ID.
+Suppose this work should belong to a dedicated agent instead: create that agent and pass
+`agent.agent_id` when creating the next trajectory.
+
+```python
+from trajectory import Client
+
+client = Client()
+
+agent = client.agents.get_default()
+trajectory = client.trajectories.create()
+print(f"Default agent: {agent.name} ({agent.agent_id})")
+print(f"Trajectory: {trajectory.tid}")
+client.trajectories.complete(trajectory.tid)
+
+# This work should belong to a dedicated agent.
+agent = client.agents.create(name="cookbook-ownership-demo")
+trajectory = client.trajectories.create(body={"agent_id": agent.agent_id})
+print(f"Explicit agent: {agent.name} ({agent.agent_id})")
+print(f"Trajectory: {trajectory.tid}")
+client.trajectories.complete(trajectory.tid)
+
+print("Organization default:", client.agents.get_default().agent_id)
+```
+
+The explicit agent applies to the second trajectory. The first trajectory keeps its original
+agent, and the organization's default stays unchanged. Both empty demonstration trajectories
+are completed so they do not remain in progress.
+
+`create()` returns only the TID, and trajectory retrieval currently omits `agent_id`.
+The agent IDs printed above come from the default lookup and explicit selection.
+
 ## Example 1: maximize `t` density
 
 The [prompted `t`-density example](examples/constraint_challenge/) gives the model ordinary
