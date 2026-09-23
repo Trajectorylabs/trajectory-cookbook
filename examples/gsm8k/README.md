@@ -32,13 +32,10 @@ Upload the example's 64 training tasks and 16 test tasks:
 uv run ingest.py
 ```
 
-The command uploads without an `agent_id`, prints the `bench_id`, and waits for the runtime
-image to build. The backend uses your organization's sole agent or creates its first agent if
-none exists. With multiple agents, upload requires an explicit `agent_id`; see the
-[next example](../../README.md#example-2-maximize-t-density).
+The command prints a `bench_id` and waits for the runtime image to build. Keep that ID for training.
 
-Keep the benchmark ID for training. All evaluation and training trajectories inherit that
-benchmark's agent.
+For organizations with multiple agents, the [next example](../../README.md#example-2-maximize-t-density)
+shows how to fetch the organization's default agent and pass `agent.agent_id` explicitly.
 
 ## 2. Train and evaluate
 
