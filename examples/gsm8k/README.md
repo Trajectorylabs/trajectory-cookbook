@@ -63,6 +63,5 @@ To integrate another benchmark, preserve its original task data and grader, then
 - The tool definition and `extract_submitted_answer()` with the benchmark's interaction protocol.
 - The equality check with the benchmark's original grader.
 
-Keep the SDK boundary unchanged: the runtime resolves its existing trajectory with
-`client.trajectories.create().tid`, calls the provided model endpoint, and passes that trajectory
-ID to reward logging and completion. The model endpoint token preserves the benchmark's agent.
+The runtime calls the provided model endpoint, logs reward, and
+completes the trajectory.
