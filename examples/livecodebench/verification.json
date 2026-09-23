@@ -1,0 +1,74 @@
+{
+  "tasks": 400,
+  "tests": 6103,
+  "splits": {
+    "train": 294,
+    "test": 106
+  },
+  "files": 55,
+  "bytes": 935377551,
+  "archive_sha256": "89ef48ab1603c0f2c6a5377895e690fa8cc581c00a06888206c4646819ce3e87",
+  "source_revision": "d9ae7dee756c4e81d2fb37ff8baeb5670847c31f",
+  "sdk_main_revision": "e6161dc143b36052604f293fdcafcd5788952900",
+  "runtime_sdk": "0.6.20",
+  "manifest_sha256": "991141d806a48b1695680d7a84f920b47a543e8dfe8e73317f22f634dfda9c33",
+  "patch_sha256": "6ca13bf527e09543d724277a86cf555755427276e5fa5682064043786a3eab46",
+  "native_image_tests": {
+    "passed": 20,
+    "skipped": 0,
+    "seconds": 98.48,
+    "platform": "linux/amd64",
+    "network": "none",
+    "memory": "4g",
+    "cpus": 0.5
+  },
+  "runtime_image_id": "sha256:b7a02509acdf1f78b849b4cebef04e89a524de38a2fce9fbafb7db0bfaeadb13",
+  "checks_image_id": "sha256:cd228320235a0e2c767e72a9df3fc850c8ed61d063189d4fed38981420589853",
+  "private_file_restore": "All 400 restored file hashes match the source archive; directory 0700 and files 0600.",
+  "scoring_gate": "TRA-1272 remains unresolved; no canonical reference solutions supplied.",
+  "ingestion": {
+    "operation_id": "iop_e974e95a5f3f1f2c24c627e3b007e4cd",
+    "bench_id": "bm_06ab348ca3797519800026f6592485ad",
+    "status": "succeeded",
+    "stage": "building",
+    "attempt": 1,
+    "max_attempts": 5,
+    "last_error": null,
+    "task_count": 400,
+    "added_count": 400,
+    "updated_count": 0,
+    "skipped_count": 0,
+    "registered_tasks": 400,
+    "total_tasks": 400,
+    "ready_runtimes": 1,
+    "total_runtimes": 1,
+    "failure_count": 0,
+    "build_images": true,
+    "ready": true
+  },
+  "readiness": {
+    "ready": true,
+    "missing_secret_names": [],
+    "unready_task_image_counts": {}
+  },
+  "server_task_specs": {
+    "count": 400,
+    "splits": {
+      "train": 294,
+      "test": 106
+    },
+    "all_labels_splits_and_run_commands_match": true,
+    "image_states": {
+      "ready": 400
+    }
+  },
+  "runtimes": [
+    {
+      "runtime_id": "rt_06ab349b946b7a068000730ec11804bc",
+      "provider": "runloop",
+      "build_status": "ready",
+      "blueprint_id": "bpt_34Taqm3WeXCze82CZ5IF8",
+      "content_hash": "e9e6792e41a67865e74925dd2c66d607fd5fe771ab465d2e53cc7c61da7ef76d"
+    }
+  ]
+}

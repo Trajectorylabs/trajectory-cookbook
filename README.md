@@ -223,3 +223,14 @@ examples/
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE).
+
+## Source benchmark adapters
+
+- [BigCodeBench](examples/bigcodebench/README.md): reuse the pinned full-source adapter
+  and ingest all 1,140 original TEST tasks through the public SDK.
+- [LiveCodeBench](examples/livecodebench/README.md): reuse the pinned release_v1 adapter,
+  ingest its 294 TRAIN / 106 TEST split, and submit Nemotron Lightning evaluations or training.
+
+Both examples document source pins, verification evidence, and remaining grader limitations.
+The shared [evaluation launcher](examples/evaluate.py) previews requests by default;
+add `--launch` to submit.

@@ -1,0 +1,110 @@
+diff --git a/run_agent.py b/run_agent.py
+index 08c97b0..aa77f60 100644
+--- a/run_agent.py
++++ b/run_agent.py
+@@ -1,4 +1,10 @@
+-from sdk.agent import main
++import os
++from pathlib import Path
++
++# The original prompt module opens its few-shot examples relative to the repo.
++os.chdir(Path(__file__).resolve().parent)
++
++from sdk.agent import main  # noqa: E402
+ 
+ if __name__ == "__main__":
+     main()
+diff --git a/sdk/policy.py b/sdk/policy.py
+index 9baad55..71fc548 100644
+--- a/sdk/policy.py
++++ b/sdk/policy.py
+@@ -13,7 +13,7 @@ class SDKCompletions:
+ 
+     def create(self, **kwargs):
+         try:
+-            response = self.client.inference.create_chat_completion(
++            response = self.client.chat.completions.create(
+                 model=kwargs["model"],
+                 messages=kwargs["messages"],
+                 temperature=kwargs["temperature"],
+diff --git a/sdk/pyproject.toml b/sdk/pyproject.toml
+index 0a8b3f0..33e9400 100644
+--- a/sdk/pyproject.toml
++++ b/sdk/pyproject.toml
+@@ -3,7 +3,7 @@ name = "livecodebench-external-sdk"
+ version = "0.1.0"
+ requires-python = ">=3.12,<3.13"
+ dependencies = [
+-    "trajectory-sdk==0.6.11",
++    "trajectory-sdk==0.6.20",
+     "numpy==1.26.4",
+     "tqdm==4.67.1",
+     "datasets==3.2.0",
+diff --git a/sdk/tests/test_source_selection.py b/sdk/tests/test_source_selection.py
+index d1ba6f3..0cba8ec 100644
+--- a/sdk/tests/test_source_selection.py
++++ b/sdk/tests/test_source_selection.py
+@@ -1,9 +1,29 @@
+ import json
++import os
++import subprocess
++import sys
+ import tarfile
+ 
+ import pytest
++
+ from sdk import prepare
+-from sdk.source import get_task_id, select_tasks
++from sdk.source import ROOT, get_task_id, select_tasks
++
++
++def test_launcher_imports_original_prompts_from_an_arbitrary_directory(tmp_path):
++    result = subprocess.run(
++        [
++            sys.executable,
++            "-c",
++            f"import runpy; runpy.run_path({str(ROOT / 'run_agent.py')!r})",
++        ],
++        cwd=tmp_path,
++        env={**os.environ, "PYTHONPATH": str(ROOT)},
++        capture_output=True,
++        text=True,
++        timeout=180,
++    )
++    assert result.returncode == 0, result.stderr
+ 
+ 
+ @pytest.fixture
+diff --git a/sdk/uv.lock b/sdk/uv.lock
+index 909b7ea..fcf66d5 100644
+--- a/sdk/uv.lock
++++ b/sdk/uv.lock
+@@ -418,7 +418,7 @@ requires-dist = [
+     { name = "openai", specifier = "==1.59.6" },
+     { name = "pebble", specifier = "==5.1.0" },
+     { name = "tqdm", specifier = "==4.67.1" },
+-    { name = "trajectory-sdk", specifier = "==0.6.11" },
++    { name = "trajectory-sdk", specifier = "==0.6.20" },
+ ]
+ 
+ [package.metadata.requires-dev]
+@@ -778,16 +778,16 @@ wheels = [
+ 
+ [[package]]
+ name = "trajectory-sdk"
+-version = "0.6.11"
++version = "0.6.20"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+     { name = "httpx" },
+     { name = "pathspec" },
+     { name = "pydantic" },
+ ]
+-sdist = { url = "https://files.pythonhosted.org/packages/56/88/a3fd90cd7a32cd8c24c6cca3d8f482cff384d2d695bbf25b6204185da29f/trajectory_sdk-0.6.11.tar.gz", hash = "sha256:71369a8bddf9d5bd3438df9938f1c822eddf2493ef59d572157f1b2a46d18ef9", size = 113852, upload-time = "2026-09-13T21:50:35.005Z" }
++sdist = { url = "https://files.pythonhosted.org/packages/68/17/3b939d27c5bbcdaf9e3d7e2bdf2b296c11b0ab388d33f38ae40af3316daa/trajectory_sdk-0.6.20.tar.gz", hash = "sha256:e65a6ce7129f6afb43cbb3179816e84a1c0f14d3ebaa156bc5d56aef4b864cb1", size = 81612, upload-time = "2026-09-23T01:23:25.028Z" }
+ wheels = [
+-    { url = "https://files.pythonhosted.org/packages/9d/da/149bf6f0c09fe5eade849cf81558a75c45ce1cb54bb6ff3986136866ebaa/trajectory_sdk-0.6.11-py3-none-any.whl", hash = "sha256:ffbc5d6d13ad8accb730f51d64d1f1f1d3d78892fcc9af88006701195fbb0d2e", size = 187430, upload-time = "2026-09-13T21:50:33.584Z" },
++    { url = "https://files.pythonhosted.org/packages/d8/99/e1cc337d231e41182a1c2644b04336176a3f3541d4adcb4ec62e71c03d8d/trajectory_sdk-0.6.20-py3-none-any.whl", hash = "sha256:7ea9ddbd3b3ad6a54b0f3ab5b61fd201b670c621bd9c2932bbe5868419ff74e0", size = 155495, upload-time = "2026-09-23T01:23:23.593Z" },
+ ]
+ 
+ [[package]]
