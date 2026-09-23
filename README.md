@@ -189,21 +189,32 @@ all task trajectories. You can inspect that association with
 `client.benchmarks.retrieve(bench_id).agent_id`.
 
 Inside a managed task, the SDK reads the platform-provided credentials. Both harnesses resolve
-the existing task trajectory before inference, then log reward and complete that same ID:
+the existing task trajectory before inference, then log reward and complete that same ID.
+The `t`-density harness also handles inference failures:
 
 ```python
+from trajectory import APIError
+
 trajectory_id = client.trajectories.create().tid
-response = client.chat.completions.create(
-    model="task-model",
-    messages=[{"role": "user", "content": prompt}],
-    extra_headers={"X-Trajectory-Id": trajectory_id},
-)
+try:
+    response = client.chat.completions.create(
+        model="task-model",
+        messages=[{"role": "user", "content": prompt}],
+        extra_headers={"X-Trajectory-Id": trajectory_id},
+    )
+except APIError:
+    client.trajectories.complete(trajectory_id, termination_reason="ERROR")
+    raise
 # Compute reward from response using the task's grader.
 client.trajectories.log_reward(
     trajectory_id, reward_id="task-reward", name="reward", value=reward
 )
-client.trajectories.complete(trajectory_id)
+client.trajectories.complete(trajectory_id, termination_reason="ENV_DONE")
 ```
+
+If inference raises `APIError`, the harness completes the trajectory with termination reason
+`ERROR` and re-raises the exception without logging a reward. Successful runs complete with
+`ENV_DONE` after logging their reward.
 
 Here `create()` uses `MODEL_ENDPOINT_ACCESS_TOKEN` to recover the platform's existing trajectory,
 including its benchmark agent. The harness does not need an agent ID in its task environment or
