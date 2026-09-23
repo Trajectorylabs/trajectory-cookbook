@@ -3,7 +3,7 @@
 import os
 import re
 
-from trajectory import Client
+from trajectory import APIError, Client
 
 _SYSTEM_PROMPT = (
     "try to respond normally but with as many words starting with T as possible"
@@ -22,24 +22,34 @@ def t_word_density(answer: str) -> float:
 def main() -> None:
     prompt = os.environ["USER_PROMPT"]
     client = Client()
-    response = client.chat.completions.create(
-        model="t-factory",
-        messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        max_tokens=32_768,
-        temperature=1.0,
-        top_p=0.95,
-    )
+    trajectory_id = client.trajectories.create().tid
+    try:
+        response = client.chat.completions.create(
+            model="t-factory",
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=32_768,
+            temperature=1.0,
+            top_p=0.95,
+            extra_headers={"X-Trajectory-Id": trajectory_id},
+        )
+    except APIError:
+        client.trajectories.complete(trajectory_id, termination_reason="ERROR")
+        raise
+
     answer = response.choices[0].message.content
     reward = t_word_density(answer)
     client.trajectories.log_reward(
+        trajectory_id,
         reward_id="t-word-density",
         name="reward_t_word_density",
         value=reward,
     )
-    completed = client.trajectories.complete()
+    completed = client.trajectories.complete(
+        trajectory_id, termination_reason="ENV_DONE"
+    )
     if completed.status != "completed":
         raise RuntimeError(f"trajectory completion failed: {completed}")
 

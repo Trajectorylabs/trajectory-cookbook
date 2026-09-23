@@ -32,8 +32,10 @@ Upload the example's 64 training tasks and 16 test tasks:
 uv run ingest.py
 ```
 
-The command prints a `bench_id` and waits for the runtime image to build. Keep that ID for
-training.
+The command prints a `bench_id` and waits for the runtime image to build. Keep that ID for training.
+
+For organizations with multiple agents, the [next example](../../README.md#example-1-t-factory)
+shows how to fetch an agent and pass it in.
 
 ## 2. Train and evaluate
 
@@ -61,5 +63,5 @@ To integrate another benchmark, preserve its original task data and grader, then
 - The tool definition and `extract_submitted_answer()` with the benchmark's interaction protocol.
 - The equality check with the benchmark's original grader.
 
-Keep the SDK boundary unchanged: the runtime calls the provided model endpoint, logs reward, and
+The runtime calls the provided model endpoint, logs reward, and
 completes the trajectory.
