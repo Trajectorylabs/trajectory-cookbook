@@ -24,7 +24,7 @@ def main() -> None:
         max_tokens=32_768,
         temperature=1.0,
         top_p=0.95,
-        x_trajectory_id=trajectory_id,
+        extra_headers={"X-Trajectory-Id": trajectory_id},
     )
     answer = response.choices[0].message.content
     reward = t_density(answer)

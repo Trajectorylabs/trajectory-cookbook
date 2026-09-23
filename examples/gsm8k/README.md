@@ -17,8 +17,6 @@ the three benchmark integration points:
 - [`uv`](https://docs.astral.sh/uv/)
 - A Trajectory API key
 - An agent ID selected using the [agent setup instructions](../../README.md#choose-an-agent)
-- SDK `0.6.20` or newer, including the trajectory-creation changes described in the
-  [release prerequisite](../../README.md#setup)
 
 ```bash
 export TRAJECTORY_API_KEY="..."

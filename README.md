@@ -8,18 +8,10 @@ Two complete examples for evaluating and training models with the
 
 ## Setup
 
-These examples target the trajectory-creation API from
-[trajectory#6366](https://github.com/Trajectorylabs/trajectory/pull/6366), which is on `main`.
-They require the SDK `0.6.20` changes in
-[trajectory-platform#230](https://github.com/Trajectorylabs/trajectory-platform/pull/230), including
-model-endpoint authentication for `client.trajectories.create()`. That SDK release is pending;
-these install commands will work once it is published. The optional default-agent methods also require
-[trajectory#6383](https://github.com/Trajectorylabs/trajectory/pull/6383) and its SDK release.
-
-Once that SDK is released, install it and authenticate:
+Install the SDK and authenticate:
 
 ```bash
-pip install --upgrade "trajectory-sdk>=0.6.20"
+pip install --upgrade trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -190,7 +182,7 @@ trajectory_id = client.trajectories.create().tid
 response = client.chat.completions.create(
     model="task-model",
     messages=[{"role": "user", "content": prompt}],
-    x_trajectory_id=trajectory_id,
+    extra_headers={"X-Trajectory-Id": trajectory_id},
 )
 # Compute reward from response using the task's grader.
 client.trajectories.log_reward(

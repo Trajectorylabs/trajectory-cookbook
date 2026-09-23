@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk>=0.6.20"]
+# dependencies = ["trajectory-sdk"]
 # ///
 """Ingest the prompted character-density task for evaluation and training."""
 
