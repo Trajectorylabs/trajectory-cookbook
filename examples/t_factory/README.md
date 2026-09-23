@@ -68,6 +68,7 @@ Use the deployment's model slug with the SDK's OpenAI-compatible chat API:
 ```python
 response = client.chat.completions.create(
     model="t-factory-trained",
+    max_tokens=4096,
     messages=[
         {
             "role": "user",
