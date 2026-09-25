@@ -62,7 +62,7 @@ def main() -> None:
     question = os.environ["GSM8K_QUESTION"]
     expected = extract_number(os.environ["GSM8K_ANSWER"])
 
-    client = Client()
+    client = Client(max_retries=20)
     trajectory_id = client.trajectories.create().tid
     response = client.chat.completions.create(
         model="gsm8k",  # Any model name.
@@ -70,7 +70,7 @@ def main() -> None:
             {"role": "user", "content": _PROMPT.format(question=question)},
         ],
         extra_body={"tools": [_SUBMIT_ANSWER_TOOL]},
-        max_tokens=32_768,
+        max_tokens=2_048,
         temperature=1.0,
         top_p=0.95,
         extra_headers={"X-Trajectory-Id": trajectory_id},

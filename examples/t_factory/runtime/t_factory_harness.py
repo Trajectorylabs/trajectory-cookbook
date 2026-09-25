@@ -21,7 +21,7 @@ def t_word_density(answer: str) -> float:
 
 def main() -> None:
     prompt = os.environ["USER_PROMPT"]
-    client = Client()
+    client = Client(max_retries=20)
     trajectory_id = client.trajectories.create().tid
     try:
         response = client.chat.completions.create(
@@ -30,7 +30,7 @@ def main() -> None:
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=32_768,
+            max_tokens=2_048,
             temperature=1.0,
             top_p=0.95,
             extra_headers={"X-Trajectory-Id": trajectory_id},
