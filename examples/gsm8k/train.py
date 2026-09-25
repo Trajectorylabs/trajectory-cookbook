@@ -150,7 +150,11 @@ def main() -> int:
     args = parser.parse_args()
 
     train_and_evaluate(
-        Client(), args.bench_id, args.model, args.num_steps, args.poll_seconds
+        Client(max_retries=20),
+        args.bench_id,
+        args.model,
+        args.num_steps,
+        args.poll_seconds,
     )
     return 0
 
