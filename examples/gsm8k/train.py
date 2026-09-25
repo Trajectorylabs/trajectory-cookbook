@@ -13,6 +13,8 @@ from trajectory.types import TrainingRunResponse
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 _TEST_TASKS = 16
+_MAX_ACTIVE_ROLLOUTS = 4
+_MAX_OUTPUT_TOKENS = 2_048
 
 
 @dataclass(frozen=True)
@@ -50,7 +52,7 @@ def train_and_evaluate(
             "disable_thinking": True,
             "num_steps": num_steps,
             "train_batch_size": 4,
-            "max_output_tokens_per_step": 32_768,
+            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
             "max_response_chars_per_tool_call": 128,
         },
@@ -97,6 +99,8 @@ def _evaluate_model(
             "eval_options": {
                 "disable_thinking": True,
                 "max_samples": _TEST_TASKS,
+                "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
+                "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             }
         },
     )
