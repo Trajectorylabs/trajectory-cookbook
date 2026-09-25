@@ -8,7 +8,7 @@ Examples for evaluating and training models with the
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk
+pip install trajectory-sdk==0.6.25
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -219,6 +219,11 @@ examples/
 ├── gsm8k/      # Exact-match math through submit_answer
 └── t_factory/  # Maximize the fraction of words beginning with T
 ```
+
+## Beta testing and support
+
+- **Schedule a beta testing call:** [Book a 30-minute call](https://calendly.com/d/dvxq-4dj-6pt/trajectory-beta-testing) — invite your friends!
+- **Feedback and support:** [Join the Trajectory Discord](https://discord.gg/s5t2tpbNEE)
 
 ## License
 
