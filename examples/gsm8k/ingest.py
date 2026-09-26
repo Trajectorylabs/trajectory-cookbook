@@ -48,11 +48,15 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
 
 def ingest(name: str, skip_build: bool) -> str:
     client = Client()
+    agent = client.agents.get_default()
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),
     }
-    result = push(client, build_benchmark(rows, name), root=_ROOT)
+    result = push(
+        client, build_benchmark(rows, name), agent_id=agent.agent_id, root=_ROOT
+    )
+    print(f"agent_id={agent.agent_id}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
