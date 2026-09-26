@@ -114,12 +114,13 @@ from trajectory import BenchmarkSpec, Client
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 
 client = Client()
+agent = client.agents.create(name="my-benchmark agent")
 benchmark = BenchmarkSpec(
     name="my-benchmark",
     runtime=DockerfileBuild("runtime/Dockerfile"),
     tasks=tasks,
 )
-result = push(client, benchmark, root=Path("my-benchmark"))
+result = push(client, benchmark, agent_id=agent.agent_id, root=Path("my-benchmark"))
 bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
