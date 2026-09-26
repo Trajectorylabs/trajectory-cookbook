@@ -48,7 +48,7 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
 
 def ingest(name: str, skip_build: bool) -> str:
     client = Client()
-    agent = client.agents.get_default()
+    agent = client.agents.create(name=f"{name} agent")
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),

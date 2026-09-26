@@ -84,7 +84,7 @@ def build_benchmark(name: str) -> BenchmarkSpec:
 
 def ingest(name: str, skip_build: bool) -> str:
     client = Client()
-    agent = client.agents.get_default()
+    agent = client.agents.create(name=f"{name} agent")
     result = push(client, build_benchmark(name), agent_id=agent.agent_id, root=_ROOT)
     print(f"agent_id={agent.agent_id}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
