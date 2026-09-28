@@ -24,8 +24,12 @@ described in the [cookbook README](../../README.md), then upload the benchmark:
 ![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
 
 ```bash
-uv run examples/t_factory/ingest.py
+uv run examples/t_factory/ingest.py --agent-id agt_<your-agent-id>
 ```
+
+Use an agent ID from `client.agents.list()`, or create one with
+`client.agents.create(name="t-factory").agent_id`. The SDK has no
+`agents.get_default()` method; select the owner explicitly before uploading.
 
 Save the printed `bench_id`, then run the baseline evaluation, training, and final evaluation:
 
