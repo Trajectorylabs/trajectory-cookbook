@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.7.1"]
+# dependencies = ["trajectory-sdk"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
 
@@ -82,10 +82,23 @@ def build_benchmark(name: str) -> BenchmarkSpec:
     )
 
 
-def ingest(name: str, agent_id: str, skip_build: bool) -> str:
+def ingest(
+    name: str,
+    skip_build: bool,
+    agent_id: str | None = None,
+    agent_name: str | None = None,
+) -> str:
     client = Client()
-    result = push(client, build_benchmark(name), agent_id=agent_id, root=_ROOT)
-    print(f"agent_id={agent_id}", flush=True)
+    result = push(
+        client,
+        build_benchmark(name),
+        agent_id=agent_id,
+        agent_name=agent_name,
+        root=_ROOT,
+    )
+    for key, value in (("agent_id", agent_id), ("agent_name", agent_name)):
+        if value is not None:
+            print(f"{key}={value}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -98,11 +111,16 @@ def ingest(name: str, agent_id: str, skip_build: bool) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-id", required=True)
+    parser.add_argument("--agent-id", help="Existing owning agent ID")
+    parser.add_argument("--agent-name", help="Existing owning agent name")
     parser.add_argument("--name", default="t-factory")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
-    ingest(args.name, args.agent_id, args.skip_build)
+    if not args.agent_id and not args.agent_name:
+        parser.error("provide --agent-id or --agent-name")
+    ingest(
+        args.name, args.skip_build, agent_id=args.agent_id, agent_name=args.agent_name
+    )
     return 0
 
 

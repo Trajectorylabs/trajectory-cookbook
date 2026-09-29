@@ -22,17 +22,23 @@ The benchmark contains 128 training tasks and 64 held-out test tasks. Set up the
 described in the [cookbook README](../../README.md), then create an agent to own the benchmark:
 
 ```bash
-uv run --with trajectory-sdk==0.7.1 python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; print(Client().agents.create(name="t-factory-cookbook").agent_id)'
 ```
 
-Upload the benchmark with the printed agent ID:
+Upload the benchmark with that existing agent name:
 
 ![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
 
 ```bash
-uv run examples/t_factory/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/t_factory/ingest.py --agent-name t-factory-cookbook
 ```
+
+Use `--agent-id` instead, or supply both agent fields to check they match. Repeating an upload
+with the same `--name` creates a new version under that agent and returns a new benchmark ID.
+A different name starts a new benchmark. Include all tasks for each version; ingestion does
+not accept `--bench-id`. Benchmark names must have at least three characters after trimming. See the
+[cookbook reference options](../../README.md) for the equivalent Python arguments.
 
 Save the printed `bench_id`, then run the baseline evaluation, training, and final evaluation:
 

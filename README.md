@@ -8,7 +8,7 @@ Examples for evaluating and training models with the
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.7.1
+pip install trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -124,23 +124,75 @@ benchmark = BenchmarkSpec(
 result = push(
     client,
     benchmark,
-    agent_id=agent.agent_id,
+    agent_name=agent.name,
     root=Path("my-benchmark"),
 )
 bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
 
-Run the complete uploader with the printed agent ID, then save the benchmark ID:
+Run the complete uploader with that existing agent name, then save the benchmark ID:
 
 ```bash
-uv run examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/gsm8k/ingest.py --agent-name gsm8k-cookbook
 ```
 
 ```text
-agent_id=agt_<your-agent-id>
+agent_name=gsm8k-cookbook
 bench_id=bm_<32-hex>
 ```
+
+Use `--agent-id` instead of `--agent-name` to reference an agent by ID, or supply both for
+an ID/name consistency check. The agent must already exist; ingestion does not create it.
+
+To look up an existing agent, use either its ID or its exact name within your organization:
+
+```python
+# By ID:
+agent = client.agents.retrieve("agt_<your-agent-id>")
+
+# By name:
+agent = client.agents.retrieve_by_name("gsm8k-cookbook")
+```
+
+Both return the same agent response and raise `NotFoundError` if no matching agent exists.
+When both upload arguments are supplied, the backend fetches by ID and verifies the name.
+With only `agent_name`, it resolves the name to an ID before handling the upload.
+
+Uploading again with the same `--name` under the same agent creates a new benchmark version.
+A different name starts a new benchmark. Each upload returns a fresh benchmark ID; ingestion
+does not accept `--bench-id`. Include all tasks for the new version.
+
+In Python, both helpers use `manifest.name` and accept `agent_id=`, `agent_name=`, or both:
+
+| Helper | Behavior |
+| --- | --- |
+| `push(...)` | Uploads and waits, returning a benchmark result with `bench_id`. |
+| `start_push(...)` | Uploads and returns an operation while registration continues. |
+
+`push()` calls `start_push()` and waits for its result internally. To control waiting yourself:
+
+```python
+from trajectory.lib import get_operation, start_push
+
+operation = start_push(
+    client, benchmark, agent_name=agent.name, root=Path("my-benchmark")
+)
+operation_id = operation.id
+result = operation.result()
+bench_id = result.status.bench_id
+
+# Reconnect later using the saved operation ID:
+operation = get_operation(client, operation_id)
+```
+
+`start_push()` is a regular Python function: files finish uploading before it returns, and
+server processing continues in the background. Both helpers accept `build_images=True` to
+include image builds; `push()` waits for those builds too.
+
+Surrounding spaces in names are stripped. Names are case-sensitive and allow ASCII letters,
+digits, spaces, hyphens, underscores, and periods. Benchmark names require at least three
+characters after trimming. Agent names cannot be blank, `.` or `..`.
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 

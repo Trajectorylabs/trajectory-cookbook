@@ -27,7 +27,7 @@ deployment.
 Create an agent to own the benchmark and its training and evaluation runs:
 
 ```bash
-uv run --with trajectory-sdk==0.7.1 python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; print(Client().agents.create(name="gsm8k-cookbook").agent_id)'
 ```
 
@@ -36,11 +36,17 @@ uv run --with trajectory-sdk==0.7.1 python -c \
 Upload the example's 64 training tasks and 16 test tasks:
 
 ```bash
-uv run ingest.py --agent-id agt_<your-agent-id>
+uv run ingest.py --agent-name gsm8k-cookbook
 ```
 
-The command prints the `agent_id` and `bench_id`, then waits for the runtime image to build. Keep
+The command prints the `agent_name` and `bench_id`, then waits for the runtime image to build. Keep
 the benchmark ID for training.
+
+Use `--agent-id` instead, or supply both agent fields to check they match. Repeating an upload
+with the same `--name` creates a new version under that agent and returns a new benchmark ID.
+A different name starts a new benchmark. Include all tasks for each version; ingestion does
+not accept `--bench-id`. Benchmark names must have at least three characters after trimming. See the
+[cookbook reference options](../../README.md) for the equivalent Python arguments.
 
 ## 2. Train and evaluate
 
