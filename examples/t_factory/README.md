@@ -35,8 +35,9 @@ uv run examples/t_factory/ingest.py --agent-name t-factory-cookbook
 ```
 
 Use `--agent-id` instead, or supply both agent fields to check they match. Repeating an upload
-with the same `--name` creates a new version under that agent. To append to an existing version,
-add `--bench-id bm_<existing-id>` and set `--name` to its stored name. See the
+with the same `--name` creates a new version under that agent and returns a new benchmark ID.
+A different name starts a new benchmark. Include all tasks for each version; ingestion does
+not accept `--bench-id`. Benchmark names must have at least three characters after trimming. See the
 [cookbook reference options](../../README.md) for the equivalent Python arguments.
 
 Save the printed `bench_id`, then run the baseline evaluation, training, and final evaluation:

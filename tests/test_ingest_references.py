@@ -26,11 +26,9 @@ def uploader(request: pytest.FixtureRequest) -> ModuleType:
         {"agent_id": "agt_fixture", "agent_name": "Fixture Agent"},
     ],
 )
-@pytest.mark.parametrize("bench_id", [None, "bm_fixture"])
 def test_cli_sends_references_through_sdk(
     uploader: ModuleType,
     agent: dict[str, str],
-    bench_id: str | None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     requests: list[httpx.Request] = []
@@ -40,14 +38,11 @@ def test_cli_sends_references_through_sdk(
         if request.method == "POST":
             assert request.url.path.endswith("/sessions")
             body = json.loads(request.content)
-            expected = {"bench_name": "Fixture v1.2_test"}
-            if bench_id is not None:
-                expected["bench_id"] = bench_id
-            assert body["benchmark"] == expected
-            assert body["metadata"]["name"] == "Fixture v1.2_test"
-            assert body["agent"] == agent
-            assert "bench_id" not in body
-            assert "agent_id" not in body
+            assert body["bench_name"] == "Fixture v1.2_test"
+            assert "name" not in body["metadata"]
+            assert "tasks" not in body["metadata"]
+            assert {key: body[key] for key in agent} == agent
+            assert not {"agent", "benchmark", "bench_id", "append"} & body.keys()
             return httpx.Response(
                 201, json={"session_id": "op_fixture", "accepted": True}
             )
@@ -79,8 +74,6 @@ def test_cli_sends_references_through_sdk(
         args = ["ingest.py", "--name", "Fixture v1.2_test", "--skip-build"]
         for key, value in agent.items():
             args.extend([f"--{key.replace('_', '-')}", value])
-        if bench_id is not None:
-            args.extend(["--bench-id", bench_id])
         monkeypatch.setattr(sys, "argv", args)
         assert uploader.main() == 0
     assert len(requests) == 2
@@ -90,6 +83,19 @@ def test_cli_requires_an_agent(
     uploader: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(sys, "argv", ["ingest.py"])
+    with pytest.raises(SystemExit) as error:
+        uploader.main()
+    assert error.value.code == 2
+
+
+def test_cli_rejects_benchmark_id_before_ingestion(
+    uploader: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ingest.py", "--agent-name", "Fixture Agent", "--bench-id", "bm_fixture"],
+    )
     with pytest.raises(SystemExit) as error:
         uploader.main()
     assert error.value.code == 2

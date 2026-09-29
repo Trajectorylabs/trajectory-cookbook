@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk @ git+https://github.com/Trajectorylabs/trajectory-platform.git@ad8d0ad4f9d60fa07df50db312075976ddb17dd6"]
+# dependencies = ["trajectory-sdk @ git+https://github.com/Trajectorylabs/trajectory-platform.git@34b280f5575771af4a135f2d493d3cab7a6aab59"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
 
@@ -8,7 +8,6 @@ from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
-from trajectory.lib.agents import AgentById, AgentByName
 
 _ROOT = Path(__file__).parent
 _RUN_COMMAND = "python -u /opt/t_factory/t_factory_harness.py"
@@ -85,19 +84,21 @@ def build_benchmark(name: str) -> BenchmarkSpec:
 
 def ingest(
     name: str,
-    agent: AgentById | AgentByName,
     skip_build: bool,
-    bench_id: str | None = None,
+    agent_id: str | None = None,
+    agent_name: str | None = None,
 ) -> str:
     client = Client()
-    benchmark = {"bench_name": name}
-    if bench_id is not None:
-        benchmark["bench_id"] = bench_id
     result = push(
-        client, build_benchmark(name), agent=agent, root=_ROOT, benchmark=benchmark
+        client,
+        build_benchmark(name),
+        agent_id=agent_id,
+        agent_name=agent_name,
+        root=_ROOT,
     )
-    for key, value in agent.items():
-        print(f"{key}={value}", flush=True)
+    for key, value in (("agent_id", agent_id), ("agent_name", agent_name)):
+        if value is not None:
+            print(f"{key}={value}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -112,20 +113,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-id", help="Existing owning agent ID")
     parser.add_argument("--agent-name", help="Existing owning agent name")
-    parser.add_argument(
-        "--bench-id", help="Append to this version; --name must match its name"
-    )
     parser.add_argument("--name", default="t-factory")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
     if not args.agent_id and not args.agent_name:
         parser.error("provide --agent-id or --agent-name")
-    agent = {}
-    if args.agent_id is not None:
-        agent["agent_id"] = args.agent_id
-    if args.agent_name is not None:
-        agent["agent_name"] = args.agent_name
-    ingest(args.name, agent, args.skip_build, args.bench_id)
+    ingest(
+        args.name, args.skip_build, agent_id=args.agent_id, agent_name=args.agent_name
+    )
     return 0
 
 
