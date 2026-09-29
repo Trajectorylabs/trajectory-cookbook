@@ -217,6 +217,8 @@ print(response.choices[0].message.content)
 
 ## Examples
 
+- [Minimal benchmark](examples/minimal_benchmark/guide.md): upload two arithmetic tasks
+  and evaluate one, demonstrating the harness, image and SDK reporting.
 - [T Factory](examples/t_factory/README.md): train, deploy, and query a model rewarded for using
   words beginning with `T`.
 
@@ -224,6 +226,7 @@ print(response.choices[0].message.content)
 
 ```text
 examples/
+├── minimal_benchmark/  # Minimal upload and evaluation workflow
 ├── gsm8k/      # Exact-match math through submit_answer
 └── t_factory/  # Maximize the fraction of words beginning with T
 ```
