@@ -219,6 +219,8 @@ print(response.choices[0].message.content)
 
 - [GSM8K](examples/gsm8k/README.md): adapt a public exact-match math benchmark for evaluation
   and training.
+- [Big Finance Benchmark](examples/big_finance_benchmark.md): connect an existing ReAct research
+  benchmark and rubric grader to evaluation-only Trajectory sessions.
 - [Harvey LAB](examples/harvey_labs.md): inject the SDK into an existing multi-turn benchmark
   while retaining its original harness, judge, and nested Podman sandbox.
 - [T Factory](examples/t_factory/README.md): train, deploy, and query a model rewarded for using
@@ -228,6 +230,7 @@ print(response.choices[0].message.content)
 
 ```text
 examples/
+├── big_finance_benchmark.md  # Existing ReAct harness and rubric grader
 ├── gsm8k/          # Exact-match math through submit_answer
 ├── harvey_labs.md  # Existing harness integration with nested Podman
 └── t_factory/      # Maximize the fraction of words beginning with T
