@@ -8,9 +8,17 @@ Examples for evaluating and training models with the
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.7.1
+pip install "trajectory-sdk @ git+https://github.com/Trajectorylabs/trajectory-platform.git@ad8d0ad4f9d60fa07df50db312075976ddb17dd6"
 export TRAJECTORY_API_KEY="..."
 ```
+
+The ingestion examples temporarily pin the SDK commit from
+[SDK #273](https://github.com/Trajectorylabs/trajectory-platform/pull/273), which adds ID/name
+references. They require a deployment containing
+[API #7174](https://github.com/Trajectorylabs/trajectory/pull/7174). Replace the Git pin with a
+released SDK version once these changes are published. Installing the temporary pin requires
+Git access to the SDK repository. Training scripts and runtime images
+continue to use SDK 0.7.1.
 
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
@@ -124,23 +132,44 @@ benchmark = BenchmarkSpec(
 result = push(
     client,
     benchmark,
-    agent_id=agent.agent_id,
+    agent={"agent_name": agent.name},
     root=Path("my-benchmark"),
 )
 bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
 
-Run the complete uploader with the printed agent ID, then save the benchmark ID:
+Run the complete uploader with that existing agent name, then save the benchmark ID:
 
 ```bash
-uv run examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/gsm8k/ingest.py --agent-name gsm8k-cookbook
 ```
 
 ```text
-agent_id=agt_<your-agent-id>
+agent_name=gsm8k-cookbook
 bench_id=bm_<32-hex>
 ```
+
+Use `--agent-id` instead of `--agent-name` to reference an agent by ID, or supply both for
+an ID/name consistency check. The agent must already exist; ingestion does not create it.
+
+Uploading again with the same `--name` under the same agent creates a new benchmark version.
+A different name starts a new benchmark group. To append tasks to an existing version, pass
+its `--bench-id` and matching `--name`:
+
+```bash
+uv run examples/gsm8k/ingest.py --agent-name gsm8k-cookbook \
+  --bench-id bm_<existing-id> --name gsm8k-trajectory-sdk
+```
+
+In Python, `push()` and `submit()` default to the manifest's name. You can also pass
+`benchmark={"bench_name": "my-benchmark"}`, `benchmark={"bench_id": "bm_existing"}`, or both
+fields. When an ID is supplied, the benchmark must belong to the declared agent, and the
+manifest name and any supplied benchmark name must match its stored name. Mismatches fail
+before files are uploaded.
+
+Surrounding spaces in names are stripped. Names are case-sensitive and allow ASCII letters,
+digits, spaces, hyphens, underscores, and periods; blank names, `.` and `..` are rejected.
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 

@@ -26,13 +26,18 @@ uv run --with trajectory-sdk==0.7.1 python -c \
   'from trajectory import Client; print(Client().agents.create(name="t-factory-cookbook").agent_id)'
 ```
 
-Upload the benchmark with the printed agent ID:
+Upload the benchmark with that existing agent name:
 
 ![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
 
 ```bash
-uv run examples/t_factory/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/t_factory/ingest.py --agent-name t-factory-cookbook
 ```
+
+Use `--agent-id` instead, or supply both agent fields to check they match. Repeating an upload
+with the same `--name` creates a new version under that agent. To append to an existing version,
+add `--bench-id bm_<existing-id>` and set `--name` to its stored name. See the
+[cookbook reference options](../../README.md) for the equivalent Python arguments.
 
 Save the printed `bench_id`, then run the baseline evaluation, training, and final evaluation:
 

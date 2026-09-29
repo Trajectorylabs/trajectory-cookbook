@@ -36,11 +36,16 @@ uv run --with trajectory-sdk==0.7.1 python -c \
 Upload the example's 64 training tasks and 16 test tasks:
 
 ```bash
-uv run ingest.py --agent-id agt_<your-agent-id>
+uv run ingest.py --agent-name gsm8k-cookbook
 ```
 
-The command prints the `agent_id` and `bench_id`, then waits for the runtime image to build. Keep
+The command prints the `agent_name` and `bench_id`, then waits for the runtime image to build. Keep
 the benchmark ID for training.
+
+Use `--agent-id` instead, or supply both agent fields to check they match. Repeating an upload
+with the same `--name` creates a new version under that agent. To append to an existing version,
+add `--bench-id bm_<existing-id>` and set `--name` to its stored name. See the
+[cookbook reference options](../../README.md) for the equivalent Python arguments.
 
 ## 2. Train and evaluate
 

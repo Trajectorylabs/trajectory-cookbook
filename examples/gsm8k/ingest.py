@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.7.1", "httpx"]
+# dependencies = ["trajectory-sdk @ git+https://github.com/Trajectorylabs/trajectory-platform.git@ad8d0ad4f9d60fa07df50db312075976ddb17dd6", "httpx"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
@@ -10,6 +10,7 @@ from pathlib import Path
 import httpx
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
+from trajectory.lib.agents import AgentById, AgentByName
 
 _ROOT = Path(__file__).parent
 _RUNTIME_DOCKERFILE = "runtime/Dockerfile"
@@ -46,14 +47,29 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(name: str, agent_id: str, skip_build: bool) -> str:
+def ingest(
+    name: str,
+    agent: AgentById | AgentByName,
+    skip_build: bool,
+    bench_id: str | None = None,
+) -> str:
     client = Client()
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),
     }
-    result = push(client, build_benchmark(rows, name), agent_id=agent_id, root=_ROOT)
-    print(f"agent_id={agent_id}", flush=True)
+    benchmark = {"bench_name": name}
+    if bench_id is not None:
+        benchmark["bench_id"] = bench_id
+    result = push(
+        client,
+        build_benchmark(rows, name),
+        agent=agent,
+        root=_ROOT,
+        benchmark=benchmark,
+    )
+    for key, value in agent.items():
+        print(f"{key}={value}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -73,12 +89,23 @@ def _load_rows(split: str, limit: int) -> list[dict]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-id", required=True)
+    parser.add_argument("--agent-id", help="Existing owning agent ID")
+    parser.add_argument("--agent-name", help="Existing owning agent name")
+    parser.add_argument(
+        "--bench-id", help="Append to this version; --name must match its name"
+    )
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
 
-    ingest(args.name, args.agent_id, args.skip_build)
+    if not args.agent_id and not args.agent_name:
+        parser.error("provide --agent-id or --agent-name")
+    agent = {}
+    if args.agent_id is not None:
+        agent["agent_id"] = args.agent_id
+    if args.agent_name is not None:
+        agent["agent_name"] = args.agent_name
+    ingest(args.name, agent, args.skip_build, args.bench_id)
     return 0
 
 
