@@ -217,6 +217,12 @@ print(response.choices[0].message.content)
 
 ## Examples
 
+When adapting an existing benchmark, read the cookbook recipe together with its complete public
+implementation PR:
+
+- [Big Finance Benchmark SDK integration](https://github.com/Trajectorylabs/big-finance-benchmark-public/pull/1)
+- [Harvey LAB SDK integration](https://github.com/Trajectorylabs/harvey-labs/pull/7)
+
 - [GSM8K](examples/gsm8k/README.md): adapt a public exact-match math benchmark for evaluation
   and training.
 - [Big Finance Benchmark](examples/big_finance_benchmark.md): connect an existing ReAct research
