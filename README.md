@@ -8,7 +8,7 @@ Examples for evaluating and training models with the
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.6.25
+pip install trajectory-sdk==0.7.1
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -114,23 +114,31 @@ from trajectory import BenchmarkSpec, Client
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 
 client = Client()
+agent = client.agents.create(name="gsm8k-cookbook")
+print(agent.agent_id)
 benchmark = BenchmarkSpec(
     name="my-benchmark",
     runtime=DockerfileBuild("runtime/Dockerfile"),
     tasks=tasks,
 )
-result = push(client, benchmark, root=Path("my-benchmark"))
+result = push(
+    client,
+    benchmark,
+    agent_id=agent.agent_id,
+    root=Path("my-benchmark"),
+)
 bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
 
-Run the complete uploader and save the printed benchmark ID:
+Run the complete uploader with the printed agent ID, then save the benchmark ID:
 
 ```bash
-uv run examples/gsm8k/ingest.py
+uv run examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
 ```
 
 ```text
+agent_id=agt_<your-agent-id>
 bench_id=bm_<32-hex>
 ```
 

@@ -19,12 +19,19 @@ def t_word_density(answer: str) -> float:
 ```
 
 The benchmark contains 128 training tasks and 64 held-out test tasks. Set up the repository as
-described in the [cookbook README](../../README.md), then upload the benchmark:
+described in the [cookbook README](../../README.md), then create an agent to own the benchmark:
+
+```bash
+uv run --with trajectory-sdk==0.7.1 python -c \
+  'from trajectory import Client; print(Client().agents.create(name="t-factory-cookbook").agent_id)'
+```
+
+Upload the benchmark with the printed agent ID:
 
 ![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
 
 ```bash
-uv run examples/t_factory/ingest.py
+uv run examples/t_factory/ingest.py --agent-id agt_<your-agent-id>
 ```
 
 Save the printed `bench_id`, then run the baseline evaluation, training, and final evaluation:

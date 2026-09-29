@@ -3,10 +3,12 @@
 import json
 import os
 import re
-from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 
 from trajectory import Client
+from trajectory.types.inference.chat_completion_response import (
+    ChatCompletionResponseToolCall,
+)
 
 _PROMPT = """Solve this grade-school math problem carefully. Show your reasoning, then submit
 the final numeric answer by calling the `submit_answer` tool. Do not state the final answer only
@@ -44,14 +46,13 @@ def extract_number(text: str) -> Decimal | None:
 
 
 def extract_submitted_answer(
-    tool_calls: list[Mapping[str, object]] | None,
+    tool_calls: list[ChatCompletionResponseToolCall] | None,
 ) -> Decimal | None:
     for tool_call in reversed(tool_calls or []):
-        function = tool_call.get("function")
-        if not isinstance(function, Mapping) or function.get("name") != "submit_answer":
+        if tool_call.function.name != "submit_answer":
             continue
         try:
-            arguments = json.loads(str(function["arguments"]))
+            arguments = json.loads(tool_call.function.arguments)
             return extract_number(str(arguments["answer"]))
         except (json.JSONDecodeError, KeyError, TypeError):
             return None
