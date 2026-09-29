@@ -8,17 +8,9 @@ Examples for evaluating and training models with the
 Install the SDK and authenticate:
 
 ```bash
-pip install "trajectory-sdk @ git+https://github.com/Trajectorylabs/trajectory-platform.git@34b280f5575771af4a135f2d493d3cab7a6aab59"
+pip install trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
-
-The ingestion examples temporarily pin the SDK commit from
-[SDK #273](https://github.com/Trajectorylabs/trajectory-platform/pull/273), which accepts flat agent ID/name
-arguments. They require a deployment containing
-[API #7242](https://github.com/Trajectorylabs/trajectory/pull/7242). Replace the Git pin with a
-released SDK version once these changes are published. Installing the temporary pin requires
-Git access to the SDK repository. Training scripts and runtime images
-continue to use SDK 0.7.1.
 
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
@@ -152,6 +144,20 @@ bench_id=bm_<32-hex>
 
 Use `--agent-id` instead of `--agent-name` to reference an agent by ID, or supply both for
 an ID/name consistency check. The agent must already exist; ingestion does not create it.
+
+To look up an existing agent, use either its ID or its exact name within your organization:
+
+```python
+# By ID:
+agent = client.agents.retrieve("agt_<your-agent-id>")
+
+# By name:
+agent = client.agents.retrieve_by_name("gsm8k-cookbook")
+```
+
+Both return the same agent response and raise `NotFoundError` if no matching agent exists.
+When both upload arguments are supplied, the backend fetches by ID and verifies the name.
+With only `agent_name`, it resolves the name to an ID before handling the upload.
 
 Uploading again with the same `--name` under the same agent creates a new benchmark version.
 A different name starts a new benchmark. Each upload returns a fresh benchmark ID; ingestion

@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk @ git+https://github.com/Trajectorylabs/trajectory-platform.git@34b280f5575771af4a135f2d493d3cab7a6aab59"]
+# dependencies = ["trajectory-sdk"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
 
