@@ -218,8 +218,15 @@ print(response.choices[0].message.content)
 
 ## Examples
 
+- [GSM8K](examples/gsm8k/README.md): train and evaluate exact-match grade-school math through
+  the Trajectory SDK.
 - [T Factory](examples/t_factory/README.md): train, deploy, and query a model rewarded for using
   words beginning with `T`.
+- [Harvey LAB](https://github.com/Trajectorylabs/harvey-labs): evaluate agents on realistic legal
+  assignments with document tools and rubric-based grading.
+- [Rogo Big Finance](https://github.com/Trajectorylabs/big-finance-benchmark-public): evaluate
+  financial-research agents on Rogo's public benchmark subset with web, EDGAR, URL-fetching, and
+  Python tools.
 
 ## Repository layout
 
@@ -228,6 +235,9 @@ examples/
 ├── gsm8k/      # Exact-match math through submit_answer
 └── t_factory/  # Maximize the fraction of words beginning with T
 ```
+
+Harvey LAB and Rogo Big Finance remain in their canonical repositories because their complete
+examples include large task corpora, document assets, harnesses, tools, and graders.
 
 ## Beta testing and support
 
