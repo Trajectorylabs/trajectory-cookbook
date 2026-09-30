@@ -222,7 +222,7 @@ When adapting an existing benchmark, read the cookbook recipe together with its 
 implementation PR:
 
 - [Big Finance Benchmark SDK integration](https://github.com/Trajectorylabs/big-finance-benchmark-public/pull/1)
-- [Harvey LAB SDK integration](https://github.com/Trajectorylabs/harvey-labs/pull/7)
+- [Harvey LAB SDK integration](https://github.com/Trajectorylabs/harvey-labs/pull/11)
 
 - [GSM8K](examples/gsm8k/README.md): adapt a public exact-match math benchmark for evaluation
   and training.

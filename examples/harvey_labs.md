@@ -1,6 +1,6 @@
 # Harvey LAB
 
-The public [Harvey LAB SDK integration PR](https://github.com/Trajectorylabs/harvey-labs/pull/7)
+The public [Harvey LAB SDK integration PR](https://github.com/Trajectorylabs/harvey-labs/pull/11)
 shows how to adapt an existing multi-turn benchmark without replacing its agent loop, tools,
 grader, or Podman sandbox. The integration is a small overlay on a pinned revision of the public
 [Harvey LAB repository](https://github.com/harveyai/harvey-labs).
@@ -68,5 +68,5 @@ Some nested environments use `crun` without delegated cgroup controllers. The ex
 that runtime and adds `--cgroups=disabled` only for the managed nested-Podman path. Local Harvey
 LAB runs retain their default cgroup behavior.
 
-See the [complete public PR](https://github.com/Trajectorylabs/harvey-labs/pull/7) for the
+See the [complete public PR](https://github.com/Trajectorylabs/harvey-labs/pull/11) for the
 uploader, runtime Dockerfile, adapter, and Podman integration.
