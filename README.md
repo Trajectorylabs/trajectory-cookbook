@@ -8,9 +8,14 @@ Examples for evaluating and training models with the
 Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.7.1
+pip install --upgrade trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
+
+The examples use the latest published SDK compatible with your Python environment. The
+`uv run --upgrade-package trajectory-sdk` commands below check for SDK updates on each run.
+Existing runtime images must be rebuilt to pick up updates; for local Docker builds, use
+`--no-cache` so the SDK installation layer runs again.
 
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
@@ -135,7 +140,7 @@ wait_for_benchmark_images(client, bench_id)
 Run the complete uploader with the printed agent ID, then save the benchmark ID:
 
 ```bash
-uv run examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
+uv run --upgrade-package trajectory-sdk examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
 ```
 
 ```text
