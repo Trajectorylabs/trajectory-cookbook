@@ -218,26 +218,30 @@ print(response.choices[0].message.content)
 
 ## Examples
 
-- [GSM8K](examples/gsm8k/README.md): train and evaluate exact-match grade-school math through
-  the Trajectory SDK.
+When adapting an existing benchmark, read the cookbook recipe together with its complete public
+implementation PR:
+
+- [Big Finance Benchmark SDK integration](https://github.com/Trajectorylabs/big-finance-benchmark-public/pull/1)
+- [Harvey LAB SDK integration](https://github.com/Trajectorylabs/harvey-labs/pull/7)
+
+- [GSM8K](examples/gsm8k/README.md): adapt a public exact-match math benchmark for evaluation
+  and training.
+- [Big Finance Benchmark](examples/big_finance_benchmark.md): connect an existing ReAct research
+  benchmark and rubric grader to evaluation-only Trajectory sessions.
+- [Harvey LAB](examples/harvey_labs.md): inject the SDK into an existing multi-turn benchmark
+  while retaining its original harness, judge, and nested Podman sandbox.
 - [T Factory](examples/t_factory/README.md): train, deploy, and query a model rewarded for using
   words beginning with `T`.
-- [Harvey LAB](https://github.com/Trajectorylabs/harvey-labs): evaluate agents on realistic legal
-  assignments with document tools and rubric-based grading.
-- [Rogo Big Finance](https://github.com/Trajectorylabs/big-finance-benchmark-public): evaluate
-  financial-research agents on Rogo's public benchmark subset with web, EDGAR, URL-fetching, and
-  Python tools.
 
 ## Repository layout
 
 ```text
 examples/
-├── gsm8k/      # Exact-match math through submit_answer
-└── t_factory/  # Maximize the fraction of words beginning with T
+├── big_finance_benchmark.md  # Existing ReAct harness and rubric grader
+├── gsm8k/          # Exact-match math through submit_answer
+├── harvey_labs.md  # Existing harness integration with nested Podman
+└── t_factory/      # Maximize the fraction of words beginning with T
 ```
-
-Harvey LAB and Rogo Big Finance remain in their canonical repositories because their complete
-examples include large task corpora, document assets, harnesses, tools, and graders.
 
 ## Beta testing and support
 
