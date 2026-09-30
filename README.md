@@ -88,18 +88,19 @@ print(client.trajectories.retrieve(tid, include_steps=True))
 
 ### 2. Upload GSM8K to the Trajectory Platform
 
-The GSM8K example contains 64 training tasks and 16 held-out test tasks. Each task passes its
-question and expected answer to a runtime that requires the model to call `submit_answer`:
+The GSM8K example contains 64 training tasks and 16 held-out test tasks. The uploader writes each
+task to a local JSON file and packages those files into the runtime image. Each task selects its
+file through `run_command`; no task content is passed through environment variables. The harness
+sends only the question to the model and requires it to call `submit_answer`:
 
 ```python
 TaskSpec(
     name="gsm8k/train_0001",
     split="train",
-    run_command="python -u /opt/gsm8k/gsm8k_harness.py",
-    env_vars={
-        "GSM8K_QUESTION": "What is 6 × 7?",
-        "GSM8K_ANSWER": "#### 42",
-    },
+    run_command=(
+        "python -u /opt/gsm8k/gsm8k_harness.py "
+        "--task-file /opt/gsm8k/tasks/train_0001.json"
+    ),
     tags=["gsm8k"],
 )
 ```

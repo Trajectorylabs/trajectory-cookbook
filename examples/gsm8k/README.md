@@ -4,7 +4,8 @@ This example adapts the public
 [GSM8K dataset](https://github.com/openai/grade-school-math) to the Trajectory SDK. It demonstrates
 the three benchmark integration points:
 
-1. [`ingest.py`](ingest.py) maps source rows to train/test `TaskSpec` objects and uploads them.
+1. [`ingest.py`](ingest.py) writes source rows to local task files, maps them to train/test
+   `TaskSpec` objects, and uploads them with the runtime.
 2. [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py) exposes a `submit_answer` tool, grades
    the numeric value submitted through its final tool call, logs reward, and completes the
    trajectory. Text-only answers receive zero reward.
@@ -64,7 +65,8 @@ model. Use repeated runs and a sufficiently large frozen test set for a reliable
 To integrate another benchmark, preserve its original task data and grader, then replace:
 
 - `_load_rows()` with the benchmark's dataset loader.
-- `TaskSpec.env_vars` with the inputs needed by one task.
+- The staged task JSON files with the inputs and private references needed by one task. Keep
+  private references inaccessible to the model and its tools.
 - The tool definition and `extract_submitted_answer()` with the benchmark's interaction protocol.
 - The equality check with the benchmark's original grader.
 
