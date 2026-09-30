@@ -143,6 +143,24 @@ agent_id=agt_<your-agent-id>
 bench_id=bm_<32-hex>
 ```
 
+If your benchmark needs an organization secret, register it after ingestion. For example,
+register a local OpenAI API key without putting its value in source:
+
+```python
+import os
+
+from trajectory import Client
+
+client = Client()
+client.secrets.create(
+    name="OPENAI_API_KEY",
+    value=os.environ["OPENAI_API_KEY"],
+)
+```
+
+`SecretRef` is a named pointer, not the secret value itself. In a `TaskSpec`,
+`SecretRef(secret_ref="OPENAI_API_KEY")` injects this organization secret at runtime.
+
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 
 Run the benchmark before training so you have a frozen baseline:
