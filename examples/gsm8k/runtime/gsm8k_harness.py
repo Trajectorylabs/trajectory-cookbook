@@ -1,9 +1,10 @@
 """Run and grade one GSM8K task."""
 
+import argparse
 import json
-import os
 import re
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 from trajectory import Client
 from trajectory.types.inference.chat_completion_response import (
@@ -60,8 +61,12 @@ def extract_submitted_answer(
 
 
 def main() -> None:
-    question = os.environ["GSM8K_QUESTION"]
-    expected = extract_number(os.environ["GSM8K_ANSWER"])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task-file", required=True, type=Path)
+    args = parser.parse_args()
+    task = json.loads(args.task_file.read_text())
+    question = task["question"]
+    expected = extract_number(task["expected_answer"])
 
     client = Client(max_retries=20)
     trajectory_id = client.trajectories.create().tid

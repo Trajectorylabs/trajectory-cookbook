@@ -5,15 +5,17 @@
 
 import argparse
 import json
+import shutil
+import tempfile
 from pathlib import Path
 
 import httpx
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 
-_ROOT = Path(__file__).parent
-_RUNTIME_DOCKERFILE = "runtime/Dockerfile"
-_RUN_COMMAND = "python -u /opt/gsm8k/gsm8k_harness.py"
+_RUNTIME_SOURCE = Path(__file__).parent / "runtime"
+_RUNTIME_DOCKERFILE = "Dockerfile"
+_RUN_COMMAND = "python -u /opt/gsm8k/gsm8k_harness.py --task-file {task_file}"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
 _TRAIN_TASKS = 64
 _TEST_TASKS = 16
@@ -33,11 +35,9 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
             TaskSpec(
                 name=f"gsm8k/{split}_{index:04d}",
                 split=split,
-                run_command=_RUN_COMMAND,
-                env_vars={
-                    "GSM8K_QUESTION": row["question"],
-                    "GSM8K_ANSWER": row["answer"],
-                },
+                run_command=_RUN_COMMAND.format(
+                    task_file=f"/opt/gsm8k/tasks/{split}_{index:04d}.json"
+                ),
                 tags=["gsm8k"],
             )
             for split, rows in rows_by_split.items()
@@ -52,7 +52,12 @@ def ingest(name: str, agent_id: str, skip_build: bool) -> str:
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),
     }
-    result = push(client, build_benchmark(rows, name), agent_id=agent_id, root=_ROOT)
+    with tempfile.TemporaryDirectory(prefix="gsm8k-benchmark-") as directory:
+        package_root = Path(directory)
+        _stage_runtime(rows, package_root)
+        result = push(
+            client, build_benchmark(rows, name), agent_id=agent_id, root=package_root
+        )
     print(f"agent_id={agent_id}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
@@ -69,6 +74,17 @@ def _load_rows(split: str, limit: int) -> list[dict]:
     response.raise_for_status()
     rows = [json.loads(line) for line in response.text.splitlines()]
     return rows[:limit]
+
+
+def _stage_runtime(rows_by_split: dict[str, list[dict]], package_root: Path) -> None:
+    shutil.copy(_RUNTIME_SOURCE / "Dockerfile", package_root / "Dockerfile")
+    shutil.copy(_RUNTIME_SOURCE / "gsm8k_harness.py", package_root / "gsm8k_harness.py")
+    tasks_root = package_root / "tasks"
+    tasks_root.mkdir()
+    for split, rows in rows_by_split.items():
+        for index, row in enumerate(rows):
+            task = {"question": row["question"], "expected_answer": row["answer"]}
+            (tasks_root / f"{split}_{index:04d}.json").write_text(json.dumps(task))
 
 
 def main() -> int:
