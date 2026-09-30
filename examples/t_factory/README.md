@@ -22,7 +22,7 @@ The benchmark contains 128 training tasks and 64 held-out test tasks. Set up the
 described in the [cookbook README](../../README.md), then create an agent to own the benchmark:
 
 ```bash
-uv run --upgrade-package trajectory-sdk --with trajectory-sdk python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; print(Client().agents.create(name="t-factory-cookbook").agent_id)'
 ```
 
@@ -31,13 +31,13 @@ Upload the benchmark with the printed agent ID:
 ![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
 
 ```bash
-uv run --upgrade-package trajectory-sdk examples/t_factory/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/t_factory/ingest.py --agent-id agt_<your-agent-id>
 ```
 
 Save the printed `bench_id`, then run the baseline evaluation, training, and final evaluation:
 
 ```bash
-uv run --upgrade-package trajectory-sdk examples/t_factory/train.py --bench-id bm_<32-hex>
+uv run examples/t_factory/train.py --bench-id bm_<32-hex>
 ```
 
 Training uses Qwen 3.5 4B with thinking disabled, a batch size of four task groups, and the

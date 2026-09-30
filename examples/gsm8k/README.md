@@ -28,7 +28,7 @@ deployment.
 Create an agent to own the benchmark and its training and evaluation runs:
 
 ```bash
-uv run --upgrade-package trajectory-sdk --with trajectory-sdk python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; print(Client().agents.create(name="gsm8k-cookbook").agent_id)'
 ```
 
@@ -37,7 +37,7 @@ uv run --upgrade-package trajectory-sdk --with trajectory-sdk python -c \
 Upload the example's 64 training tasks and 16 test tasks:
 
 ```bash
-uv run --upgrade-package trajectory-sdk ingest.py --agent-id agt_<your-agent-id>
+uv run ingest.py --agent-id agt_<your-agent-id>
 ```
 
 The command prints the `agent_id` and `bench_id`, then waits for the runtime image to build. Keep
@@ -46,7 +46,7 @@ the benchmark ID for training.
 ## 2. Train and evaluate
 
 ```bash
-uv run --upgrade-package trajectory-sdk train.py --bench-id YOUR_BENCH_ID --num-steps 3
+uv run train.py --bench-id YOUR_BENCH_ID --num-steps 3
 ```
 
 The script:

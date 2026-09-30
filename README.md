@@ -12,8 +12,8 @@ pip install --upgrade trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
-The examples use the latest published SDK compatible with your Python environment. The
-`uv run --upgrade-package trajectory-sdk` commands below check for SDK updates on each run.
+The examples leave the SDK version unpinned. Existing uv environments may reuse an installed
+SDK version.
 Existing runtime images must be rebuilt to pick up updates; for local Docker builds, use
 `--no-cache` so the SDK installation layer runs again.
 
@@ -140,7 +140,7 @@ wait_for_benchmark_images(client, bench_id)
 Run the complete uploader with the printed agent ID, then save the benchmark ID:
 
 ```bash
-uv run --upgrade-package trajectory-sdk examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
 ```
 
 ```text
