@@ -12,11 +12,6 @@ pip install --upgrade trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
-The examples leave the SDK version unpinned. Existing uv environments may reuse an installed
-SDK version.
-Existing runtime images must be rebuilt to pick up updates; for local Docker builds, use
-`--no-cache` so the SDK installation layer runs again.
-
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
 
