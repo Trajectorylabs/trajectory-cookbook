@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# dependencies = ["trajectory-sdk>=0.8.10"]
 # ///
 """Evaluate, train, and compare the final checkpoint on GSM8K."""
 
@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 
 from trajectory import Client
-from trajectory.types import TrainingRunResponse
+from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
@@ -47,8 +47,8 @@ def train_and_evaluate(
 
     created = client.training.create(
         bench_id=bench_id,
-        base_model_id=model,
-        training_options={
+        base_model_slug=model,
+        options={
             "disable_thinking": True,
             "num_steps": num_steps,
             "train_batch_size": 4,
@@ -71,7 +71,7 @@ def train_and_evaluate(
             model,
             f"GSM8K {run_id} step {num_steps}",
             poll_seconds,
-            checkpoint_id=client.training.checkpoints.retrieve(
+            parent_checkpoint_id=client.training.checkpoints.retrieve(
                 run_id, num_steps
             ).checkpoint_id,
         ),
@@ -88,27 +88,25 @@ def _evaluate_model(
     model: str,
     display_name: str,
     poll_seconds: float,
-    checkpoint_id: str | None = None,
+    parent_checkpoint_id: str | None = None,
 ) -> float:
-    evaluation = client.evals.start(
-        bench_id,
-        model_slug=model,
-        checkpoint_id=checkpoint_id,
+    evaluation = client.evals.create(
+        bench_id=bench_id,
+        base_model_slug=model,
+        parent_checkpoint_id=parent_checkpoint_id,
         display_name=display_name,
-        extra_body={
-            "eval_options": {
-                "disable_thinking": True,
-                "max_samples": _TEST_TASKS,
-                "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
-                "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
-            }
+        options={
+            "disable_thinking": True,
+            "evaluation_max_samples": _TEST_TASKS,
+            "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
+            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },
     )
     eval_id = evaluation.eval_run_id
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
 
     while True:
-        progress = client.evals.runs.retrieve_progress(eval_id)
+        progress = client.evals.runs.progress(eval_id)
         print(
             f"evaluation={display_name} status={progress.status} "
             f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}",
@@ -120,9 +118,7 @@ def _evaluate_model(
             raise RuntimeError(f"checkpoint evaluation failed: {progress.failure}")
         time.sleep(poll_seconds)
 
-    result = next(
-        run for run in client.evals.runs.list(bench_id) if run.eval_run_id == eval_id
-    )
+    result = client.evals.runs.retrieve(eval_id)
     if result.reward_mean is None:
         raise RuntimeError(f"completed evaluation {eval_id} has no reward")
     return result.reward_mean
