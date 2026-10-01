@@ -5,11 +5,10 @@ Examples for evaluating and training models with the
 
 ## Setup
 
-These examples require SDK 0.8.10 or later and the API with shared training and evaluation
-options. Install the SDK and authenticate:
+Install the latest SDK and authenticate:
 
 ```bash
-pip install --upgrade 'trajectory-sdk>=0.8.10'
+pip install --upgrade trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 

@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk>=0.8.10", "httpx"]
+# dependencies = ["trajectory-sdk", "httpx"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 

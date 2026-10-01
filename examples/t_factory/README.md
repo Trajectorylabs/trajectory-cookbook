@@ -22,7 +22,7 @@ The benchmark contains 128 training tasks and 64 held-out test tasks. Set up the
 described in the [cookbook README](../../README.md), then create an agent to own the benchmark:
 
 ```bash
-uv run --with 'trajectory-sdk>=0.8.10' python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; print(Client().agents.create(name="t-factory-cookbook").agent_id)'
 ```
 

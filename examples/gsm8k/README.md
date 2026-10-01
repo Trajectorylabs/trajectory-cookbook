@@ -28,7 +28,7 @@ deployment.
 Create an agent to own the benchmark and its training and evaluation runs:
 
 ```bash
-uv run --with 'trajectory-sdk>=0.8.10' python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; print(Client().agents.create(name="gsm8k-cookbook").agent_id)'
 ```
 
