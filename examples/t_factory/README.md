@@ -40,12 +40,13 @@ Save the printed `bench_id`, then run the baseline evaluation, training, and fin
 uv run examples/t_factory/train.py --bench-id bm_<32-hex>
 ```
 
-Training uses Qwen 3.5 4B with thinking disabled, a batch size of four task groups, and the
-platform's fixed group size of eight samples per task. The command prints its `training_run_id`.
+Training uses Qwen 3.5 4B with thinking disabled and a batch size of four task groups.
+The model's `samples_per_instance` default determines the samples per task.
+The command prints its `training_run_id`.
 
 ## Deploy the trained checkpoint
 
-Resolve the final checkpoint and create a production Tinker deployment. Replace the training run
+Resolve the final checkpoint and create a production Model Endpoint deployment. Replace the training run
 ID if you changed the default 20 training steps:
 
 ```python
@@ -60,12 +61,11 @@ deployment = client.deployments.create(
     checkpoint_id=checkpoint.checkpoint_id,
     model_slug="t-factory-trained",
     role="production",
-    extra_body={"provider": "tinker"},
 )
 print(f"deployment_id={deployment.deployment_id}")
 ```
 
-Creating a Tinker deployment restores the training checkpoint, starts its Model Endpoint, and
+Creating a deployment restores the training checkpoint, starts its Model Endpoint, and
 activates the production model slug before returning.
 
 ## Query the deployed model

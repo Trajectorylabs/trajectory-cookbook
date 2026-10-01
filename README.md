@@ -5,7 +5,7 @@ Examples for evaluating and training models with the
 
 ## Setup
 
-Install the SDK and authenticate:
+Install the latest SDK and authenticate:
 
 ```bash
 pip install --upgrade trajectory-sdk
@@ -163,14 +163,25 @@ client.secrets.create(
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 
-Run the benchmark before training so you have a frozen baseline:
+Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
+same `options` schema. Discover the supported settings and bounds for each mode:
 
 ```python
-baseline = client.evals.start(
-    bench_id,
-    model_slug="Qwen/Qwen3.5-4B",
+for resource in (client.training, client.evals):
+    catalog = resource.list_options(bench_id=bench_id, base_model_slug="Qwen/Qwen3.5-4B")
+    for model in catalog.models:
+        print(model.base_model_slug, model.options)
+```
+
+Omit `options`, or pass `{}`, for defaults. Leave computed defaults unset so the server
+can resolve them. Run the benchmark before training so you have a frozen baseline:
+
+```python
+baseline = client.evals.create(
+    bench_id=bench_id,
+    base_model_slug="Qwen/Qwen3.5-4B",
     display_name="GSM8K baseline",
-    extra_body={"eval_options": {"disable_thinking": True, "max_samples": 16}},
+    options={"disable_thinking": True, "evaluation_max_samples": 16},
 )
 baseline_eval_run_id = baseline.eval_run_id
 ```
@@ -180,8 +191,8 @@ Start training:
 ```python
 training = client.training.create(
     bench_id=bench_id,
-    base_model_id="Qwen/Qwen3.5-4B",
-    training_options={
+    base_model_slug="Qwen/Qwen3.5-4B",
+    options={
         "disable_thinking": True,
         "num_steps": 20,
         "train_batch_size": 4,
@@ -193,25 +204,26 @@ training = client.training.create(
 training_run_id = training.training_run_id
 ```
 
-Each optimizer step uses four task groups with the platform's fixed group size of eight, for 32
-rollouts per step. Poll `client.training.runs.retrieve(training_run_id)` until the run terminates.
+Each optimizer step uses four task groups. With eight samples per group, that produces 32
+rollouts per step; check `samples_per_instance` in the model's option defaults.
+Poll `client.training.runs.retrieve(training_run_id)` until the run terminates.
 
 Resolve and evaluate the final checkpoint on the same held-out tasks:
 
 ```python
 checkpoint = client.training.checkpoints.retrieve(training_run_id, step_index=20)
-final = client.evals.start(
-    bench_id,
-    model_slug="Qwen/Qwen3.5-4B",
-    checkpoint_id=checkpoint.checkpoint_id,
+final = client.evals.create(
+    bench_id=bench_id,
+    base_model_slug="Qwen/Qwen3.5-4B",
+    parent_checkpoint_id=checkpoint.checkpoint_id,
     display_name="GSM8K trained checkpoint",
-    extra_body={"eval_options": {"disable_thinking": True, "max_samples": 16}},
+    options={"disable_thinking": True, "evaluation_max_samples": 16},
 )
 ```
 
 ### 4. Deploy and query the trained checkpoint
 
-Deploy the final checkpoint directly with Tinker. A production deployment becomes the active
+Deploy the final checkpoint through Model Endpoint. A production deployment becomes the active
 deployment for its model slug:
 
 ```python
@@ -219,7 +231,6 @@ deployment = client.deployments.create(
     checkpoint_id=checkpoint.checkpoint_id,
     model_slug="gsm8k-trained",
     role="production",
-    extra_body={"provider": "tinker"},
 )
 print(deployment.deployment_id)
 ```
