@@ -1,0 +1,62 @@
+{
+  "checked_at": "2026-09-23T17:58:30.769047+00:00",
+  "training": {
+    "parent_checkpoint_id": null,
+    "training_run_id": "trn_06ab35aae80f716d80007c99c90eb273",
+    "pipeline_run_id": null,
+    "display_name": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16:peft:262144 trn_06ab35aae80f716d80007c99c90eb273",
+    "xid": "1057610",
+    "status": "running",
+    "bench_id": "bm_06ab348ca3797519800026f6592485ad",
+    "base_model_id": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16:peft:262144",
+    "training_options": {
+      "disable_thinking": false,
+      "max_output_tokens_per_step": 32768,
+      "num_steps": 40,
+      "samples_per_instance": 8,
+      "train_batch_size": 32
+    },
+    "created_by": "api-key",
+    "created_at": "2026-09-23T04:50:54.503713Z",
+    "failure": null
+  },
+  "training_progress": {
+    "training_run_id": "trn_06ab35aae80f716d80007c99c90eb273",
+    "status": "running",
+    "failure": null,
+    "completed_steps": 0,
+    "total_steps": 40
+  },
+  "evaluations": {
+    "bigcodebench": {
+      "eval_run_id": "evr_06ab34ee7ed47fac8000d7bc9daa387f",
+      "status": "failed",
+      "failure": {
+        "type": "api_error",
+        "code": "run_failed",
+        "message": "The run failed because of an internal error. Details have been reported for investigation.",
+        "context": {
+          "stage": "training",
+          "xid": "1057583"
+        }
+      },
+      "terminal_rollouts": 1140,
+      "total_rollouts": 1140
+    },
+    "livecodebench": {
+      "eval_run_id": "evr_06ab34ee76c3781b800066c40bf53870",
+      "status": "failed",
+      "failure": {
+        "type": "api_error",
+        "code": "run_failed",
+        "message": "The run failed because of an internal error. Details have been reported for investigation.",
+        "context": {
+          "stage": "training",
+          "xid": "1057582"
+        }
+      },
+      "terminal_rollouts": 106,
+      "total_rollouts": 106
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "adapter_repository": "https://github.com/Trajectorylabs/bigcodebench",
+  "adapter_revision": "9fb55cf671385b2f21de0e62e095d108f3478d46",
+  "sdk_repository": "https://github.com/Trajectorylabs/trajectory-platform",
+  "sdk_main_revision": "e6161dc143b36052604f293fdcafcd5788952900",
+  "sdk_version": "0.6.20",
+  "patch_sha256": "e71474933e7129a73f1eaa32e1b52f5f06dffd575dcae877e7f905976a6ce693",
+  "source": {
+    "repository": "bigcode/bigcodebench",
+    "revision": "b74c0d0bf70d2c0bc459be537895cca163007f1a",
+    "split": "v0.1.4",
+    "parquet_sha256": "d9a4965821c9507ebdfb551c288656b2d5fe553234f5183044333ca8a4018267",
+    "jsonl_sha256": "f6704a124f4edcec9d12cc7912f41f3d4207f51b87f091d136e3436f7e25149f",
+    "rows": 1140,
+    "fields": [
+      "task_id",
+      "complete_prompt",
+      "instruct_prompt",
+      "canonical_solution",
+      "code_prompt",
+      "test",
+      "entry_point",
+      "doc_struct",
+      "libs"
+    ],
+    "original_role": "evaluation",
+    "prompt_view": "instruct"
+  },
+  "manifest_sha256": "d62cfe48b36e15c478f57dc87f6b969215f29e180d61d9fcac7ec0194b171d97",
+  "source_evidence_sha256": "9b9584d6341b5a608699a57466ac4fa10101ebee025e43fbdc9454be090525e5",
+  "ingestion": {
+    "operation_id": "iop_412987c9cb7e2dc393a3e9107b99c50b",
+    "bench_id": "bm_06ab3469bf6a7b4d80009f8804847780",
+    "status": "succeeded",
+    "stage": "building",
+    "attempt": 1,
+    "max_attempts": 5,
+    "last_error": null,
+    "task_count": 1140,
+    "added_count": 1140,
+    "updated_count": 0,
+    "skipped_count": 0,
+    "registered_tasks": 1140,
+    "total_tasks": 1140,
+    "ready_runtimes": 1,
+    "total_runtimes": 1,
+    "failure_count": 0,
+    "build_images": true,
+    "ready": true
+  },
+  "runtimes": [
+    {
+      "runtime_id": "rt_06ab346b13647fdf80006d0c68c57468",
+      "status": "ready",
+      "provider_ref": "bpt_34TaVWnoKD9oEqzrWPaTZ"
+    }
+  ],
+  "verified_task_acknowledgments": 1140,
+  "tests": {
+    "published_sdk": "26 passed",
+    "mainline_sdk": "26 passed",
+    "explicit_model_routing_headers": "23 adapter tests passed",
+    "ruff": "passed"
+  },
+  "native_runtime_controls_rerun": false,
+  "hosted_evaluation_run": false,
+  "remaining_gates": [
+    "TRA-1270 original grader defect",
+    "TRA-1262 TRAIN/overlap and hosted admission",
+    "TRA-1444 final-revision native controls and cold artifact checks"
+  ]
+}
