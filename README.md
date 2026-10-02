@@ -291,6 +291,11 @@ layout and behavior; copying the entire task collection into every runtime is no
 The SDK uploads shared file paths once per submission, but it does not automatically separate
 one task's files from another's.
 
+If the harness launches a container, preserve its image configuration as well as its files.
+Importing a root-filesystem archive does not retain the original entrypoint, user, or other
+image settings. Use the original image build or transfer the image with
+[`docker save` / `docker load`](https://docs.docker.com/reference/cli/docker/image/load/).
+
 The current service limits are 4,096 uploaded files and 3 GiB per runtime build context.
 For many small files, create a compressed archive and extract it during the image build.
 Keep the unpacked source outside the context so it is not uploaded alongside the archive.
