@@ -310,6 +310,8 @@ Test task execution and grading after the image builds.
 
 ## Examples
 
+- [Inspect](examples/inspect.md): connect an actor while retaining the native solver and scorer.
+
 When adapting an existing benchmark, read the cookbook recipe together with its complete public
 implementation PR:
 
