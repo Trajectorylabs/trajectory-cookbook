@@ -254,8 +254,9 @@ print(response.choices[0].message.content)
 Set `run_command` to the entrypoint that runs a task and reports its reward. It can invoke
 an existing harness that handles both solving and grading. Connect the solving agent's model
 calls to the SDK, and preserve the harness's grading logic and configured model settings.
-The entrypoint must call `client.trajectories.log_reward(...)` with the computed reward;
-putting a grader description in `TaskSpec.spec` does not execute it.
+The entrypoint must call `client.trajectories.log_reward(...)` with the computed reward, then
+`client.trajectories.complete(...)` with the same trajectory ID. Exiting the process does not
+complete the trajectory. Putting a grader description in `TaskSpec.spec` does not execute it.
 See the [Harvey LAB](examples/harvey_labs.md) and
 [Big Finance Benchmark](examples/big_finance_benchmark.md) integrations for examples.
 
