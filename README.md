@@ -105,6 +105,10 @@ TaskSpec(
 )
 ```
 
+Set `TaskSpec.split` explicitly to preserve a dataset's train/test membership. If omitted,
+ingestion deterministically assigns approximately 15% of those tasks to TEST and the rest to
+TRAIN. For an evaluation-only dataset, set `split="test"` on every task.
+
 Package the tasks and runtime, upload the benchmark, and wait for its runtime image to become
 ready:
 
