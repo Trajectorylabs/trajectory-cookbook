@@ -54,3 +54,22 @@ The options above affect this Inspect actor client. Leave auxiliary clients, suc
 an LLM judge or a question-answering tool, configured as the benchmark specifies. Avoid
 changing process-wide `OPENAI_API_KEY` or `OPENAI_BASE_URL` to redirect the actor: those
 variables may also configure auxiliary clients.
+
+Auxiliary clients need credentials for their provider. A compatible endpoint can supply
+the same model without changing the native tool. For example, to use an Anthropic client
+through [OpenRouter](https://openrouter.ai/docs/api/api-reference/anthropic-messages/create-messages),
+register your OpenRouter key as an organization secret and add these entries to the task's
+`env_vars`:
+
+```python
+from trajectory import SecretRef
+
+auxiliary_env = {
+    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+    "ANTHROPIC_API_KEY": SecretRef(secret_ref="OPENROUTER_API_KEY"),
+}
+```
+
+Keep the benchmark's auxiliary model identifier and generation settings. Verify that the
+endpoint supports that model and its required features. These variables configure Anthropic
+clients; keep actor routing explicit as above.
