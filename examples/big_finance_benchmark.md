@@ -9,7 +9,7 @@ Use this pattern when a benchmark already has an OpenAI-compatible model abstrac
 orchestrator. The SDK adapter connects the existing lifecycle to one Trajectory session:
 
 1. Create one trajectory when a question starts.
-2. Forward every model request with the same trajectory ID.
+2. Forward the solving agent's model requests with the same trajectory ID.
 3. Run the benchmark's original rubric grader.
 4. Record the normalized rubric score and complete the trajectory.
 

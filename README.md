@@ -256,6 +256,11 @@ split that harness into separate SDK task fields. The adapter connects the harne
 model and trajectory interfaces and reports its native grading result through the reward API.
 If that adapter is missing, implementing it is part of integrating the benchmark.
 
+Route the solving agent through the SDK model interface. Keep judge and tool-model calls on
+their native clients, with their configured models and generation settings. Do not send those
+calls through the actor's policy model or attach them to its trajectory. Supply any required
+provider credentials through `SecretRef`; record the resulting grade as the actor's reward.
+
 Task data and grading can remain in an external service. Package the benchmark's native client
 and harness, and have each task's `run_command` select its stable remote task ID. Preserve the
 service's environment and grading behavior; local question/answer files are not required.
