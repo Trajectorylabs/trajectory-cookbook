@@ -132,6 +132,11 @@ bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
 
+`push` registers the benchmark and its tasks. A returned benchmark ID does not mean its
+runtime images are ready. `wait_for_benchmark_images` starts the image builds, waits for them
+to finish, and raises if a build fails or times out. Keep this step when you only want to ingest:
+building task runtime images does not run evaluation, training, or model deployment.
+
 Run the complete uploader with the printed agent ID, then save the benchmark ID:
 
 ```bash
