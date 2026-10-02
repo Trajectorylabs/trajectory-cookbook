@@ -285,6 +285,9 @@ provider's mirror.
 Trajectory currently accepts up to 4,096 uploaded files and 3 GiB per task's runtime build
 context. These service limits are not customer-configurable. For thousands of small files, use a
 compressed archive that preserves their paths and contents, then extract it in the image.
+Put the Dockerfile, archive and adapter files in a dedicated directory, and select its Dockerfile
+with `DockerfileBuild("runtime/Dockerfile")`. Keep the unpacked source outside that directory;
+otherwise it remains part of the uploaded context alongside the archive.
 If the context is still too large, give each runtime a context containing its required files
 instead of bundling the whole dataset into every runtime. Preserve every task and grader file
 needed by that runtime.
