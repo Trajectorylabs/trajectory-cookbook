@@ -30,6 +30,9 @@ Each task runs the original harness through the Trajectory-backed model adapter.
 are supplied by the platform and are not stored in the benchmark source:
 
 ```python
+from trajectory import SecretRef, TaskSpec
+from trajectory.types.benchmarks.task_spec import EnvResources
+
 TaskSpec(
     name=task,
     split="test" if task in test_tasks else "train",
