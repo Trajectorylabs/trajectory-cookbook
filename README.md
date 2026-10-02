@@ -251,6 +251,11 @@ The runtime must include the task's execution environment and grading integratio
 your SDK adapter to the benchmark's harness and grader. Report missing components as blockers;
 a placeholder command or grader does not complete the integration.
 
+`run_command` can invoke a harness that handles both solving and grading. You do not need to
+split that harness into separate SDK task fields. The adapter connects the harness to the SDK's
+model and trajectory interfaces and reports its native grading result through the reward API.
+If that adapter is missing, implementing it is part of integrating the benchmark.
+
 Task data and grading can remain in an external service. Package the benchmark's native client
 and harness, and have each task's `run_command` select its stable remote task ID. Preserve the
 service's environment and grading behavior; local question/answer files are not required.
