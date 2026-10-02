@@ -253,8 +253,36 @@ calls to the SDK, and preserve the harness's grading logic and configured model 
 See the [Harvey LAB](examples/harvey_labs.md) and
 [Big Finance Benchmark](examples/big_finance_benchmark.md) integrations for examples.
 
-The Dockerfile's directory defines its build context. Put the Dockerfile and required runtime
-files together, then select it with `DockerfileBuild("runtime/Dockerfile")`.
+The SDK uploads the files under each Dockerfile's directory, filtered by `.dockerignore`
+at the benchmark root. It does not select files by reading `COPY` statements. A Dockerfile
+at the repository root therefore includes the whole checkout unless files are excluded.
+
+Use a shared `BenchmarkSpec.runtime` when tasks need the same runtime contents. When tasks
+need different files or environments, set `TaskSpec.runtime` separately. For example:
+
+```python
+from trajectory import BenchmarkSpec, TaskSpec
+from trajectory.lib import DockerfileBuild
+
+benchmark = BenchmarkSpec(
+    name="coding-tasks",
+    tasks=[
+        TaskSpec(
+            name=task_id,
+            runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile"),
+            run_command=f"python /app/harness.py --task-id {task_id}",
+        )
+        for task_id in ("task-a", "task-b")
+    ],
+)
+```
+
+Each `runtimes/<task-id>/` directory must contain the files its Dockerfile needs, including
+that task's inputs and grading assets. Supply shared harness code and dependencies through
+a common base image or include them in each context. Preserve the native harness's directory
+layout and behavior; copying the entire task collection into every runtime is not required.
+The SDK uploads shared file paths once per submission, but it does not automatically separate
+one task's files from another's.
 
 The current service limits are 4,096 uploaded files and 3 GiB per runtime build context.
 For many small files, create a compressed archive and extract it during the image build.
