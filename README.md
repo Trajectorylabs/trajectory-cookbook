@@ -245,7 +245,11 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-## Runtime images for existing benchmarks
+## Build a benchmark runtime
+
+The runtime must include the task's execution environment and grading integration. Connect
+your SDK adapter to the benchmark's harness and grader. Report missing components as blockers;
+a placeholder command or grader does not complete the integration.
 
 Task data and grading can remain in an external service. Package the benchmark's native client
 and harness, and have each task's `run_command` select its stable remote task ID. Preserve the
@@ -268,8 +272,8 @@ use `uv sync --locked --default-index https://pypi.org/simple`; use the correspo
 a private registry. Preserve the lockfile rather than re-resolving dependencies against a
 provider's mirror.
 
-Each task's runtime build context is limited to 4,096 uploaded artifacts; Modal contexts also
-have a 3 GiB byte limit. Check both before uploading. For thousands of small files, use a
+Trajectory currently accepts up to 4,096 uploaded files and 3 GiB per task's runtime build
+context. These service limits are not customer-configurable. For thousands of small files, use a
 compressed archive that preserves their paths and contents, then extract it in the image.
 If the context is still too large, give each runtime a context containing its required files
 instead of bundling the whole dataset into every runtime. Preserve every task and grader file
@@ -285,9 +289,7 @@ RUN mkdir -p /opt/benchmark \
     && rm /tmp/tasks.tar.gz
 ```
 
-This copies the archive from the build context without changing its contents. The SDK wrapper
-must still call the original harness and grader; successful image construction does not establish
-evaluation correctness.
+Building the image successfully does not verify task execution or grading correctness.
 
 ## Examples
 
