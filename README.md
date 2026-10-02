@@ -247,6 +247,8 @@ print(response.choices[0].message.content)
 
 ## Examples
 
+- [Inspect](examples/inspect.md): connect an OpenAI-compatible actor while retaining the native solver and scorer.
+
 When adapting an existing benchmark, read the cookbook recipe together with its complete public
 implementation PR:
 
