@@ -55,6 +55,9 @@ The uploader creates one evaluation task for each public question. `BFB_TASK_ID`
 one row inside the existing orchestrator, while credentials remain platform secret references:
 
 ```python
+from trajectory import SecretRef, TaskSpec
+from trajectory.types.benchmarks.task_spec import EnvResources
+
 TaskSpec(
     name=f"big-finance/{row['id']}",
     split="test",

@@ -305,7 +305,8 @@ RUN mkdir -p /opt/benchmark \
 ```
 
 Include the harness and its dependencies in the runtime. If tasks call external services,
-configure `EnvResources(network_mode="public")` and supply credentials through `SecretRef`.
+set `env_resources=EnvResources(network_mode="public")` on the task and supply credentials
+through `SecretRef`. Import `EnvResources` from `trajectory.types.benchmarks.task_spec`.
 Test task execution and grading after the image builds.
 
 ## Examples
