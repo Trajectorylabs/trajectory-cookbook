@@ -259,6 +259,12 @@ harness or grader with its own interpreter. Do not remove dependencies or change
 just to make installation succeed. Check dependency resolution using the runtime image's Python
 version before uploading a large task bundle.
 
+For a locked uv environment, use the package index recorded in `uv.lock`. A build provider's
+injected mirror can make `uv sync --locked` reject an otherwise valid lockfile. For a PyPI lock,
+use `uv sync --locked --default-index https://pypi.org/simple`; use the corresponding index for
+a private registry. Preserve the lockfile rather than re-resolving dependencies against a
+provider's mirror.
+
 Each task's runtime build context is limited to 4,096 uploaded artifacts. For a benchmark with
 thousands of small files, bundle them into an archive, preserving their paths and contents, and
 extract it in the image. This reduces upload objects without dropping tasks or grader files.
