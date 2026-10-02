@@ -245,55 +245,22 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-## Build a benchmark runtime
+## Package a benchmark runtime
 
-The runtime must include the task's execution environment and grading integration. Connect
-your SDK adapter to the benchmark's harness and grader. Report missing components as blockers;
-a placeholder command or grader does not complete the integration.
+Set `run_command` to the entrypoint that runs a task and reports its reward. It can invoke
+an existing harness that handles both solving and grading. Connect the solving agent's model
+calls to the SDK, and preserve the harness's grading logic and configured model settings.
+See the [Harvey LAB](examples/harvey_labs.md) and
+[Big Finance Benchmark](examples/big_finance_benchmark.md) integrations for examples.
 
-`run_command` can invoke a harness that handles both solving and grading. You do not need to
-split that harness into separate SDK task fields. The adapter connects the harness to the SDK's
-model and trajectory interfaces and reports its native grading result through the reward API.
-If that adapter is missing, implementing it is part of integrating the benchmark.
+The Dockerfile's directory defines its build context. Put the Dockerfile and required runtime
+files together, then select it with `DockerfileBuild("runtime/Dockerfile")`.
 
-Route the solving agent through the SDK model interface. Keep judge and tool-model calls on
-their native clients, with their configured models and generation settings. Do not send those
-calls through the actor's policy model or attach them to its trajectory. Supply any required
-provider credentials through `SecretRef`; record the resulting grade as the actor's reward.
-
-Task data and grading can remain in an external service. Package the benchmark's native client
-and harness, and have each task's `run_command` select its stable remote task ID. Preserve the
-service's environment and grading behavior; local question/answer files are not required.
-For remote task or grading APIs, set `EnvResources(network_mode="public")` on the task and
-supply required credentials through `SecretRef`. Credentials alone do not enable networking.
-Select a fixed dataset or game version in the native-client request or `run_command`, or pin
-it server-side. Record that version with the benchmark. If the service cannot select a fixed
-version, document that later runs may receive changed tasks or grading behavior.
-
-Keep the benchmark's pinned dependencies when adding an SDK adapter. If those dependencies
-conflict with the SDK, install them in separate virtual environments and invoke the native
-harness or grader with its own interpreter. Do not remove dependencies or change grader versions
-just to make installation succeed. Check dependency resolution using the runtime image's Python
-version before uploading a large task bundle.
-
-For a locked uv environment, use the package index recorded in `uv.lock`. A build provider's
-injected mirror can make `uv sync --locked` reject an otherwise valid lockfile. For a PyPI lock,
-use `uv sync --locked --default-index https://pypi.org/simple`; use the corresponding index for
-a private registry. Preserve the lockfile rather than re-resolving dependencies against a
-provider's mirror.
-
-Trajectory currently accepts up to 4,096 uploaded files and 3 GiB per task's runtime build
-context. These service limits are not customer-configurable. For thousands of small files, use a
-compressed archive that preserves their paths and contents, then extract it in the image.
-Put the Dockerfile, archive and adapter files in a dedicated directory, and select its Dockerfile
-with `DockerfileBuild("runtime/Dockerfile")`. Keep the unpacked source outside that directory;
-otherwise it remains part of the uploaded context alongside the archive.
-If the context is still too large, give each runtime a context containing its required files
-instead of bundling the whole dataset into every runtime. Preserve every task and grader file
-needed by that runtime.
-
-Dockerfile support depends on the sandbox provider. Modal does not support `ADD` for local
-files or archives. Use `COPY` and explicit extraction for a local archive:
+The current service limits are 4,096 uploaded files and 3 GiB per runtime build context.
+For many small files, create a compressed archive and extract it during the image build.
+Keep the unpacked source outside the context so it is not uploaded alongside the archive.
+The archive still counts toward the byte limit; separate runtimes can use smaller contexts
+containing only their required files.
 
 ```dockerfile
 COPY tasks.tar.gz /tmp/tasks.tar.gz
@@ -302,7 +269,9 @@ RUN mkdir -p /opt/benchmark \
     && rm /tmp/tasks.tar.gz
 ```
 
-Building the image successfully does not verify task execution or grading correctness.
+Include the harness and its dependencies in the runtime. If tasks call external services,
+configure `EnvResources(network_mode="public")` and supply credentials through `SecretRef`.
+Test task execution and grading after the image builds.
 
 ## Examples
 
