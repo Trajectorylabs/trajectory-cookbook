@@ -247,6 +247,12 @@ print(response.choices[0].message.content)
 
 ## Runtime images for existing benchmarks
 
+Task data and grading can remain in an external service. Package the benchmark's native client
+and harness, and have each task's `run_command` select its stable remote task ID. Preserve the
+service's environment and grading behavior; local question/answer files are not required.
+The runtime needs access to that service and any required credentials through `SecretRef`.
+Record the service's dataset or game version when available so later runs use the same tasks.
+
 Keep the benchmark's pinned dependencies when adding an SDK adapter. If those dependencies
 conflict with the SDK, install them in separate virtual environments and invoke the native
 harness or grader with its own interpreter. Do not remove dependencies or change grader versions
