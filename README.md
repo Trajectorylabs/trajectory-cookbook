@@ -265,9 +265,12 @@ use `uv sync --locked --default-index https://pypi.org/simple`; use the correspo
 a private registry. Preserve the lockfile rather than re-resolving dependencies against a
 provider's mirror.
 
-Each task's runtime build context is limited to 4,096 uploaded artifacts. For a benchmark with
-thousands of small files, bundle them into an archive, preserving their paths and contents, and
-extract it in the image. This reduces upload objects without dropping tasks or grader files.
+Each task's runtime build context is limited to 4,096 uploaded artifacts; Modal contexts also
+have a 3 GiB byte limit. Check both before uploading. For thousands of small files, use a
+compressed archive that preserves their paths and contents, then extract it in the image.
+If the context is still too large, give each runtime a context containing its required files
+instead of bundling the whole dataset into every runtime. Preserve every task and grader file
+needed by that runtime.
 
 Dockerfile support depends on the sandbox provider. Modal does not support `ADD` for local
 files or archives. Use `COPY` and explicit extraction for a local archive:
