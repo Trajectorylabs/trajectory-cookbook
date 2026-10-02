@@ -55,6 +55,10 @@ an LLM judge or a question-answering tool, configured as the benchmark specifies
 changing process-wide `OPENAI_API_KEY` or `OPENAI_BASE_URL` to redirect the actor: those
 variables may also configure auxiliary clients.
 
+Use provider credentials that remain valid when the task runs. A temporary model proxy
+used by the agent preparing the dataset may expire with that agent's session or allow
+only its model and API routes; do not store that proxy token as a runtime provider key.
+
 Auxiliary clients need credentials for their provider. A compatible endpoint can supply
 the same model without changing the native tool. For example, to use an Anthropic client
 through [OpenRouter](https://openrouter.ai/docs/api/api-reference/anthropic-messages/create-messages),
