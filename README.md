@@ -245,6 +245,28 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
+## Runtime images for existing benchmarks
+
+Keep the benchmark's pinned dependencies when adding an SDK adapter. If those dependencies
+conflict with the SDK, install them in separate virtual environments and invoke the native
+harness or grader with its own interpreter. Do not remove dependencies or change grader versions
+just to make installation succeed. Check dependency resolution using the runtime image's Python
+version before uploading a large task bundle.
+
+Dockerfile support depends on the sandbox provider. Modal does not support `ADD` for local
+files or archives. Use `COPY` and explicit extraction for a local archive:
+
+```dockerfile
+COPY tasks.tar.gz /tmp/tasks.tar.gz
+RUN mkdir -p /opt/benchmark \
+    && tar -xzf /tmp/tasks.tar.gz -C /opt/benchmark \
+    && rm /tmp/tasks.tar.gz
+```
+
+This copies the archive from the build context without changing its contents. The SDK wrapper
+must still call the original harness and grader; successful image construction does not establish
+evaluation correctness.
+
 ## Examples
 
 When adapting an existing benchmark, read the cookbook recipe together with its complete public
