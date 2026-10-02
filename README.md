@@ -250,8 +250,11 @@ print(response.choices[0].message.content)
 Task data and grading can remain in an external service. Package the benchmark's native client
 and harness, and have each task's `run_command` select its stable remote task ID. Preserve the
 service's environment and grading behavior; local question/answer files are not required.
-The runtime needs access to that service and any required credentials through `SecretRef`.
-Record the service's dataset or game version when available so later runs use the same tasks.
+For remote task or grading APIs, set `EnvResources(network_mode="public")` on the task and
+supply required credentials through `SecretRef`. Credentials alone do not enable networking.
+Select a fixed dataset or game version in the native-client request or `run_command`, or pin
+it server-side. Record that version with the benchmark. If the service cannot select a fixed
+version, document that later runs may receive changed tasks or grading behavior.
 
 Keep the benchmark's pinned dependencies when adding an SDK adapter. If those dependencies
 conflict with the SDK, install them in separate virtual environments and invoke the native
