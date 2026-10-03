@@ -281,6 +281,11 @@ Freezing a freshly resolved environment pins those new versions; it does not pre
 dependencies. Before building all task images, test a short model request through the same
 client and dependency set the runtime will use. Successful imports alone do not verify this path.
 
+When using `uv sync --locked`, keep the package index consistent with the lockfile.
+The managed builder can supply a package mirror that causes an otherwise valid lock to be rejected.
+For a lock using PyPI, specify `--default-index https://pypi.org/simple` on the install command;
+use the corresponding index for a private registry. Keep `--locked` so dependency changes fail the build.
+
 Forward the native grader's score, including zero. Preserve its handling of failed candidate
 solutions; additional checks on test counts or exit codes can reject valid native scores.
 Report infrastructure or integration failures as execution errors rather than assigning a score.
