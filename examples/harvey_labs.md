@@ -38,7 +38,9 @@ TaskSpec(
     split="test" if task in test_tasks else "train",
     run_command=(
         "python -m lab_core.harness.run --model trajectory/session "
-        f"--task {task} --run-id trajectory --max-turns 200"
+        f"--task {task} --run-id trajectory --max-turns 200 "
+        "--temperature 1.0 --reasoning-effort low "
+        "--judge-model gpt-5.4-mini"
     ),
     env_vars={
         "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
