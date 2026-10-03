@@ -9,7 +9,7 @@ Use this pattern when a benchmark already has an OpenAI-compatible model abstrac
 orchestrator. The SDK adapter connects the existing lifecycle to one Trajectory session:
 
 1. Create one trajectory when a question starts.
-2. Forward every model request with the same trajectory ID.
+2. Forward the solving agent's model requests with the same trajectory ID.
 3. Run the benchmark's original rubric grader.
 4. Record the normalized rubric score and complete the trajectory.
 
@@ -55,6 +55,9 @@ The uploader creates one evaluation task for each public question. `BFB_TASK_ID`
 one row inside the existing orchestrator, while credentials remain platform secret references:
 
 ```python
+from trajectory import SecretRef, TaskSpec
+from trajectory.types.benchmarks.task_spec import EnvResources
+
 TaskSpec(
     name=f"big-finance/{row['id']}",
     split="test",
