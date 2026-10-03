@@ -258,6 +258,9 @@ print(response.choices[0].message.content)
 Set `run_command` to the entrypoint that runs a task and reports its reward. It can invoke
 an existing harness that handles both solving and grading. Connect the solving agent's model
 calls to the SDK, and preserve the harness's grading logic and configured model settings.
+A managed trajectory routes completion requests to its configured actor endpoint, including
+requests that name a different model. Keep auxiliary judges and tools on their own provider
+clients and credentials.
 The entrypoint must call `client.trajectories.log_reward(...)` with the computed reward, then
 `client.trajectories.complete(...)` with the same trajectory ID. Exiting the process does not
 complete the trajectory. Putting a grader description in `TaskSpec.spec` does not execute it.
