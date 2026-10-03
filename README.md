@@ -272,9 +272,9 @@ complete the trajectory. Putting a grader description in `TaskSpec.spec` does no
 See the [Harvey LAB](examples/harvey_labs.md) and
 [Big Finance Benchmark](examples/big_finance_benchmark.md) integrations for examples.
 
-Build the runtime from the harness's existing lockfile. Add the SDK while retaining locked
-versions where compatible, and review any dependency changes it requires. Freezing a freshly
-resolved environment pins those new versions; it does not preserve the harness's tested
+Use the harness's dependency declarations and lockfile together. Add the SDK while retaining
+compatible locked versions and Git revisions, and review any required dependency changes.
+Freezing a freshly resolved environment pins those new versions; it does not preserve the harness's tested
 dependencies. Before building all task images, test a short model request through the same
 client and dependency set the runtime will use. Successful imports alone do not verify this path.
 
@@ -335,6 +335,12 @@ executes. If the harness manages separate task containers, install the harness a
 dependencies in this runtime, and include the original task Dockerfiles and build contexts
 as inputs to its existing build flow. Building those task Dockerfiles as stages of the
 harness image does not make their images available to the harness's Docker daemon.
+
+Choose an existing harness backend that works with the runtime's available resources.
+For example, a harness with a local Docker backend can use the daemon described below.
+Supply any credentials an external sandbox backend requires; Trajectory does not pass
+its infrastructure credentials into your runtime. Preserve the task environment and grading
+behavior when choosing a backend.
 
 For local Docker builds, image loads, or container runs, set
 `env_resources=EnvResources(docker_engine=True)` on the task. Configure network access
