@@ -318,6 +318,8 @@ events or artifacts before completing the trajectory and cleaning up its environ
 The SDK uploads the files under each Dockerfile's directory, filtered by `.dockerignore`
 at the benchmark root. It does not select files by reading `COPY` statements. A Dockerfile
 at the repository root therefore includes the whole checkout unless files are excluded.
+When narrowing the build context, retain files required by package metadata, such as a README
+referenced by `pyproject.toml`, as well as the code and runtime inputs.
 
 Prefer one shared `BenchmarkSpec.runtime` when the same harness can select a task through
 its `run_command`. This also works when the harness builds and launches task containers from
