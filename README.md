@@ -281,6 +281,11 @@ Freezing a freshly resolved environment pins those new versions; it does not pre
 dependencies. Before building all task images, test a short model request through the same
 client and dependency set the runtime will use. Successful imports alone do not verify this path.
 
+Inspect ingestion failure items while other runtimes are still building. A `runtime_build_failed`
+item with `retryable: true` does not mean that image is being rebuilt automatically in the same
+operation. Correct the reported cause before submitting a new operation. A polling timeout
+does not stop server processing; reconnect to the existing operation instead of resubmitting.
+
 When using `uv sync --locked`, keep the package index consistent with the lockfile.
 The managed builder can supply a package mirror that causes an otherwise valid lock to be rejected.
 For a lock using PyPI, specify `--default-index https://pypi.org/simple` on the install command;
