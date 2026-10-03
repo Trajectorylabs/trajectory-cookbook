@@ -348,6 +348,9 @@ separately: use `network_mode="public"` when the harness requires unrestricted e
 The harness runtime must include the Docker daemon at `/usr/bin/dockerd`, the Docker CLI,
 and any plugins the harness uses, such as Compose. Enabling `docker_engine` starts the
 daemon; it does not install these dependencies or replace the native task environment.
+Use the versions required by your harness, including its CLI and plugin requirements.
+Run its prerequisite checks before a full evaluation; a successful image build or
+`docker --version` alone does not establish that the harness can start.
 
 The current service limits are 4,096 uploaded files and 3 GiB per runtime build context.
 For many small files, create a compressed archive and extract it during the image build.
