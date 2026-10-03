@@ -330,7 +330,8 @@ as inputs to its existing build flow. Building those task Dockerfiles as stages 
 harness image does not make their images available to the harness's Docker daemon.
 
 For local Docker builds, image loads, or container runs, set
-`env_resources=EnvResources(docker_engine=True, network_mode="public")` on the task.
+`env_resources=EnvResources(docker_engine=True)` on the task. Configure network access
+separately: use `network_mode="public"` when the harness requires unrestricted external access.
 The harness runtime must include the Docker daemon at `/usr/bin/dockerd`, the Docker CLI,
 and any plugins the harness uses, such as Compose. Enabling `docker_engine` starts the
 daemon; it does not install these dependencies or replace the native task environment.
@@ -350,9 +351,12 @@ RUN mkdir -p /opt/benchmark \
     && rm /tmp/tasks.tar.gz
 ```
 
-If tasks call external services, set `env_resources=EnvResources(network_mode="public")`
-on the task and supply credentials through `SecretRef`. Import `EnvResources` from
-`trajectory.types.benchmarks.task_spec`. Test task execution and grading after the image builds.
+For external services, use `network_mode="allowlist"` with `allowed_hosts`, or
+`network_mode="public"` when unrestricted access is required. Supply credentials through
+`SecretRef`. Import `EnvResources` from `trajectory.types.benchmarks.task_spec`.
+Test task execution and grading after the image builds. Pin external task or service versions
+when supported; otherwise record any version information available and note that repeated
+runs may differ.
 
 ## Examples
 
