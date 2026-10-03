@@ -134,7 +134,7 @@ ready:
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client
-from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
+from trajectory.lib import DockerfileBuild, push
 
 client = Client()
 agent = client.agents.create(name="gsm8k-cookbook")
@@ -149,10 +149,13 @@ result = push(
     benchmark,
     agent_id=agent.agent_id,
     root=Path("my-benchmark"),
+    build_images=True,
 )
 bench_id = result.bench_id
-wait_for_benchmark_images(client, bench_id)
 ```
+
+`build_images=True` builds the runtime as part of the ingestion operation. `push` waits
+for registration and those builds to finish.
 
 Run the complete uploader with the printed agent ID, then save the benchmark ID:
 
