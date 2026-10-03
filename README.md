@@ -351,6 +351,8 @@ daemon; it does not install these dependencies or replace the native task enviro
 Use the versions required by your harness, including its CLI and plugin requirements.
 Run its prerequisite checks before a full evaluation; a successful image build or
 `docker --version` alone does not establish that the harness can start.
+Set `EnvResources.cpus` and `memory_mb` for the work done inside each task runtime,
+including native image builds. A ready image does not establish that those resources are sufficient.
 
 The current service limits are 4,096 uploaded files and 3 GiB per runtime build context.
 For many small files, create a compressed archive and extract it during the image build.
