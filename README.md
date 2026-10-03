@@ -280,6 +280,8 @@ Install the system tools those dependencies need, such as Git for packages pinne
 Freezing a freshly resolved environment pins those new versions; it does not preserve the harness's tested
 dependencies. Before building all task images, test a short model request through the same
 client and dependency set the runtime will use. Successful imports alone do not verify this path.
+Use the runtime entrypoint's plugin-loading sequence for prerequisite checks. An import
+failure in an unused helper does not establish that the configured runtime is blocked.
 
 Inspect ingestion failure items while other runtimes are still building. A `runtime_build_failed`
 item with `retryable: true` does not mean that image is being rebuilt automatically in the same
