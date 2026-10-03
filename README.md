@@ -300,6 +300,10 @@ The managed builder can supply a package mirror that causes an otherwise valid l
 For a lock using PyPI, specify `--default-index https://pypi.org/simple` on the install command;
 use the corresponding index for a private registry. Keep `--locked` so dependency changes fail the build.
 
+Managed builds do not supply Docker BuildKit's automatic platform arguments, such as `TARGETARCH`.
+When installing binaries for the build environment, detect its architecture with `uname -m`
+and map that value to the vendor's download names. Cross-compilation targets need an explicit setting.
+
 Forward the native grader's score, including zero. Preserve its handling of failed candidate
 solutions; additional checks on test counts or exit codes can reject valid native scores.
 Report infrastructure or integration failures as execution errors rather than assigning a score.
