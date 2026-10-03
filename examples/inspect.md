@@ -41,9 +41,11 @@ client.trajectories.log_reward(
 client.trajectories.complete(tid)
 ```
 
-Report the native scorer's value, including zero. If it produces labels or several
-components, use the benchmark's defined conversion or report the components separately.
-Do not substitute zero for an execution error or missing score.
+Report the native scorer's value, including zero. For labels or multiple components,
+preserve the benchmark's defined conversion and weighting. Logged reward components are
+summed with their weights; record diagnostic scores using `client.trajectories.log_event(...)`
+or `client.trajectories.log_reward(..., weight=0)`. Do not substitute zero for an execution
+error or missing score.
 
 Pass these transport options through any wrapper around `eval_async`. Keep the native
 solver and tool implementations, prompts, stopping conditions, and model settings.
