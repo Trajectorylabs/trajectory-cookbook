@@ -349,8 +349,15 @@ The harness runtime must include the Docker daemon at `/usr/bin/dockerd`, the Do
 and any plugins the harness uses, such as Compose. Enabling `docker_engine` starts the
 daemon; it does not install these dependencies or replace the native task environment.
 Use the versions required by your harness, including its CLI and plugin requirements.
-Run its prerequisite checks before a full evaluation; a successful image build or
-`docker --version` alone does not establish that the harness can start.
+Check required executables during the image build so missing tools fail before task execution.
+For a harness that uses Compose:
+
+```dockerfile
+RUN test -x /usr/bin/dockerd && docker --version && docker compose version
+```
+
+Then run the harness's prerequisite checks inside a task runtime before a full evaluation.
+These build-time checks do not establish that the daemon or harness can start.
 Set `EnvResources.cpus` and `memory_mb` for the work done inside each task runtime,
 including native image builds. A ready image does not establish that those resources are sufficient.
 
