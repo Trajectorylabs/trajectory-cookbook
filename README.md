@@ -272,8 +272,11 @@ complete the trajectory. Putting a grader description in `TaskSpec.spec` does no
 See the [Harvey LAB](examples/harvey_labs.md) and
 [Big Finance Benchmark](examples/big_finance_benchmark.md) integrations for examples.
 
-Use the harness's lockfile when adding the SDK, review any dependency changes it requires,
-and test a short model request through the integration before building all task images.
+Build the runtime from the harness's existing lockfile. Add the SDK while retaining locked
+versions where compatible, and review any dependency changes it requires. Freezing a freshly
+resolved environment pins those new versions; it does not preserve the harness's tested
+dependencies. Before building all task images, test a short model request through the same
+client and dependency set the runtime will use. Successful imports alone do not verify this path.
 
 Preserve the benchmark's primary metric when logging reward: the platform sums reward
 components using their weights, which default to 1. Record auxiliary scores with
