@@ -305,6 +305,8 @@ daemon; it does not install these dependencies or replace the native task enviro
 
 The current service limits are 4,096 uploaded files and 3 GiB per runtime build context.
 For many small files, create a compressed archive and extract it during the image build.
+Use `COPY` followed by `RUN tar`, as below: Modal-backed builds do not support local
+archive extraction with `ADD`.
 Keep the unpacked source outside the context so it is not uploaded alongside the archive.
 The archive still counts toward the byte limit; separate runtimes can use smaller contexts
 containing only their required files.
