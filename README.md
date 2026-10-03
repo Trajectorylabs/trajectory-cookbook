@@ -25,6 +25,9 @@ task loop and grader as a benchmark for repeatable evaluation and training.
 
 ### 1. Inject the Trajectory SDK into your benchmark
 
+For an Inspect benchmark, [connect its actor client](examples/inspect.md) while retaining
+its native solver and scorer.
+
 #### Replace the OpenAI client with the Trajectory client
 
 ```python
