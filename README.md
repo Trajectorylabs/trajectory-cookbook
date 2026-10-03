@@ -264,8 +264,9 @@ The SDK uploads the files under each Dockerfile's directory, filtered by `.docke
 at the benchmark root. It does not select files by reading `COPY` statements. A Dockerfile
 at the repository root therefore includes the whole checkout unless files are excluded.
 
-Use a shared `BenchmarkSpec.runtime` when tasks need the same runtime contents. When tasks
-need different files or environments, set `TaskSpec.runtime` separately. For example:
+Prefer one shared `BenchmarkSpec.runtime` when the same harness can select a task through
+its `run_command`. This also works when the harness builds and launches task containers from
+their original Dockerfiles and build contexts.
 
 ```python
 from trajectory import BenchmarkSpec, TaskSpec
@@ -273,10 +274,10 @@ from trajectory.lib import DockerfileBuild
 
 benchmark = BenchmarkSpec(
     name="coding-tasks",
+    runtime=DockerfileBuild("runtime/Dockerfile"),
     tasks=[
         TaskSpec(
             name=task_id,
-            runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile"),
             run_command=f"python /app/harness.py --task-id {task_id}",
         )
         for task_id in ("task-a", "task-b")
@@ -284,14 +285,16 @@ benchmark = BenchmarkSpec(
 )
 ```
 
-Each `runtimes/<task-id>/` directory must contain the files its Dockerfile needs, including
-that task's inputs. Keep private answers and hidden tests in the grader's protected environment,
-inaccessible to the solving agent and its tools. Preserve the native separation between solver
-and grader. Supply shared harness code and dependencies through a common base image or include
-them in each context. Preserve the native harness's directory layout and behavior; copying the
-entire task collection into every runtime is not required.
-The SDK uploads shared file paths once per submission, but it does not automatically separate
-one task's files from another's.
+Set `TaskSpec.runtime` to override the shared runtime when tasks need different dependencies,
+isolation, or smaller build contexts, for example
+`runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile")`. Each Dockerfile's directory must
+contain the files its build needs. Supply common harness code and dependencies through a
+base image or include them in each context.
+
+Preserve the native harness's directory layout, behavior, and isolation between task runs.
+Keep private answers and hidden tests in the grader's protected environment, inaccessible to
+the solving agent and its tools. The SDK uploads shared file paths once per submission, but
+it does not automatically separate one task's files from another's.
 
 If the harness launches a container, preserve its image configuration as well as its files.
 Importing a root-filesystem archive does not retain the original entrypoint, user, or other
