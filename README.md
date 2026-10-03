@@ -105,6 +105,11 @@ TaskSpec(
 )
 ```
 
+`TaskSpec.name` is your dataset's task identifier. When you retrieve a benchmark with
+`client.benchmarks.specs.retrieve(..., include_tasks=True)`, each task exposes that name as
+`label` and a platform-assigned `task_id` for API calls. Omit `TaskSpec.id` when registering
+new tasks.
+
 Set `TaskSpec.split` explicitly to preserve a dataset's train/test membership. If omitted,
 ingestion deterministically assigns approximately 15% of those tasks to TEST and the rest to
 TRAIN. For an evaluation-only dataset, set `split="test"` on every task.
@@ -266,6 +271,9 @@ The entrypoint must call `client.trajectories.log_reward(...)` with the computed
 complete the trajectory. Putting a grader description in `TaskSpec.spec` does not execute it.
 See the [Harvey LAB](examples/harvey_labs.md) and
 [Big Finance Benchmark](examples/big_finance_benchmark.md) integrations for examples.
+
+Use the harness's lockfile when adding the SDK, review any dependency changes it requires,
+and test a short model request through the integration before building all task images.
 
 Preserve the benchmark's primary metric when logging reward: the platform sums reward
 components using their weights, which default to 1. Record auxiliary scores with
