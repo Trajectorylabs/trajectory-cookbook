@@ -278,6 +278,10 @@ resolved environment pins those new versions; it does not preserve the harness's
 dependencies. Before building all task images, test a short model request through the same
 client and dependency set the runtime will use. Successful imports alone do not verify this path.
 
+Forward the native grader's score, including zero. Preserve its handling of failed candidate
+solutions; additional checks on test counts or exit codes can reject valid native scores.
+Report infrastructure or integration failures as execution errors rather than assigning a score.
+
 Preserve the benchmark's primary metric when logging reward: the platform sums reward
 components using their weights, which default to 1. Record auxiliary scores with
 `client.trajectories.log_event(..., payload=...)` or
