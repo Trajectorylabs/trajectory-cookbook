@@ -278,8 +278,10 @@ Use the harness's dependency declarations and lockfile together. Add the SDK whi
 compatible locked versions and Git revisions, and review any required dependency changes.
 Install the system tools those dependencies need, such as Git for packages pinned to Git revisions.
 Freezing a freshly resolved environment pins those new versions; it does not preserve the harness's tested
-dependencies. Before building all task images, test a short model request through the same
-client and dependency set the runtime will use. Successful imports alone do not verify this path.
+dependencies. Build-time checks verify imports and tool availability. After registration and image
+readiness, test the actor client in a small managed run using that runtime's dependencies.
+A standalone model request does not test routing through the endpoint selected for a managed run;
+a model unavailable through standalone inference may still be available through that endpoint.
 Use the runtime entrypoint's plugin-loading sequence for prerequisite checks. An import
 failure in an unused helper does not establish that the configured runtime is blocked.
 
