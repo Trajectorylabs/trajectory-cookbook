@@ -53,7 +53,7 @@ tid = client.trajectories.create().tid
 response = client.chat.completions.create(
     model="openai/gpt-5.4-mini",
     messages=[{"role": "user", "content": prompt}],
-    extra_headers={"X-Trajectory-Id": tid},
+    x_trajectory_id=tid,
 )
 model_answer = response.choices[0].message.content
 ```
@@ -79,7 +79,7 @@ client.trajectories.complete(tid)
 from trajectory import Client
 client = Client()
 tid = client.trajectories.create().tid
-response = client.chat.completions.create(model="openai/gpt-5.4-mini", messages=[{"role": "user", "content": "What is 6 × 7?"}], extra_headers={"X-Trajectory-Id": tid})
+response = client.chat.completions.create(model="openai/gpt-5.4-mini", messages=[{"role": "user", "content": "What is 6 × 7?"}], x_trajectory_id=tid)
 reward = float(response.choices[0].message.content.strip() == "42")
 client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
 client.trajectories.complete(tid)

@@ -33,7 +33,7 @@ def main() -> None:
             max_tokens=2_048,
             temperature=1.0,
             top_p=0.95,
-            extra_headers={"X-Trajectory-Id": trajectory_id},
+            x_trajectory_id=trajectory_id,
         )
     except APIError:
         client.trajectories.complete(trajectory_id, termination_reason="ERROR")
