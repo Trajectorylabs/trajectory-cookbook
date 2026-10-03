@@ -308,8 +308,9 @@ Importing a root-filesystem archive does not retain the original entrypoint, use
 image settings. Use the original image build or transfer the image with
 [`docker save` / `docker load`](https://docs.docker.com/reference/cli/docker/image/load/).
 
-If the native harness builds and launches task containers itself, include its original
-Dockerfile and build context in the harness runtime and let it perform that build. Set
+If the native harness builds task containers itself, include its original Dockerfile and
+build context in the harness runtime and let it perform that build. For local Docker builds,
+image loads, or container runs, set
 `env_resources=EnvResources(docker_engine=True, network_mode="public")` on the task.
 The harness runtime must include the Docker daemon at `/usr/bin/dockerd`, the Docker CLI,
 and any plugins the harness uses, such as Compose. Enabling `docker_engine` starts the
