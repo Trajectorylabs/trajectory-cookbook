@@ -53,7 +53,9 @@ solver and tool implementations, prompts, stopping conditions, and model setting
 A managed Trajectory run selects the actor endpoint; keep the native model identifier
 where the harness uses it to configure behavior. Requests through that managed session use
 its actor endpoint even when `model` names another model. Give auxiliary judges and tools
-their own provider clients and credentials.
+their own provider clients and credentials. Do not pass the actor's
+`X-Trajectory-Id` to rubric, grading, or analysis calls: it routes those requests through
+the actor endpoint too.
 
 The options above affect this Inspect actor client. Preserve the effective configuration
 of auxiliary clients, such as an LLM judge or a question-answering tool. Resolve their
