@@ -296,6 +296,13 @@ Importing a root-filesystem archive does not retain the original entrypoint, use
 image settings. Use the original image build or transfer the image with
 [`docker save` / `docker load`](https://docs.docker.com/reference/cli/docker/image/load/).
 
+If the native harness builds and launches task containers itself, include its original
+Dockerfile and build context in the harness runtime and let it perform that build. Set
+`env_resources=EnvResources(docker_engine=True, network_mode="public")` on the task.
+The harness runtime must include the Docker daemon at `/usr/bin/dockerd`, the Docker CLI,
+and any plugins the harness uses, such as Compose. Enabling `docker_engine` starts the
+daemon; it does not install these dependencies or replace the native task environment.
+
 The current service limits are 4,096 uploaded files and 3 GiB per runtime build context.
 For many small files, create a compressed archive and extract it during the image build.
 Keep the unpacked source outside the context so it is not uploaded alongside the archive.
