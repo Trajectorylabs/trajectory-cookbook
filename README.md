@@ -165,6 +165,10 @@ client.secrets.create(
 `SecretRef` is a named pointer, not the secret value itself. In a `TaskSpec`,
 `SecretRef(secret_ref="OPENAI_API_KEY")` injects this organization secret at runtime.
 
+Managed task runtimes receive `TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL` automatically;
+use `Client()` inside the harness. Do not put `TRAJECTORY_*` names in `env_vars`, including
+through `SecretRef`. Use `SecretRef` for additional credentials the benchmark needs.
+
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 
 Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
@@ -308,9 +312,13 @@ Importing a root-filesystem archive does not retain the original entrypoint, use
 image settings. Use the original image build or transfer the image with
 [`docker save` / `docker load`](https://docs.docker.com/reference/cli/docker/image/load/).
 
-If the native harness builds task containers itself, include its original Dockerfile and
-build context in the harness runtime and let it perform that build. For local Docker builds,
-image loads, or container runs, set
+`BenchmarkSpec.runtime`, or a task's runtime override, is the image in which `run_command`
+executes. If the harness manages separate task containers, install the harness and its
+dependencies in this runtime, and include the original task Dockerfiles and build contexts
+as inputs to its existing build flow. Building those task Dockerfiles as stages of the
+harness image does not make their images available to the harness's Docker daemon.
+
+For local Docker builds, image loads, or container runs, set
 `env_resources=EnvResources(docker_engine=True, network_mode="public")` on the task.
 The harness runtime must include the Docker daemon at `/usr/bin/dockerd`, the Docker CLI,
 and any plugins the harness uses, such as Compose. Enabling `docker_engine` starts the
@@ -331,10 +339,9 @@ RUN mkdir -p /opt/benchmark \
     && rm /tmp/tasks.tar.gz
 ```
 
-Include the harness and its dependencies in the runtime. If tasks call external services,
-set `env_resources=EnvResources(network_mode="public")` on the task and supply credentials
-through `SecretRef`. Import `EnvResources` from `trajectory.types.benchmarks.task_spec`.
-Test task execution and grading after the image builds.
+If tasks call external services, set `env_resources=EnvResources(network_mode="public")`
+on the task and supply credentials through `SecretRef`. Import `EnvResources` from
+`trajectory.types.benchmarks.task_spec`. Test task execution and grading after the image builds.
 
 ## Examples
 
