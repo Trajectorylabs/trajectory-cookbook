@@ -60,7 +60,9 @@ the actor endpoint too.
 The options above affect this Inspect actor client. Preserve the effective configuration
 of auxiliary clients, such as an LLM judge or a question-answering tool. Resolve their
 models and settings through the native entrypoint, including any defaults inherited from
-the actor model. Optional configuration examples in a README are not default settings.
+the actor model. Leave optional model and tool overrides unset unless the benchmark already
+sets them; SDK wiring does not require choosing replacement models. Optional configuration
+examples in a README are not default settings.
 Avoid changing process-wide `OPENAI_API_KEY` or `OPENAI_BASE_URL` to redirect the actor:
 those variables may also configure auxiliary clients.
 
