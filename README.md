@@ -73,6 +73,12 @@ client.trajectories.log_reward(
 client.trajectories.complete(tid)
 ```
 
+When adapting a harness, pass its outcome as `termination_reason` to `complete`.
+Use `ENV_DONE` for normal completion; preserve outcomes such as `MAX_STEPS`,
+`TIMEOUT`, or `ERROR` when they occur. A recorded reward does not mean the task
+finished normally. Preserve a score the native grader actually produced; do not
+turn an execution or grading exception into a zero reward.
+
 #### Run your benchmark and see the result
 
 ```python
@@ -104,6 +110,11 @@ TaskSpec(
     tags=["gsm8k"],
 )
 ```
+
+If your harness starts a separate container or remote sandbox, deliver the task’s input files
+and attachments there before the actor starts, preserving their contents and expected paths.
+Packaging files in the harness image does not make them available in that environment. Verify
+input access through the actor’s tools; keep private answers and grading material out of reach.
 
 Package the tasks and runtime, upload the benchmark, and wait for its runtime image to become
 ready:
