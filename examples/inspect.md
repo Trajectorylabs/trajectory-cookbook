@@ -54,10 +54,12 @@ where the harness uses it to configure behavior. Requests through that managed s
 its actor endpoint even when `model` names another model. Give auxiliary judges and tools
 their own provider clients and credentials.
 
-The options above affect this Inspect actor client. Leave auxiliary clients, such as
-an LLM judge or a question-answering tool, configured as the benchmark specifies. Avoid
-changing process-wide `OPENAI_API_KEY` or `OPENAI_BASE_URL` to redirect the actor: those
-variables may also configure auxiliary clients.
+The options above affect this Inspect actor client. Preserve the effective configuration
+of auxiliary clients, such as an LLM judge or a question-answering tool. Resolve their
+models and settings through the native entrypoint, including any defaults inherited from
+the actor model. Optional configuration examples in a README are not default settings.
+Avoid changing process-wide `OPENAI_API_KEY` or `OPENAI_BASE_URL` to redirect the actor:
+those variables may also configure auxiliary clients.
 
 Use provider credentials that remain valid when the task runs. A temporary model proxy
 used by the agent preparing the dataset may expire with that agent's session or allow
