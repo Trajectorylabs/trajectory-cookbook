@@ -260,6 +260,13 @@ complete the trajectory. Putting a grader description in `TaskSpec.spec` does no
 See the [Harvey LAB](examples/harvey_labs.md) and
 [Big Finance Benchmark](examples/big_finance_benchmark.md) integrations for examples.
 
+Preserve the benchmark's primary metric when logging reward: the platform sums reward
+components using their weights, which default to 1. Record auxiliary scores with
+`client.trajectories.log_event(..., payload=...)` or
+`client.trajectories.log_reward(..., weight=0)` unless the benchmark intentionally includes
+them in its combined reward. Save grading evidence and original error details as trajectory
+events or artifacts before completing the trajectory and cleaning up its environment.
+
 The SDK uploads the files under each Dockerfile's directory, filtered by `.dockerignore`
 at the benchmark root. It does not select files by reading `COPY` statements. A Dockerfile
 at the repository root therefore includes the whole checkout unless files are excluded.
