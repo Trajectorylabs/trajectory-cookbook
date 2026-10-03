@@ -367,7 +367,7 @@ Check required executables during the image build so missing tools fail before t
 For a harness that uses Compose:
 
 ```dockerfile
-RUN test -x /usr/bin/dockerd && docker --version && docker compose version
+RUN /usr/bin/dockerd --version && docker --version && docker compose version
 ```
 
 Then run the harness's prerequisite checks inside a task runtime before a full evaluation.
