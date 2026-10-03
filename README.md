@@ -285,9 +285,11 @@ benchmark = BenchmarkSpec(
 ```
 
 Each `runtimes/<task-id>/` directory must contain the files its Dockerfile needs, including
-that task's inputs and grading assets. Supply shared harness code and dependencies through
-a common base image or include them in each context. Preserve the native harness's directory
-layout and behavior; copying the entire task collection into every runtime is not required.
+that task's inputs. Keep private answers and hidden tests in the grader's protected environment,
+inaccessible to the solving agent and its tools. Preserve the native separation between solver
+and grader. Supply shared harness code and dependencies through a common base image or include
+them in each context. Preserve the native harness's directory layout and behavior; copying the
+entire task collection into every runtime is not required.
 The SDK uploads shared file paths once per submission, but it does not automatically separate
 one task's files from another's.
 
