@@ -3,6 +3,8 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
+To connect your own harness, start with [runtime packaging](#package-a-benchmark-runtime).
+
 ## Setup
 
 Install the latest SDK and authenticate:
@@ -274,6 +276,7 @@ See the [Harvey LAB](examples/harvey_labs.md) and
 
 Use the harness's dependency declarations and lockfile together. Add the SDK while retaining
 compatible locked versions and Git revisions, and review any required dependency changes.
+Install the system tools those dependencies need, such as Git for packages pinned to Git revisions.
 Freezing a freshly resolved environment pins those new versions; it does not preserve the harness's tested
 dependencies. Before building all task images, test a short model request through the same
 client and dependency set the runtime will use. Successful imports alone do not verify this path.
