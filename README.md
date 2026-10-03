@@ -111,6 +111,11 @@ TaskSpec(
 )
 ```
 
+If your harness starts a separate container or remote sandbox, deliver the task’s input files
+and attachments there before the actor starts, preserving their contents and expected paths.
+Packaging files in the harness image does not make them available in that environment. Verify
+input access through the actor’s tools; keep private answers and grading material out of reach.
+
 Package the tasks and runtime, upload the benchmark, and wait for its runtime image to become
 ready:
 
