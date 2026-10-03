@@ -11,7 +11,7 @@ from pathlib import Path
 
 import httpx
 from trajectory import BenchmarkSpec, Client, TaskSpec
-from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
+from trajectory.lib import DockerfileBuild, start_push
 
 _RUNTIME_SOURCE = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
@@ -55,18 +55,18 @@ def ingest(name: str, agent_id: str, skip_build: bool) -> str:
     with tempfile.TemporaryDirectory(prefix="gsm8k-benchmark-") as directory:
         package_root = Path(directory)
         _stage_runtime(rows, package_root)
-        result = push(
-            client, build_benchmark(rows, name), agent_id=agent_id, root=package_root
+        operation = start_push(
+            client,
+            build_benchmark(rows, name),
+            agent_id=agent_id,
+            root=package_root,
+            build_images=not skip_build,
         )
     print(f"agent_id={agent_id}", flush=True)
-    print(f"bench_id={result.bench_id}", flush=True)
-    if not skip_build:
-        wait_for_benchmark_images(
-            client,
-            result.bench_id,
-            timeout_seconds=_BUILD_TIMEOUT_SECONDS,
-        )
-    return result.bench_id
+    print(f"operation_id={operation.id}", flush=True)
+    result = operation.result(timeout=_BUILD_TIMEOUT_SECONDS)
+    print(f"bench_id={result.status.bench_id}", flush=True)
+    return result.status.bench_id
 
 
 def _load_rows(split: str, limit: int) -> list[dict]:
