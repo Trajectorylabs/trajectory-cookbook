@@ -50,7 +50,9 @@ error or missing score.
 Pass these transport options through any wrapper around `eval_async`. Keep the native
 solver and tool implementations, prompts, stopping conditions, and model settings.
 A managed Trajectory run selects the actor endpoint; keep the native model identifier
-where the harness uses it to configure behavior.
+where the harness uses it to configure behavior. Requests through that managed session use
+its actor endpoint even when `model` names another model. Give auxiliary judges and tools
+their own provider clients and credentials.
 
 The options above affect this Inspect actor client. Leave auxiliary clients, such as
 an LLM judge or a question-answering tool, configured as the benchmark specifies. Avoid
