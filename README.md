@@ -73,6 +73,12 @@ client.trajectories.log_reward(
 client.trajectories.complete(tid)
 ```
 
+When adapting a harness, pass its outcome as `termination_reason` to `complete`.
+Use `ENV_DONE` for normal completion; preserve outcomes such as `MAX_STEPS`,
+`TIMEOUT`, or `ERROR` when they occur. A recorded reward does not mean the task
+finished normally. Preserve a score the native grader actually produced; do not
+turn an execution or grading exception into a zero reward.
+
 #### Run your benchmark and see the result
 
 ```python
