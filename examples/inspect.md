@@ -41,6 +41,13 @@ client.trajectories.log_reward(
 client.trajectories.complete(tid)
 ```
 
+Inspect can retry model errors after its client has stopped retrying. When connecting a
+provider, make its `should_retry` hook return `False` for an `APIStatusError` whose
+`response.headers` contains `x-should-retry: false`; otherwise use the provider's existing
+retry policy. Preserve response headers when translating SDK exceptions. Retrying solely
+because the HTTP status is 5xx can keep a non-retryable failure running until the sample
+timeout.
+
 Report the native scorer's value, including zero. For labels or multiple components,
 preserve the benchmark's defined conversion and weighting. Logged reward components are
 summed with their weights; record diagnostic scores using `client.trajectories.log_event(...)`
