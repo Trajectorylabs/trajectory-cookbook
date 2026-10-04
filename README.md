@@ -372,6 +372,9 @@ The harness runtime must include the Docker daemon at `/usr/bin/dockerd`, the Do
 and any plugins the harness uses, such as Compose. Enabling `docker_engine` starts the
 daemon; it does not install these dependencies or replace the native task environment.
 Use the versions required by your harness, including its CLI and plugin requirements.
+Install the engine with its operating-system dependencies; copying Docker binaries alone
+is not a complete installation. On Debian-based images, include `kmod` and `iproute2`
+for module and network utilities, and preserve helper scripts' installation paths.
 Check required executables during the image build so missing tools fail before task execution.
 For a harness that uses Compose:
 
