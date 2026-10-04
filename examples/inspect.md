@@ -48,6 +48,10 @@ retry policy. Preserve response headers when translating SDK exceptions. Retryin
 because the HTTP status is 5xx can keep a non-retryable failure running until the sample
 timeout.
 
+If you subclass an Inspect provider, [register it with `@modelapi`](https://inspect.aisi.org.uk/extensions-model-api.html)
+and obtain the model through `get_model(...)`. Check `str(model)` locally before
+launching an evaluation: an unregistered provider fails during Inspect’s evaluation setup.
+
 Report the native scorer's value, including zero. For labels or multiple components,
 preserve the benchmark's defined conversion and weighting. Logged reward components are
 summed with their weights; record diagnostic scores using `client.trajectories.log_event(...)`
