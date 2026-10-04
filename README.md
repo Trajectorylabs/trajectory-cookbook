@@ -73,6 +73,11 @@ client.trajectories.log_reward(
 client.trajectories.complete(tid)
 ```
 
+In managed task runtimes, `Client()` routes model calls to the actor selected for evaluation
+or training, even if the request names a different model. Use it for the actor. Keep LLM
+judges and other auxiliary model clients on their configured providers and credentials;
+routing them through the actor client changes which model performs those calls.
+
 When adapting a harness, pass its outcome as `termination_reason` to `complete`.
 Use `ENV_DONE` for normal completion; preserve outcomes such as `MAX_STEPS`,
 `TIMEOUT`, or `ERROR` when they occur. A recorded reward does not mean the task
