@@ -41,6 +41,11 @@ from trajectory import Client
 client = Client()
 ```
 
+If your harness also retries model calls, make its retry hook honor
+`x-should-retry: false` in the error response headers, then use its existing policy for
+other errors. Preserve the status, headers, and body when translating SDK exceptions.
+Retrying every 5xx response can keep a non-retryable failure running until the task times out.
+
 #### Create a TID when a task starts
 
 Create one trajectory for each task and keep its ID for the full task lifecycle.
