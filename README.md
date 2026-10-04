@@ -4,6 +4,8 @@ Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
 To connect your own harness, start with [runtime packaging](#package-a-benchmark-runtime).
+For Inspect benchmarks, see [actor-client integration](examples/inspect.md), including
+provider registration and separate credentials for auxiliary models.
 
 ## Setup
 
