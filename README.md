@@ -78,6 +78,9 @@ or training, even if the request names a different model. Use it for the actor. 
 judges and other auxiliary model clients on their configured providers and credentials;
 routing them through the actor client changes which model performs those calls.
 
+SDK responses are Pydantic models. If your harness validates responses with another library’s
+model class, pass `response.model_dump()` to that validator rather than the SDK object.
+
 When adapting a harness, pass its outcome as `termination_reason` to `complete`.
 Use `ENV_DONE` for normal completion; preserve outcomes such as `MAX_STEPS`,
 `TIMEOUT`, or `ERROR` when they occur. A recorded reward does not mean the task
