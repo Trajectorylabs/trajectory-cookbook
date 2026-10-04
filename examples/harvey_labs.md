@@ -9,7 +9,7 @@ Use this pattern when a benchmark already owns its task lifecycle and evaluation
 adapter only needs to connect that lifecycle to a Trajectory session:
 
 1. Create one trajectory when a task starts.
-2. Forward every model request with the same trajectory ID.
+2. Forward the solving agent's model requests with the same trajectory ID.
 3. Run the benchmark's original judge after the agent loop.
 4. Log the resulting reward and complete the trajectory.
 
@@ -30,6 +30,9 @@ Each task runs the original harness through the Trajectory-backed model adapter.
 are supplied by the platform and are not stored in the benchmark source:
 
 ```python
+from trajectory import SecretRef, TaskSpec
+from trajectory.types.benchmarks.task_spec import EnvResources
+
 TaskSpec(
     name=task,
     split="test" if task in test_tasks else "train",
