@@ -295,6 +295,7 @@ Call `client.trajectories.log_reward(...)` with the computed native reward, then
 not complete the trajectory. Preserve the native outcome in `termination_reason`: use
 `ENV_DONE` for normal completion, or `MAX_STEPS`, `TIMEOUT` or `ERROR` when applicable.
 A reward may exist even when the task did not finish normally.
+Complete exception paths with the native failure reason before re-raising the original exception.
 
 Forward the native grader's score, including zero, and preserve its handling of failed
 candidate solutions. Additional checks on test counts or exit codes can reject valid native
