@@ -247,6 +247,8 @@ print(response.choices[0].message.content)
 
 ## Examples
 
+- [Diagnostic artifacts](examples/diagnostic_artifacts.md): retain full test reports and logs alongside trajectory events.
+
 When adapting an existing benchmark, read the cookbook recipe together with its complete public
 implementation PR:
 
