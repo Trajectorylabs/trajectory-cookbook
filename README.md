@@ -64,6 +64,9 @@ model_answer = response.choices[0].message.content
 
 Pass the same TID when the benchmark calculates reward, then mark the task complete.
 
+Keep full test reports and logs in [trajectory artifacts](examples/diagnostic_artifacts.md).
+Use `log_event` for short summaries and artifact IDs; finish uploads before completing the trajectory.
+
 ```python
 reward = float(check_answer(model_answer, expected_answer))
 client.trajectories.log_reward(
