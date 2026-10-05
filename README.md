@@ -161,7 +161,32 @@ client.secrets.create(
 `SecretRef` is a named pointer, not the secret value itself. In a `TaskSpec`,
 `SecretRef(secret_ref="OPENAI_API_KEY")` injects this organization secret at runtime.
 
-### 3. Evaluate, train, and compare on the Trajectory Platform
+### 3. Diagnose a task or benchmark
+
+Use [the diagnostics example](examples/diagnostics.py) to check a task's runtime and
+harness before starting an evaluation or training run. This command submits one T Factory
+task, uploads its local Dockerfile and harness, builds the runtime, and runs the diagnostic:
+
+```bash
+uv run examples/diagnostics.py task --agent-id YOUR_AGENT_ID
+```
+
+The SDK's `start_task_diagnostic(client, task, agent_id=..., root=...)` helper handles
+`/diagnostics/task/ingest`, waits for the image, and calls `/diagnostics/task/run`. The
+internal one-task benchmark ID stays out of the user flow. You can replace the example's
+`TaskSpec`, Dockerfile, and harness with your own files.
+
+To diagnose an existing uploaded benchmark, start its run directly:
+
+```bash
+uv run examples/diagnostics.py benchmark --bench-id YOUR_BENCHMARK_ID
+```
+
+Both paths poll `client.diagnostics.get_status(...)` until the run finishes and then call
+`client.diagnostics.get_diagnostics(...)` to print task outcomes and failure reasons. Check
+both the run failure and individual task failures before proceeding.
+
+### 4. Evaluate, train, and compare on the Trajectory Platform
 
 Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
 same `options` schema. Discover the supported settings and bounds for each mode:
@@ -221,7 +246,7 @@ final = client.evals.create(
 )
 ```
 
-### 4. Deploy and query the trained checkpoint
+### 5. Deploy and query the trained checkpoint
 
 Deploy the final checkpoint through Model Endpoint. A production deployment becomes the active
 deployment for its model slug:
