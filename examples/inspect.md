@@ -10,35 +10,59 @@ also change how the harness interprets its configuration.
 
 At the call below, `task` is your existing Inspect task with one sample, `model` is its
 configured model, and `eval_options` contains its existing evaluation settings. Replace
-`accuracy` with your scorer's name. If you already supply `model_args`, preserve its
-non-transport options when adding the credentials and header.
+`accuracy` with your scorer's name. This example uses Inspect's standard scalar score
+conversion (`C` → 1, `I` → 0, `P` → 0.5, `N` → 0). For custom labels or multiple
+components, use the benchmark's own conversion and weighting instead. If you already
+supply `model_args`, preserve its non-transport options when adding credentials and headers.
 
 ```python
+import logging
+import math
+
 from inspect_ai import eval_async
+from inspect_ai.scorer import value_to_float
 from trajectory import Client
 
 client = Client()
 tid = client.trajectories.create().tid
-logs = await eval_async(
-    task,
-    model=model,
-    model_base_url=f"{str(client.base_url).rstrip('/')}/v1",
-    model_args={
-        "api_key": client.api_key,
-        "default_headers": {"X-Trajectory-Id": tid},
-    },
-    **eval_options,
-)
-if len(logs) != 1 or logs[0].status != "success":
-    raise RuntimeError("Inspect did not complete successfully")
-samples = logs[0].samples
-if samples is None or len(samples) != 1 or samples[0].error is not None:
-    raise RuntimeError("Expected one completed Inspect sample")
-reward = float(samples[0].scores["accuracy"].value)
-client.trajectories.log_reward(
-    tid, reward_id="accuracy", name="reward_accuracy", value=reward,
-)
-client.trajectories.complete(tid)
+try:
+    logs = await eval_async(
+        task,
+        model=model,
+        model_base_url=f"{str(client.base_url).rstrip('/')}/v1",
+        model_args={
+            "api_key": client.api_key,
+            "default_headers": {"X-Trajectory-Id": tid},
+        },
+        **eval_options,
+    )
+    if len(logs) != 1 or logs[0].status != "success":
+        raise RuntimeError("Inspect did not complete successfully")
+    samples = logs[0].samples
+    if samples is None or len(samples) != 1 or samples[0].error is not None:
+        raise RuntimeError("Expected one completed Inspect sample")
+    value = samples[0].scores["accuracy"].value
+    if not isinstance(value, (str, int, float)):
+        raise ValueError("Use the benchmark's conversion for structured scores")
+    if (
+        isinstance(value, str)
+        and value not in {"C", "I", "P", "N"}
+        and value.lower() not in {"yes", "no", "true", "false"}
+    ):
+        value = float(value)  # Reject unknown labels instead of silently recording zero.
+    reward = value_to_float()(value)
+    if not math.isfinite(reward):
+        raise ValueError("Inspect did not produce a finite score")
+    client.trajectories.log_reward(
+        tid, reward_id="accuracy", name="reward_accuracy", value=reward,
+    )
+    client.trajectories.complete(tid)
+except Exception:
+    try:
+        client.trajectories.complete(tid, termination_reason="ERROR")
+    except Exception:
+        logging.exception("Failed to report trajectory failure")
+    raise
 ```
 
 Inspect can retry model errors after its client has stopped retrying. When connecting a
