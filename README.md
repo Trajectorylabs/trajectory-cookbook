@@ -395,6 +395,10 @@ backend can use the daemon below; an external sandbox backend needs its own cred
 Trajectory does not pass infrastructure credentials into the runtime. Preserve native task
 and grading behavior whichever backend you use.
 
+Preserve the selected native execution command and its effective settings, including solver
+limits. Check defaults at the entrypoint you actually run; README examples and underlying
+library defaults can differ. Record intentional overrides so evaluation results remain comparable.
+
 ### Run native Docker environments
 
 For local Docker builds, image loads or container runs, set
