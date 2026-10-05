@@ -261,6 +261,8 @@ implementation PR:
   while retaining its original harness, judge, and nested Podman sandbox.
 - [T Factory](examples/t_factory/README.md): train, deploy, and query a model rewarded for using
   words beginning with `T`.
+- [Number guessing](examples/number_guessing/README.md): guess a fake user's number with
+  same-model context compaction every three guesses and an efficiency reward.
 
 ## Repository layout
 
@@ -269,7 +271,8 @@ examples/
 ├── big_finance_benchmark.md  # Existing ReAct harness and rubric grader
 ├── gsm8k/          # Exact-match math through submit_answer
 ├── harvey_labs.md  # Existing harness integration with nested Podman
-└── t_factory/      # Maximize the fraction of words beginning with T
+├── t_factory/      # Maximize the fraction of words beginning with T
+└── number_guessing/ # Same-model compaction and a two-number training distribution
 ```
 
 ## Beta testing and support
