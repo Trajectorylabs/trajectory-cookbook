@@ -2,7 +2,8 @@
 
 Use `log_event` for structured summaries. Store full test logs, reports, or harness transcripts
 as artifacts, then include the artifact ID in an event. Events and rewards are separate: record
-the native grader's score with `log_reward`.
+the native grader's score with `log_reward`. Keep diagnostic-upload failures distinct from
+native execution or grading failures: retain the computed reward and report the upload error.
 
 The serialized event name and payload must fit within 10 MiB. An artifact can contain up to
 16 MiB; compress larger text reports or split them into files before uploading.

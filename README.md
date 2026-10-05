@@ -304,8 +304,10 @@ paths with the failure reason before re-raising the original exception.
 
 Forward the native grader's score, including zero, and preserve its handling of failed
 candidate solutions. Additional checks on test counts or exit codes can reject valid native
-scores. Report infrastructure, integration or grading exceptions as errors rather than
-substituting a zero reward.
+scores. Preserve the native distinction between required grading and optional auxiliary
+results: an absent auxiliary score must not suppress a valid native reward unless the
+benchmark requires it. Report failures of required execution or grading as errors rather
+than substituting a zero reward.
 
 The platform sums reward components using their weights, which default to 1. Preserve the
 benchmark's defined conversion and weighting. Record auxiliary scores with
