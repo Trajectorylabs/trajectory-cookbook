@@ -1,39 +1,21 @@
 # /// script
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Diagnose one task or an already uploaded benchmark through the Trajectory SDK."""
+"""Diagnose one local task or an already uploaded benchmark."""
 
 import argparse
 import time
+from pathlib import Path
 
 from trajectory import Client, TaskSpec
-from trajectory.lib import ImageRef, RuntimeRef
+from trajectory.lib import DockerfileBuild, start_task_diagnostic
 
 _POLL_SECONDS = 5
 _TIMEOUT_SECONDS = 45 * 60
+_T_FACTORY_ROOT = Path(__file__).parent / "t_factory"
 
 
-def wait_for_images(client: Client, bench_id: str, timeout_seconds: int) -> None:
-    deadline = time.monotonic() + timeout_seconds
-    while True:
-        images = client.benchmarks.images.list(bench_id)
-        failed = [image for image in images.images if image.build_status == "failed"]
-        if failed:
-            raise RuntimeError(
-                f"Image build failed: {[image.failure_message for image in failed]}"
-            )
-        if images.images and all(image.build_status == "ready" for image in images.images):
-            return
-        if time.monotonic() >= deadline:
-            raise TimeoutError(f"Image build timed out for {bench_id}")
-        time.sleep(_POLL_SECONDS)
-
-
-def diagnose_benchmark(client: Client, bench_id: str, timeout_seconds: int) -> None:
-    started = client.diagnostics.start_benchmark(bench_id=bench_id)
-    diagnostic_id = started.benchmark_diagnostic_id
-    print(f"benchmark_diagnostic_id={diagnostic_id}", flush=True)
-
+def print_report(client: Client, diagnostic_id: str, timeout_seconds: int) -> None:
     deadline = time.monotonic() + timeout_seconds
     while True:
         status = client.diagnostics.get_status(diagnostic_id)
@@ -56,13 +38,9 @@ def main() -> None:
     parser.add_argument("--timeout-seconds", type=int, default=_TIMEOUT_SECONDS)
     modes = parser.add_subparsers(dest="mode", required=True)
 
-    task = modes.add_parser("task", help="Ingest and diagnose one task")
+    task = modes.add_parser("task", help="Upload, build, and diagnose one local task")
     task.add_argument("--agent-id", required=True)
-    runtime = task.add_mutually_exclusive_group(required=True)
-    runtime.add_argument("--image-ref", help="Existing image pinned to a digest")
-    runtime.add_argument("--runtime-id", help="Registered runtime in your organization")
-    task.add_argument("--run-command", required=True)
-    task.add_argument("--task-name", default="diagnostic-task")
+    task.add_argument("--prompt", default="Describe playing music in a friendly way.")
 
     benchmark = modes.add_parser("benchmark", help="Diagnose an uploaded benchmark")
     benchmark.add_argument("--bench-id", required=True)
@@ -71,19 +49,25 @@ def main() -> None:
     client = Client()
     if args.mode == "task":
         spec = TaskSpec(
-            name=args.task_name,
+            name="t-factory/diagnostic",
             split="test",
-            runtime=ImageRef(args.image_ref) if args.image_ref else RuntimeRef(args.runtime_id),
-            run_command=args.run_command,
+            runtime=DockerfileBuild("runtime/Dockerfile"),
+            run_command="python -u /opt/t_factory/t_factory_harness.py",
+            env_vars={"USER_PROMPT": args.prompt},
         )
-        images = client.diagnostics.ingest_task(agent_id=args.agent_id, task=spec)
-        print(f"bench_id={images.bench_id}", flush=True)
-        wait_for_images(client, images.bench_id, args.timeout_seconds)
-        bench_id = images.bench_id
+        started = start_task_diagnostic(
+            client,
+            spec,
+            agent_id=args.agent_id,
+            root=_T_FACTORY_ROOT,
+            timeout_seconds=args.timeout_seconds,
+        )
     else:
-        bench_id = args.bench_id
+        started = client.diagnostics.start_benchmark(bench_id=args.bench_id)
 
-    diagnose_benchmark(client, bench_id, args.timeout_seconds)
+    diagnostic_id = started.benchmark_diagnostic_id
+    print(f"benchmark_diagnostic_id={diagnostic_id}", flush=True)
+    print_report(client, diagnostic_id, args.timeout_seconds)
 
 
 if __name__ == "__main__":
