@@ -7,7 +7,7 @@ import argparse
 import time
 
 from trajectory import Client, TaskSpec
-from trajectory.lib import RuntimeRef
+from trajectory.lib import ImageRef, RuntimeRef
 
 _POLL_SECONDS = 5
 _TIMEOUT_SECONDS = 45 * 60
@@ -58,7 +58,9 @@ def main() -> None:
 
     task = modes.add_parser("task", help="Ingest and diagnose one task")
     task.add_argument("--agent-id", required=True)
-    task.add_argument("--runtime-id", required=True)
+    runtime = task.add_mutually_exclusive_group(required=True)
+    runtime.add_argument("--image-ref", help="Existing image pinned to a digest")
+    runtime.add_argument("--runtime-id", help="Registered runtime in your organization")
     task.add_argument("--run-command", required=True)
     task.add_argument("--task-name", default="diagnostic-task")
 
@@ -71,7 +73,7 @@ def main() -> None:
         spec = TaskSpec(
             name=args.task_name,
             split="test",
-            runtime=RuntimeRef(args.runtime_id),
+            runtime=ImageRef(args.image_ref) if args.image_ref else RuntimeRef(args.runtime_id),
             run_command=args.run_command,
         )
         images = client.diagnostics.ingest_task(agent_id=args.agent_id, task=spec)

@@ -164,21 +164,22 @@ client.secrets.create(
 ### 3. Diagnose a task or benchmark
 
 Use [the diagnostics example](examples/diagnostics.py) to check that a task's runtime and
-harness work before starting an evaluation or training run. To diagnose one task, provide an
-existing runtime ID and a command that exists in that runtime:
+harness work before starting an evaluation or training run. To diagnose one task, provide a
+published image and a command that exists in that image:
 
 ```bash
 uv run examples/diagnostics.py task \
   --agent-id YOUR_AGENT_ID \
-  --runtime-id YOUR_RUNTIME_ID \
+  --image-ref registry.example.com/gsm8k@sha256:YOUR_IMAGE_DIGEST \
   --run-command 'python -u /opt/gsm8k/gsm8k_harness.py --task-file /opt/gsm8k/tasks/test_0001.json'
 ```
 
 The script calls `client.diagnostics.ingest_task(agent_id=..., task=...)`, waits for the returned
 one-task benchmark's image to become ready, then calls
 `client.diagnostics.start_benchmark(bench_id=...)`. A task diagnostic needs an existing
-runtime or image reference; it cannot upload a local Dockerfile. For a local Dockerfile, upload
-and build the benchmark first, then diagnose its benchmark ID:
+runtime or image reference. Pass `--runtime-id YOUR_RUNTIME_ID` instead of `--image-ref` if
+the runtime is already registered in your organization. The task endpoint cannot upload a local
+Dockerfile; for that case, upload and build the benchmark first, then diagnose its benchmark ID:
 
 ```bash
 uv run examples/diagnostics.py benchmark --bench-id YOUR_BENCHMARK_ID
