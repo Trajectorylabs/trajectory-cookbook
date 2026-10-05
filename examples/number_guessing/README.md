@@ -117,6 +117,13 @@ The terminal correct feedback is determined by the environment; no further model
 call is needed. If still unsolved after guesses 6 or 9, the harness compacts again
 using the previous summary plus the new messages.
 
+Guessing calls allow 8,192 output tokens and compaction calls allow 32,768. Set
+the platform's per-step output budget to at least 32,768 as well, so it does not
+override the harness with a smaller limit. These are ceilings, not requested
+response lengths: the model should still output one integer for each guess and
+a short summary for compaction. Inspect `finish_reason` in recorded trajectories
+to check for output truncation.
+
 The harness owns the secret, total guess count, and compaction schedule. It does
 not compute or repair the model's summary. A summary that drops or corrupts a
 bound therefore affects subsequent guesses and the final reward.
@@ -155,7 +162,7 @@ print(client.evals.list_options(bench_id=bench_id, base_model_slug=model))
 options = {
     "disable_thinking": True,
     "max_turns_per_trajectory": 15,
-    "max_output_tokens_per_step": 256,
+    "max_output_tokens_per_step": 32_768,
 }
 baseline = client.evals.create(
     bench_id=bench_id,

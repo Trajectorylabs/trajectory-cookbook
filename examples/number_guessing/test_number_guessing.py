@@ -48,6 +48,8 @@ def test_compaction_replaces_history_and_does_not_count_as_guess():
         for call in client.calls
     )
     assert client.calls[3]["messages"][0]["content"] == harness.COMPACT_PROMPT
+    assert client.calls[3]["max_tokens"] == 32_768
+    assert client.calls[4]["max_tokens"] == 8_192
     assert "user: Higher." in client.calls[3]["messages"][1]["content"]
     assert client.calls[4]["messages"] == [
         {"role": "system", "content": harness.GUESS_PROMPT},

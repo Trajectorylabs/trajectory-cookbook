@@ -18,6 +18,8 @@ COMPACT_PROMPT = (
 )
 COMPACT_EVERY = 3
 MAX_GUESSES = 12
+GUESS_MAX_TOKENS = 8_192
+COMPACT_MAX_TOKENS = 32_768
 
 
 def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
@@ -32,7 +34,7 @@ def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": GUESS_PROMPT}, *history],
-            max_tokens=32,
+            max_tokens=GUESS_MAX_TOKENS,
             temperature=1.0,
             x_trajectory_id=tid,
         )
@@ -69,7 +71,7 @@ def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
                         ),
                     },
                 ],
-                max_tokens=256,
+                max_tokens=COMPACT_MAX_TOKENS,
                 temperature=1.0,
                 x_trajectory_id=tid,  # Compaction belongs to the same trajectory.
             )
