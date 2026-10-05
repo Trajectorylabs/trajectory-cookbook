@@ -161,7 +161,34 @@ client.secrets.create(
 `SecretRef` is a named pointer, not the secret value itself. In a `TaskSpec`,
 `SecretRef(secret_ref="OPENAI_API_KEY")` injects this organization secret at runtime.
 
-### 3. Evaluate, train, and compare on the Trajectory Platform
+### 3. Diagnose a task or benchmark
+
+Use [the diagnostics example](examples/diagnostics.py) to check that a task's runtime and
+harness work before starting an evaluation or training run. To diagnose one task, provide an
+existing runtime ID and a command that exists in that runtime:
+
+```bash
+uv run examples/diagnostics.py task \
+  --agent-id YOUR_AGENT_ID \
+  --runtime-id YOUR_RUNTIME_ID \
+  --run-command 'python -u /opt/gsm8k/gsm8k_harness.py --task-file /opt/gsm8k/tasks/test_0001.json'
+```
+
+The script calls `client.diagnostics.ingest_task(agent_id=..., task=...)`, waits for the returned
+one-task benchmark's image to become ready, then calls
+`client.diagnostics.start_benchmark(bench_id=...)`. A task diagnostic needs an existing
+runtime or image reference; it cannot upload a local Dockerfile. For a local Dockerfile, upload
+and build the benchmark first, then diagnose its benchmark ID:
+
+```bash
+uv run examples/diagnostics.py benchmark --bench-id YOUR_BENCHMARK_ID
+```
+
+Both paths poll `client.diagnostics.get_status(...)` until the run finishes and then call
+`client.diagnostics.get_diagnostics(...)` to print task outcomes and failure reasons. Check
+both the run failure and individual task failures before proceeding.
+
+### 4. Evaluate, train, and compare on the Trajectory Platform
 
 Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
 same `options` schema. Discover the supported settings and bounds for each mode:
@@ -221,7 +248,7 @@ final = client.evals.create(
 )
 ```
 
-### 4. Deploy and query the trained checkpoint
+### 5. Deploy and query the trained checkpoint
 
 Deploy the final checkpoint through Model Endpoint. A production deployment becomes the active
 deployment for its model slug:
