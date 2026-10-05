@@ -292,10 +292,15 @@ non-retryable failure running until the task times out.
 
 Call `client.trajectories.log_reward(...)` with the computed native reward, then
 `client.trajectories.complete(...)` with the same trajectory ID. Exiting the process does
-not complete the trajectory. Preserve the native outcome in `termination_reason`: use
-`ENV_DONE` for normal completion, or `MAX_STEPS`, `TIMEOUT` or `ERROR` when applicable.
-A reward may exist even when the task did not finish normally.
-Complete exception paths with the native failure reason before re-raising the original exception.
+not complete the trajectory. Set `termination_reason` from the outcome of the whole
+solve-and-grade operation. Use `ENV_DONE` when the benchmark completes normally. If its
+solver reaches a native stopping limit and the benchmark still completes grading normally,
+record that inner limit as diagnostic metadata, preserving the outer operation's outcome.
+
+Use the corresponding termination reason when the trajectory itself stops early or fails.
+`MAX_STEPS`, `LIMIT_REACHED` and `TRUNCATION` cap positive evaluation rewards at zero,
+even if a raw reward was logged. Platform-enforced limits still apply. Complete exception
+paths with the failure reason before re-raising the original exception.
 
 Forward the native grader's score, including zero, and preserve its handling of failed
 candidate solutions. Additional checks on test counts or exit codes can reject valid native
