@@ -185,6 +185,9 @@ through `SecretRef`. Use `SecretRef` for additional credentials the benchmark ne
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 
+If an evaluation fails, [find its trajectories and native diagnostics](examples/diagnostic_artifacts.md#find-diagnostics-for-a-failed-evaluation).
+Reward listings omit attempts that failed without a grade.
+
 Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
 same `options` schema. Discover the supported settings and bounds for each mode:
 
