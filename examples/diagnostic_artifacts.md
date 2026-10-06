@@ -1,15 +1,14 @@
 # Keep diagnostic files with a trajectory
 
-Use `log_event` for structured summaries. Store full test logs, reports, or harness transcripts
-as artifacts, then include the artifact ID in an event. Events and rewards are separate: record
-the native grader's score with `log_reward`. Keep diagnostic-upload failures distinct from
-native execution or grading failures: retain the computed reward and report the upload error.
+Use `log_event` for structured summaries and artifacts for test logs, reports, or harness
+transcripts. Include the artifact ID in an event so it can be found alongside the task's other
+records. If a diagnostic upload fails, report the upload error separately from the task's
+execution result and computed reward.
 
 The serialized event name and payload must fit within 10 MiB. An artifact can contain up to
 16 MiB; compress larger text reports or split them into files before uploading.
 
-With an active trajectory ID `tid`, this example uploads a compressed report without discarding
-its contents:
+With an active trajectory ID `tid`, upload a compressed report:
 
 ```python
 import base64

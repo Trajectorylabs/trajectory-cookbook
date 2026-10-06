@@ -1,19 +1,15 @@
 # Connect an Inspect harness
 
-If your benchmark uses [Inspect](https://inspect.aisi.org.uk/), keep its task, solver,
-sandbox, scorer, and generation settings. Configure the actor's client at the existing
-`eval_async` call using `model_base_url` and `model_args`.
+For an [Inspect](https://inspect.aisi.org.uk/) harness using the OpenAI provider, configure
+its actor client at the `eval_async` call using `model_base_url` and `model_args`. Keep the
+task, solver, sandbox and scorer. Other provider protocols require a compatible adapter;
+changing the provider prefix can also change how Inspect interprets model settings.
 
-This pattern applies to Inspect's OpenAI provider and OpenAI-compatible clients. Other
-provider protocols need a compatible adapter; changing the model's provider prefix can
-also change how the harness interprets its configuration.
-
-At the call below, `task` is your existing Inspect task with one sample, `model` is its
-configured model, and `eval_options` contains its existing evaluation settings. Replace
-`accuracy` with your scorer's name. This example uses Inspect's standard scalar score
-conversion (`C` → 1, `I` → 0, `P` → 0.5, `N` → 0). For custom labels or multiple
-components, use the benchmark's own conversion and weighting instead. If you already
-supply `model_args`, preserve its non-transport options when adding credentials and headers.
+Here, `task` contains one sample, `model` is the harness's configured model, and `eval_options`
+contains its evaluation settings. Replace `accuracy` with your scorer's name. The example uses
+Inspect's standard scalar conversion (`C` → 1, `I` → 0, `P` → 0.5, `N` → 0); use your
+benchmark's conversion for custom labels or multiple components. If you already pass
+`model_args`, merge the credentials and headers below with its existing options.
 
 ```python
 import logging
@@ -65,49 +61,23 @@ except Exception:
     raise
 ```
 
-Inspect can retry model errors after its client has stopped retrying. When connecting a
-provider, make its `should_retry` hook return `False` for an `APIStatusError` whose
-`response.headers` contains `x-should-retry: false`; otherwise use the provider's existing
-retry policy. Preserve response headers when translating SDK exceptions. Retrying solely
-because the HTTP status is 5xx can keep a non-retryable failure running until the sample
-timeout.
+The example reports genuine zero scores and marks missing scores or execution failures as
+errors. See [reward and completion semantics](../README.md#report-native-results) for component
+weights and termination reasons.
 
-If you subclass an Inspect provider, [register it with `@modelapi`](https://inspect.aisi.org.uk/extensions-model-api.html)
-and obtain the model through `get_model(...)`. Check `str(model)` locally before
-launching an evaluation: an unregistered provider fails during Inspect’s evaluation setup.
+A managed Trajectory run selects the actor model even when the request names another model.
+Keep the harness's model identifier where it affects prompts or other behavior. Pass the
+transport options above through any wrapper around `eval_async`.
 
-Report the native scorer's value, including zero. For labels or multiple components,
-preserve the benchmark's defined conversion and weighting. Logged reward components are
-summed with their weights; record diagnostic scores using `client.trajectories.log_event(...)`
-or `client.trajectories.log_reward(..., weight=0)`. Do not substitute zero for an execution
-error or missing score. Preserve the native scorer's acceptance rules; report suspected
-grading defects separately rather than adding new pass/fail conditions during integration.
+Configure auxiliary clients, such as an LLM judge, separately so their requests reach the
+intended endpoint. Avoid changing process-wide `OPENAI_API_KEY` or `OPENAI_BASE_URL` to redirect
+the actor if auxiliary clients read those variables. A judge that inherits settings from the
+actor's model name may need explicit configuration when the managed actor differs.
 
-Pass these transport options through any wrapper around `eval_async`. Keep the native
-solver and tool implementations, prompts, stopping conditions, and model settings.
-A managed Trajectory run selects the actor endpoint; keep the native model identifier
-where the harness uses it to configure behavior. Requests through that managed session use
-its actor endpoint even when `model` names another model. Give auxiliary judges and tools
-their own provider clients and credentials. Do not pass the actor's
-`X-Trajectory-Id` to rubric, grading, or analysis calls: it routes those requests through
-the actor endpoint too.
-
-The options above affect this Inspect actor client. Preserve the effective configuration
-of auxiliary clients, such as an LLM judge or a question-answering tool. Resolve their
-models and settings through the native entrypoint, including any defaults inherited from
-the actor model. Leave optional model and tool overrides unset unless the benchmark already
-sets them; SDK wiring does not require choosing replacement models. Optional configuration
-examples in a README are not default settings.
-Avoid changing process-wide `OPENAI_API_KEY` or `OPENAI_BASE_URL` to redirect the actor:
-those variables may also configure auxiliary clients.
-
-Use provider credentials that remain valid when the task runs. A temporary model proxy
-used by the agent preparing the dataset may expire with that agent's session or allow
-only its model and API routes; do not store that proxy token as a runtime provider key.
-
-Register the credentials required by native auxiliary clients as organization secrets,
-then refer to them from each task's `env_vars`. For a harness already configured to use
-Anthropic, this supplies its existing provider key without putting the value in the image:
+Use organization secrets for credentials the runtime needs. The following example is for a
+harness with an Anthropic judge; use the secret names and provider required by your harness.
+The credentials must remain valid when the task runs, beyond any temporary ingestion-agent
+session.
 
 ```python
 from trajectory import SecretRef
@@ -117,6 +87,10 @@ auxiliary_env = {
 }
 ```
 
-Create the named secret with `client.secrets.create(...)` before execution. Keep the native
-provider, model identifier and generation settings. Actor routing remains explicit in the
-Inspect configuration above.
+Create the named secret with `client.secrets.create(...)` before execution and pass
+`auxiliary_env` as the task's `env_vars`.
+
+If you implement an Inspect provider adapter, [register it with `@modelapi`](https://inspect.aisi.org.uk/extensions-model-api.html)
+and obtain it through `get_model(...)`. Its `should_retry` hook should honor
+`x-should-retry: false` on an `APIStatusError`'s response headers, since Inspect can retry
+errors after the underlying client has stopped. Otherwise retain the provider's retry policy.
