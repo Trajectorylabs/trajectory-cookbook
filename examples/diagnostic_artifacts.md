@@ -69,7 +69,9 @@ if logs.available:
 The UI's **Read build logs** uses the same public interface. This read never rebuilds or changes
 execution state. It returns up to 6,000 characters from the operation's original failed build,
 with registered secret values redacted. `available` means text was returned, not that the
-provider has delivered its final error. If it still shows installation progress, make a bounded
+provider has delivered its final error. Credentials embedded in build output that are not
+registered for redaction may remain visible to members of the owning organization.
+If it still shows installation progress, make a bounded
 later read. Do not rebuild just to obtain logs. A provider timeout or missing historical build
 reference can return `available=false`; retain the original failure and diagnostic limitation.
 
