@@ -27,7 +27,8 @@ test_tasks = set(ordered[:120])
 ```
 
 Each task runs the original harness through the Trajectory-backed model adapter. Secret values
-are supplied by the platform and are not stored in the benchmark source:
+are supplied by the platform and are not stored in the benchmark source. The command below
+matches the linked integration's uploader; its Trajectory adapter requires `--judge-model`:
 
 ```python
 from trajectory import SecretRef, TaskSpec
@@ -38,7 +39,9 @@ TaskSpec(
     split="test" if task in test_tasks else "train",
     run_command=(
         "python -m lab_core.harness.run --model trajectory/session "
-        f"--task {task} --run-id trajectory --max-turns 200"
+        f"--task {task} --run-id trajectory --max-turns 200 "
+        "--temperature 1.0 --reasoning-effort low "
+        "--judge-model gpt-5.4-mini"
     ),
     env_vars={
         "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),

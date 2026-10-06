@@ -395,6 +395,9 @@ service instead, supply that service's credentials through `SecretRef`.
 Network access is configured separately: use `network_mode="allowlist"` with `allowed_hosts`,
 or `network_mode="public"` when unrestricted access is required.
 
+For external task or grading services, pin a version where supported. Otherwise record the
+available version information and note that later runs may use different service behavior.
+
 ### Keep build contexts within service limits
 
 Each runtime build context can contain at most 4,096 uploaded files and 3 GiB. Scope the
