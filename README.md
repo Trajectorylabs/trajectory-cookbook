@@ -284,7 +284,9 @@ and [Inspect](examples/inspect.md) examples.
 In a managed task runtime, `Client()` routes model calls to the actor selected for evaluation
 or training, even if a request names a different model. For a fixed judge or other auxiliary
 model, use a separate client configured for its endpoint and credentials. Sending its requests
-through the managed actor client would use the actor model instead.
+through the managed actor client would use the actor model instead. See the
+[fixed auxiliary model example](examples/auxiliary_clients.md) for endpoint, authentication,
+independent trajectory and native OpenAI/LiteLLM configuration.
 
 SDK responses are Pydantic models. If the harness validates responses with another library's
 model class, pass `response.model_dump()` to that validator.

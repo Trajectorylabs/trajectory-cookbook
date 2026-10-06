@@ -74,7 +74,9 @@ transport options above through any wrapper around `eval_async`.
 Configure auxiliary clients, such as an LLM judge, separately so their requests reach the
 intended endpoint. Avoid changing process-wide `OPENAI_API_KEY` or `OPENAI_BASE_URL` to redirect
 the actor if auxiliary clients read those variables. A judge that inherits settings from the
-actor's model name may need explicit configuration when the managed actor differs.
+actor's model name may need explicit configuration when the managed actor differs. For a
+Trajectory-hosted helper, use the [fixed auxiliary client lifecycle](auxiliary_clients.md),
+including a separate organization credential and trajectory ID.
 
 Use organization secrets for credentials the runtime needs. The following example is for a
 harness with an Anthropic judge; use the secret names and provider required by your harness.
