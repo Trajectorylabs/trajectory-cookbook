@@ -52,18 +52,20 @@ try:
     client.trajectories.log_reward(
         tid, reward_id="accuracy", name="reward_accuracy", value=reward,
     )
-    client.trajectories.complete(tid)
 except Exception:
     try:
         client.trajectories.complete(tid, termination_reason="ERROR")
     except Exception:
         logging.exception("Failed to report trajectory failure")
     raise
+else:
+    client.trajectories.complete(tid)
 ```
 
 The example reports genuine zero scores and marks missing scores or execution failures as
-errors. See [reward and completion semantics](../README.md#report-native-results) for component
-weights and termination reasons.
+errors. A failure to report successful completion propagates without changing the task outcome
+to an execution error. See [reward and completion semantics](../README.md#report-native-results)
+for component weights and termination reasons.
 
 A managed Trajectory run selects the actor model even when the request names another model.
 Keep the harness's model identifier where it affects prompts or other behavior. Pass the
