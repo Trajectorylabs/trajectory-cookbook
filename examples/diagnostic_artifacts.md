@@ -1,12 +1,17 @@
 # Keep diagnostic files with a trajectory
 
-Use `log_event` for structured summaries and artifacts for test logs, reports, or harness
-transcripts. Include the artifact ID in an event so it can be found alongside the task's other
-records. If a diagnostic upload fails, report the upload error separately from the task's
-execution result and computed reward.
+`log_event` records a named JSON payload on a trajectory without changing its reward. Use a
+different `event_id` for each distinct event and reuse that ID only when retrying the same
+write. An existing ID is deduplicated, not updated. Record new events before completing the
+trajectory; read them later with `client.trajectories.list_events(tid)`.
 
-The serialized event name and payload must fit within 10 MiB. An artifact can contain up to
-16 MiB; compress larger text reports or split them into files before uploading.
+Use events for structured diagnostics and artifacts for files such as test logs or reports.
+Completing an artifact upload attaches the file to the trajectory. The event in this example
+also records its ID and filename. If a diagnostic upload fails, report it separately from the
+task's execution result and computed reward.
+
+An artifact upload can contain up to 16 MiB. Compress larger text reports or split them into
+files before uploading.
 
 With an active trajectory ID `tid`, upload a compressed report:
 

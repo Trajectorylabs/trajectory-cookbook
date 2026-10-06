@@ -302,10 +302,12 @@ positive evaluation rewards at zero, even if a raw reward was logged. Platform-e
 limits still apply. Report exception paths with the failure reason before re-raising the
 original exception; process exit alone does not complete the trajectory.
 
-Reward components are summed with their weights, which default to 1. For diagnostic scores
-that are not part of the benchmark's reward, use `client.trajectories.log_event(..., payload=...)`
-or `client.trajectories.log_reward(..., weight=0)`. Required and optional grader outputs should
-retain their meaning in the benchmark: a missing optional output need not invalidate a score.
+Reward components are summed with their weights, which default to 1. Record diagnostic scores
+that are not part of the benchmark's reward with `client.trajectories.log_event(..., payload=...)`.
+Events store JSON data without changing the reward. Even with `weight=0`, `log_reward` creates
+a reward record and can prevent the default automatic grader from running. A missing optional
+grader output need not invalidate a score; preserve the benchmark's handling of required and
+optional outputs.
 Use events for summaries and [artifacts](examples/diagnostic_artifacts.md) for full reports.
 Finish recording them before completing the trajectory and cleaning up the environment.
 
