@@ -1,60 +1,162 @@
-# Keep diagnostic files with a trajectory
+# Ingest, inspect and repair a native benchmark
 
-## Find diagnostics for a failed evaluation
+A correctly integrated task executes its native solver and grader, preserves the native
+score (including zero), and retains the reports required by the path it actually ran.
+Image readiness, trajectory completion or a numerical reward alone cannot establish this.
+An execution or grading failure stays failed/ungraded; it must not become a zero or disappear
+from an average.
 
-Use `trajectory-sdk>=0.8.13` to list trajectories by evaluation ID, including unfinished
-and failed attempts. A failed attempt may have no reward, so a reward listing is not a
-complete list of the run's trajectories.
+This draft's complete-attempt and ingestion-history examples require the upcoming API/SDK
+release that adds those methods. The release and ordinary-customer checks are still pending.
+
+## 1. Account for the submission
+
+Keep the pinned source revision, original task names/splits and submitted identities. Save the
+operation ID returned by ingestion. A client polling timeout does not stop server processing:
+inspect that operation before uploading again. You can also discover it in public history,
+including a failure before a benchmark was registered:
 
 ```python
 from trajectory import Client
 
 client = Client()
-run_id = "evr_YOUR_RUN"
-run = client.evals.runs.retrieve(run_id)
-print(run.status, run.failure)
-
-for trajectory in client.trajectories.list(eval_run_id=run_id):
-    print(trajectory.trajectory_id, trajectory.status)
-    for event in client.trajectories.list_events(trajectory.trajectory_id):
-        print(event.event_id, event.event)
+for operation in client.benchmarks.ingestion.list():
+    print(operation.operation_id, operation.bench_id, operation.status,
+          operation.registered_tasks, operation.total_tasks,
+          operation.ready_runtimes, operation.total_runtimes)
 ```
 
-Both listings paginate when iterated. If an event records an artifact ID, retrieve the
-artifact as described below. Inspect the native error or report before repairing and
-retrying the affected task. An absent reward remains ungraded; it is not a zero score.
+Use `bench_id=...` to restrict history to one benchmark version. In the product, open
+**Benchmarks → Ingestion history**, or **Ingestion history** on a benchmark's spec.
+Inspect every submission outcome, including failures and cancelled work.
 
-## Read a failed image build's logs
-
-A build can fail before its provider has indexed the final error lines. Keep the ingestion
-operation ID and the runtime ID from its failure page. Read a fresh excerpt for that exact
-operation/runtime through the public API using the SDK's HTTP method:
+Read each task result and failure, following every page. For example:
 
 ```python
-from trajectory import Client
-
-client = Client()
 operation_id = "iop_YOUR_OPERATION"
-runtime_id = "rt_YOUR_RUNTIME"
-logs = client.get(
-    f"/api/v1/benchmark-ingestion/operations/{operation_id}/runtimes/{runtime_id}/build-logs",
-    cast_to=dict,
-)
-print(logs["observed_at"], logs["provider_ref"], logs["available"])
-if logs["available"]:
-    print(logs["excerpt"])
+for kind in ("result", "failure", "runtime"):
+    after = ""
+    while True:
+        page = client.benchmarks.ingestion.list_items(
+            operation_id=operation_id, kind=kind, after=after, limit=100,
+        )
+        for item in page.items:
+            print(kind, item.model_dump())
+        if page.next_cursor is None:
+            break
+        after = page.next_cursor
 ```
 
-This read does not rebuild the image, consume another ingestion attempt, or change the saved
-failure. It returns up to 6,000 characters from the operation's original failed build, with
-registered secret values redacted. `available` means some log text was returned; it does not
-certify that the provider has delivered the final error. If a recent failure's excerpt still
-contains only installation progress, make a bounded later read of the same endpoint before
-changing code. Do not rebuild merely to obtain logs.
+Compare task results and task-level rejections against your submitted inventory. The platform
+cannot account for source tasks you never submitted. A shared runtime failure affects every
+task linked to it: use `kind="runtime_task", runtime_id=...` with the same pagination loop,
+or **Show affected tasks** in the UI. Keep the original denominator when fixing a subset.
 
-A provider timeout or an older operation without a recorded failed-build reference returns
-`available=false`. Preserve the original failure and report the diagnostic limitation rather
-than guessing the cause or treating the runtime as ready.
+### Read the failed build before rebuilding
+
+A provider's final error lines may arrive after failure is recorded. Use the original
+operation/runtime pair to request a fresh, bounded, redacted excerpt:
+
+```python
+logs = client.benchmarks.ingestion.build_logs(
+    operation_id=operation_id, runtime_id="rt_YOUR_RUNTIME",
+)
+print(logs.observed_at, logs.provider_ref, logs.available)
+if logs.available:
+    print(logs.excerpt)
+```
+
+The UI's **Read build logs** uses the same public interface. This read never rebuilds or changes
+execution state. It returns up to 6,000 characters from the operation's original failed build,
+with registered secret values redacted. `available` means text was returned, not that the
+provider has delivered its final error. If it still shows installation progress, make a bounded
+later read. Do not rebuild just to obtain logs. A provider timeout or missing historical build
+reference can return `available=false`; retain the original failure and diagnostic limitation.
+
+## 2. Check native prerequisites cheaply
+
+Use the pinned harness's own setup instructions and entrypoint to check imports, executables,
+plugins, native services, architecture and credentials in the intended runtime. Preserve
+actor/private-grader isolation. The [runtime packaging guide](../README.md#package-a-benchmark-runtime)
+explains what the platform starts and what your image must install.
+
+Check changed model-client connections with a short request and a finite timeout before
+expensive evaluation. Fixed auxiliary models need their [own client and credentials](auxiliary_clients.md).
+A capped connection probe verifies routing; it does not replace native budgets or qualify a
+solver/grader. Reuse evidence for unchanged prerequisites.
+
+## 3. Run a small managed evaluation and inspect it while it runs
+
+Choose representative tasks before looking at outcomes, covering the native paths you need.
+Use an explicit evaluation split and a bounded cohort; preserve original dataset roles if
+creating a diagnostic benchmark. Discover supported model/options with
+`client.evals.list_options(...)`, then use the [managed evaluation example](../README.md#3-evaluate-train-and-compare-on-the-trajectory-platform).
+Verify the returned task selection and resolved configuration rather than assuming defaults.
+
+Keep the run ID. Inspect both selected work and recorded attempts:
+
+```python
+run_id = "evr_YOUR_RUN"
+selection = client.evals.runs.list_selected_tasks(run_id)
+print(selection.supported, selection.total_tasks)
+for task in selection:
+    print(task.task_id, task.expected_attempts,
+          task.recorded_attempts, task.unstarted_attempts)
+
+attempts = client.evals.runs.list_attempts(run_id)
+print(attempts.supported)
+for attempt in attempts:
+    print(attempt.task_id, attempt.sample_id, attempt.status,
+          attempt.trajectory_id, attempt.grade, attempt.rollout)
+```
+
+These listings paginate when iterated. Live attempt pages can reset as new attempts appear;
+`page_reset=true` means restart reconciliation and identify rows by `sample_id` so a repeated
+page cannot inflate counts. A paginated read during execution is not a frozen final report.
+`supported=false` means the required historical records
+are unavailable, not that the run had no selected work. A selected task without an attempt is
+unstarted. An attempt can fail before a trajectory exists; a trajectory-only listing misses
+that failure. Zero and `None` are different results. Inspect rollout diagnostics even if
+trajectory capture says completed. Filters such as `task_id=...`, `status=...` and `graded=False`
+help investigate; keep the unfiltered accounting separately.
+
+In the evaluation UI, use **Selected tasks** and **All attempts**. Task details and **Run history**
+connect prior and repaired attempts by exact task identity. Inspect a new run when a repair
+creates a new benchmark/task version; matching display names alone do not prove identity.
+
+## 4. Check native reports and required outputs
+
+For an attempt with a trajectory, read its recorded events:
+
+```python
+for event in client.trajectories.list_events("traj_YOUR_TRAJECTORY"):
+    print(event.event_id, event.event)
+```
+
+The UI's **Events and artifacts** shows the same records and offers authorized downloads for
+artifact IDs. Retrieve an artifact with `client.artifacts.retrieve(artifact_id)` and download
+its `download_url`. Preserve the integration's filename, compression, part count and checksum
+metadata: one chunk is not necessarily a complete report. Download links expire; retrieve a
+new link when needed.
+
+Check native test/criterion identities, counts, errors and penalties. Required outputs depend
+on the native path actually executed; distinguish legitimate skips from failed required
+components. A genuine native zero is valid evidence. Missing grading, missing required reports
+or omitted failed criteria cannot qualify the task.
+
+## 5. Repair the owner and confirm on additional tasks
+
+Use the public error and pinned source to identify whether the cause belongs to packaging,
+the integration, a platform interface or an upstream prerequisite. Fix the owning cause and
+retry affected work. Stop repeating an unchanged deterministic failure; keep independent
+tasks moving. Substantiate upstream exceptions without modifying native tests or hiding the
+selected failure.
+
+Retain original and repaired operation/run IDs, task versions and reports. Report first-pass
+and recovered results separately; retries do not increase the number of unique source tasks.
+After the small cohort works, preselect additional tasks covering different required
+capabilities. Confirm material repairs on unused cases so success is not confined to the tasks
+used for debugging. Preserve held-out data for later measurement.
 
 ## Record events and artifacts
 

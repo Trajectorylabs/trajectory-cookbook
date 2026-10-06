@@ -3,7 +3,8 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
-To connect your own harness, start with [native integration and runtime packaging](#package-a-benchmark-runtime).
+To connect your own harness, follow the [ingest, inspect and repair walkthrough](examples/diagnostic_artifacts.md)
+and [native integration and runtime packaging](#package-a-benchmark-runtime).
 See [Inspect integration](examples/inspect.md) for its actor-client setup.
 
 ## Setup
@@ -185,7 +186,7 @@ through `SecretRef`. Use `SecretRef` for additional credentials the benchmark ne
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 
-If an evaluation fails, [find its trajectories and native diagnostics](examples/diagnostic_artifacts.md#find-diagnostics-for-a-failed-evaluation).
+If an evaluation fails, [inspect every selected task and attempt](examples/diagnostic_artifacts.md#3-run-a-small-managed-evaluation-and-inspect-it-while-it-runs).
 Reward listings omit attempts that failed without a grade.
 
 Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
@@ -426,7 +427,7 @@ RUN mkdir -p /opt/benchmark \
 ## Examples
 
 - [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
-- [Diagnostic artifacts](examples/diagnostic_artifacts.md): retain full reports alongside trajectory events.
+- [Ingest, inspect and repair](examples/diagnostic_artifacts.md): account for tasks, diagnose failures and retain native reports.
 
 When adapting an existing benchmark, read the cookbook recipe together with its complete public
 implementation PR:
