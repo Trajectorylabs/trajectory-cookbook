@@ -24,6 +24,38 @@ Both listings paginate when iterated. If an event records an artifact ID, retrie
 artifact as described below. Inspect the native error or report before repairing and
 retrying the affected task. An absent reward remains ungraded; it is not a zero score.
 
+## Read a failed image build's logs
+
+A build can fail before its provider has indexed the final error lines. Keep the ingestion
+operation ID and the runtime ID from its failure page. Read a fresh excerpt for that exact
+operation/runtime through the public API using the SDK's HTTP method:
+
+```python
+from trajectory import Client
+
+client = Client()
+operation_id = "iop_YOUR_OPERATION"
+runtime_id = "rt_YOUR_RUNTIME"
+logs = client.get(
+    f"/api/v1/benchmark-ingestion/operations/{operation_id}/runtimes/{runtime_id}/build-logs",
+    cast_to=dict,
+)
+print(logs["observed_at"], logs["provider_ref"], logs["available"])
+if logs["available"]:
+    print(logs["excerpt"])
+```
+
+This read does not rebuild the image, consume another ingestion attempt, or change the saved
+failure. It returns up to 6,000 characters from the operation's original failed build, with
+registered secret values redacted. `available` means some log text was returned; it does not
+certify that the provider has delivered the final error. If a recent failure's excerpt still
+contains only installation progress, make a bounded later read of the same endpoint before
+changing code. Do not rebuild merely to obtain logs.
+
+A provider timeout or an older operation without a recorded failed-build reference returns
+`available=false`. Preserve the original failure and report the diagnostic limitation rather
+than guessing the cause or treating the runtime as ready.
+
 ## Record events and artifacts
 
 `log_event` records a named JSON payload on a trajectory without changing its reward. Use a
