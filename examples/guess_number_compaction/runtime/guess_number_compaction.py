@@ -99,7 +99,7 @@ def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task-file", required=True, type=Path)
-    parser.add_argument("--model", default="number-guessing")
+    parser.add_argument("--model", default="guess-number-compaction")
     args = parser.parse_args()
     secret = json.loads(args.task_file.read_text())["secret"]
     client = Client(max_retries=20)

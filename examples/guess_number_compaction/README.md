@@ -1,4 +1,4 @@
-# Number guessing with context compaction
+# Guess number with context compaction
 
 A fake user picks an integer from 1 to 100 and replies `Higher.`, `Lower.`, or
 `Correct!` to the model's guesses. After every three incorrect guesses, the harness
@@ -134,8 +134,8 @@ Follow the [cookbook setup](../../README.md), then create an agent:
 
 ```bash
 uv run --with trajectory-sdk python -c \
-  'from trajectory import Client; print(Client().agents.create(name="number-guessing-cookbook").agent_id)'
-uv run examples/number_guessing/ingest.py --agent-id agt_<your-agent-id>
+  'from trajectory import Client; print(Client().agents.create(name="guess-number-compaction-cookbook").agent_id)'
+uv run examples/guess_number_compaction/ingest.py --agent-id agt_<your-agent-id>
 ```
 
 The uploader packages 32 train and 16 test tasks into the runtime image. Each
@@ -197,4 +197,4 @@ Inspect recorded trajectories to compare guess counts, summary calls, and reward
 For a separate generalization experiment, create another benchmark with secrets
 outside `{24, 42}`; keep those results separate from the toy distribution above.
 
-The game loop is in [number_guessing_harness.py](runtime/number_guessing_harness.py).
+The game loop is in [guess_number_compaction.py](runtime/guess_number_compaction.py).

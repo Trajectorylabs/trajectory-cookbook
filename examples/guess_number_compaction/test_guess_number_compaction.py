@@ -17,9 +17,9 @@ def load_module(name, path):
 
 
 harness = load_module(
-    "number_guessing_harness", ROOT / "runtime" / "number_guessing_harness.py"
+    "guess_number_compaction", ROOT / "runtime" / "guess_number_compaction.py"
 )
-ingest = load_module("number_guessing_ingest", ROOT / "ingest.py")
+ingest = load_module("guess_number_compaction_ingest", ROOT / "ingest.py")
 
 
 class ScriptedClient:
