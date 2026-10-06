@@ -3,6 +3,9 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
+To connect your own harness, start with [native integration and runtime packaging](#package-a-benchmark-runtime).
+See [Inspect integration](examples/inspect.md) for its actor-client setup.
+
 ## Setup
 
 Install the latest SDK and authenticate:
@@ -61,6 +64,9 @@ model_answer = response.choices[0].message.content
 #### Log reward to the trajectory
 
 Pass the same TID when the benchmark calculates reward, then mark the task complete.
+For an existing harness, preserve its [native score and completion outcome](#report-native-results).
+Keep full reports in [trajectory artifacts](examples/diagnostic_artifacts.md), and finish
+uploading them before completing the trajectory.
 
 ```python
 reward = float(check_answer(model_answer, expected_answer))
@@ -104,6 +110,15 @@ TaskSpec(
     tags=["gsm8k"],
 )
 ```
+
+`TaskSpec.name` is your dataset's task identifier. When you retrieve a benchmark with
+`client.benchmarks.specs.retrieve(..., include_tasks=True)`, each task exposes that name as
+`label` and a platform-assigned `task_id` for API calls. Omit `TaskSpec.id` when registering
+new tasks.
+
+Set `TaskSpec.split` explicitly to preserve a dataset's train/test membership. If omitted,
+ingestion deterministically assigns approximately 15% of those tasks to TEST and the rest to
+TRAIN. For an evaluation-only dataset, set `split="test"` on every task.
 
 Package the tasks and runtime, upload the benchmark, and wait for its runtime image to become
 ready:
@@ -160,6 +175,10 @@ client.secrets.create(
 
 `SecretRef` is a named pointer, not the secret value itself. In a `TaskSpec`,
 `SecretRef(secret_ref="OPENAI_API_KEY")` injects this organization secret at runtime.
+
+Managed task runtimes receive `TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL` automatically;
+use `Client()` inside the harness. Do not put `TRAJECTORY_*` names in `env_vars`, including
+through `SecretRef`. Use `SecretRef` for additional credentials the benchmark needs.
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 
@@ -245,7 +264,161 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
+## Package a benchmark runtime
+
+`run_command` starts the code that solves and grades a task. It can call your harness's
+entrypoint directly or use a wrapper to add SDK integration. Connect the actor's model calls
+and report the computed reward while retaining the harness's solving and grading logic.
+A grader description in `TaskSpec.spec` does not execute the grader. See the
+[Harvey LAB](examples/harvey_labs.md), [Big Finance Benchmark](examples/big_finance_benchmark.md)
+and [Inspect](examples/inspect.md) examples.
+
+### Connect the actor
+
+In a managed task runtime, `Client()` routes model calls to the actor selected for evaluation
+or training, even if a request names a different model. For a fixed judge or other auxiliary
+model, use a separate client configured for its endpoint and credentials. Sending its requests
+through the managed actor client would use the actor model instead.
+
+SDK responses are Pydantic models. If the harness validates responses with another library's
+model class, pass `response.model_dump()` to that validator.
+
+If the harness retries model calls, honor `x-should-retry: false` in error response headers.
+Preserve status, headers and body when translating SDK exceptions so the harness can distinguish
+retryable failures from failures that should stop the task.
+
+### Report native results
+
+Call `client.trajectories.log_reward(...)` with the grader's score, including zero, then
+`client.trajectories.complete(...)` with the same trajectory ID. Use the benchmark's score
+conversion and weighting. Report execution or grading errors as failures rather than
+substituting a zero reward.
+
+Set `termination_reason` from the outcome of the task's execution and grading. Use `ENV_DONE`
+when that operation completes normally, including when a solver reaches its own stopping
+condition and the benchmark grades the result. Use the corresponding failure or limit reason
+when the trajectory itself stops early. `MAX_STEPS`, `LIMIT_REACHED` and `TRUNCATION` cap
+positive evaluation rewards at zero, even if a raw reward was logged. Platform-enforced
+limits still apply. Report exception paths with the failure reason before re-raising the
+original exception; process exit alone does not complete the trajectory.
+
+Reward components are summed with their weights, which default to 1. Record diagnostic scores
+that are not part of the benchmark's reward with `client.trajectories.log_event(..., payload=...)`.
+Events store JSON data without changing the reward. Even with `weight=0`, `log_reward` creates
+a reward record and can prevent the default automatic grader from running. A missing optional
+grader output need not invalidate a score; preserve the benchmark's handling of required and
+optional outputs.
+Use events for summaries and [artifacts](examples/diagnostic_artifacts.md) for full reports.
+Finish recording them before completing the trajectory and cleaning up the environment.
+
+### Choose the runtime and its files
+
+`BenchmarkSpec.runtime` sets the default image in which tasks' `run_command` executes.
+Tasks that use the same harness and dependencies can share a runtime and select their inputs
+through the command:
+
+```python
+from trajectory import BenchmarkSpec, TaskSpec
+from trajectory.lib import DockerfileBuild
+
+benchmark = BenchmarkSpec(
+    name="coding-tasks",
+    runtime=DockerfileBuild("runtime/Dockerfile"),
+    tasks=[
+        TaskSpec(
+            name=task_id,
+            run_command=f"python /app/harness.py --task-id {task_id}",
+        )
+        for task_id in ("task-a", "task-b")
+    ],
+)
+```
+
+Use `TaskSpec.runtime` to override the image for tasks with different dependencies or smaller
+build contexts, for example `runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile")`.
+Include common harness code in each context or supply it through a base image.
+
+The SDK uploads files under each Dockerfile's directory, filtered by `.dockerignore` at the
+benchmark root; it does not select files by reading `COPY` statements. A root Dockerfile
+therefore includes the checkout unless files are excluded. Include the files needed to build
+and run that runtime, including files referenced by package metadata. Shared file paths upload
+once per submission; selecting a task does not automatically exclude other tasks' files.
+
+If the harness starts separate task containers or remote sandboxes, make its inputs available
+there at the expected paths. Files in the harness image are not automatically available in
+another environment. Preserve the benchmark's separation between actor-visible inputs and
+private answers or hidden tests.
+
+For harness-managed containers, package the task Dockerfiles and build inputs where the
+harness expects them. To reuse prebuilt images, [`docker save` / `docker load`](https://docs.docker.com/reference/cli/docker/image/load/)
+preserves image configuration. Importing a root-filesystem archive loses settings such as the
+entrypoint and user. Building a task image in an outer Dockerfile stage does not load it into
+the harness's Docker daemon.
+
+### Install and check dependencies
+
+Install the harness's dependencies and the SDK. Where the harness provides a lockfile, use its
+package manager to retain compatible versions, platform markers and dependency groups.
+Check the imports, executables and plugins used by the runtime entrypoint during the image
+build. Check execution and grading in a small managed run after image readiness; build success
+alone does not verify model routing, external services or task execution.
+
+For `uv sync --locked`, the package index must match the lockfile. If the build environment
+supplies a different index, pass the lockfile's index explicitly; for PyPI, use
+`--default-index https://pypi.org/simple`.
+
+Managed builds do not supply Docker BuildKit's automatic platform arguments, such as
+`TARGETARCH`. For binaries that run in the build environment, detect the architecture with
+`uname -m` and map it to the vendor's download names. Set cross-compilation targets explicitly.
+
+Inspect failed ingestion items while other runtimes build. `runtime_build_failed` with
+`retryable: true` does not automatically rebuild the image in that operation. Correct the
+cause before submitting again. A polling timeout leaves server processing running; reconnect
+to the existing operation to check its outcome.
+
+### Run native Docker environments
+
+If your harness uses local Docker, set `env_resources=EnvResources(docker_engine=True)` on
+the task. Import `EnvResources` from `trajectory.types.benchmarks.task_spec`.
+The runtime must include `dockerd` on `PATH`, the Docker CLI, their operating-system dependencies,
+and any plugins the harness needs. The flag starts the daemon; it does not install those tools.
+For a harness that uses Compose, check the installed executables during the image build:
+
+```dockerfile
+RUN dockerd --version && docker --version && docker compose version
+```
+
+Test daemon startup inside a task runtime. Size `EnvResources.cpus` and `memory_mb` for the
+work done there, including any task image builds. If the harness uses an external sandbox
+service instead, supply that service's credentials through `SecretRef`.
+
+Network access is configured separately: use `network_mode="allowlist"` with `allowed_hosts`,
+or `network_mode="public"` when unrestricted access is required.
+
+For external task or grading services, pin a version where supported. Otherwise record the
+available version information and note that later runs may use different service behavior.
+
+### Keep build contexts within service limits
+
+Each runtime build context can contain at most 4,096 uploaded files and 3 GiB. Scope the
+context to the files it needs. For many small files, you can archive them and extract them
+during the image build. Exclude the unpacked copy from uploads. The archive still counts
+toward the byte limit; task-specific runtimes can use smaller contexts.
+
+Use `COPY` followed by `RUN tar`; managed builds do not support local archive extraction
+with `ADD`:
+
+```dockerfile
+COPY tasks.tar.gz /tmp/tasks.tar.gz
+RUN mkdir -p /opt/benchmark \
+    && tar -xzf /tmp/tasks.tar.gz -C /opt/benchmark \
+    && rm /tmp/tasks.tar.gz
+```
+
 ## Examples
+
+- [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
+- [Diagnostic artifacts](examples/diagnostic_artifacts.md): retain full reports alongside trajectory events.
 
 When adapting an existing benchmark, read the cookbook recipe together with its complete public
 implementation PR:
