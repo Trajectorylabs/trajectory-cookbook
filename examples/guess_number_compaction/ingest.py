@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Upload a toy number-guessing benchmark with same-model context compaction."""
+"""Upload the number-guessing benchmark with same-model context compaction."""
 
 import argparse
 import json
@@ -26,18 +26,18 @@ def build_benchmark(name: str) -> BenchmarkSpec:
             )
             tasks.append(
                 TaskSpec(
-                    name=f"number-guessing/{split}_{index:04d}",
+                    name=f"guess-number-compaction/{split}_{index:04d}",
                     split=split,
                     run_command=(
-                        "python -u /opt/number_guessing/number_guessing_harness.py "
-                        f"--task-file /opt/number_guessing/tasks/{filename}"
+                        "python -u /opt/guess_number_compaction/guess_number_compaction.py "
+                        f"--task-file /opt/guess_number_compaction/tasks/{filename}"
                     ),
-                    tags=["number-guessing", "context-compaction"],
+                    tags=["guess-number", "context-compaction"],
                 )
             )
     return BenchmarkSpec(
         name=name,
-        family="number-guessing",
+        family="guess-number",
         description="Guess 24 or 42 with same-model compaction after every three incorrect guesses.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=tasks,
@@ -47,7 +47,7 @@ def build_benchmark(name: str) -> BenchmarkSpec:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-id", required=True)
-    parser.add_argument("--name", default="number-guessing")
+    parser.add_argument("--name", default="guess-number-compaction")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
     client = Client()
