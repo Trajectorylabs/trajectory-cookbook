@@ -85,6 +85,11 @@ plugins, native services, architecture and credentials in the intended runtime. 
 actor/private-grader isolation. The [runtime packaging guide](../README.md#package-a-benchmark-runtime)
 explains what the platform starts and what your image must install.
 
+Before making a model request, check that the installed client accepts the native call's
+actual arguments; importing or constructing the client does not test this. Trajectory SDK
+chat calls pass additional fields such as `tools` and `tool_choice` through `extra_body`;
+see the [model-client adapter example](big_finance_benchmark.md#adapt-the-existing-model-client).
+
 Check changed model-client connections with a short request and a finite timeout before
 expensive evaluation. Fixed auxiliary models need their [own client and credentials](auxiliary_clients.md).
 A capped connection probe verifies routing; it does not replace native budgets or qualify a
