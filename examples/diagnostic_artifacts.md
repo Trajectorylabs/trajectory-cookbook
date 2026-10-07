@@ -169,6 +169,11 @@ components. A genuine native zero is valid evidence. A native fallback score is 
 the auxiliary component worked. Missing grading, missing required reports or omitted failed
 criteria cannot qualify the task, but must not erase an independently valid native score.
 
+For rubric grading, compare required criterion IDs with the judgments actually returned,
+not just the number of report rows. A grader may fill an omitted judgment with `false` or
+zero and a reason such as `Not evaluated by LLM`. That is incomplete grading, not an
+evaluated negative verdict; retain the reason alongside the recorded score.
+
 ## 5. Repair the owner and confirm on additional tasks
 
 Use the public error and pinned source to identify whether the cause belongs to packaging,
