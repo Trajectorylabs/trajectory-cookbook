@@ -121,9 +121,12 @@ for attempt in attempts:
           attempt.trajectory_termination_reason, attempt.rollout)
 ```
 
-These listings paginate when iterated. Live attempt pages can reset as new attempts appear;
+These listings paginate when iterated. Unfiltered live attempt pages can reset as new attempts appear;
 `page_reset=true` means restart reconciliation and identify rows by `sample_id` so a repeated
-page cannot inflate counts. A paginated read during execution is not a frozen final report.
+page cannot inflate counts. When filtering by `status` or `graded`, all pages use the first
+page's database snapshot so changing outcomes cannot skip matching rows. Those cursors expire
+after 30 minutes; start a new listing to see newer outcomes or recover from an expired cursor.
+A paginated read during execution is not a final report.
 `supported=false` means the required historical records
 are unavailable, not that the run had no selected work. A selected task without an attempt is
 unstarted. An attempt can fail before a trajectory exists; a trajectory-only listing misses
@@ -135,6 +138,11 @@ qualification missing until the required native report exists. Genuine native ze
 valid. Inspect both the trajectory stop reason and rollout diagnostics even if trajectory
 capture says completed. Filters such as `task_id=...`, `status=...` and `graded=False`
 help investigate; keep the unfiltered accounting separately.
+
+Harness exception messages are available when capture verified redaction using the launch
+credentials. Older records without that verification retain bounded error categories and
+traceback context, but omit freeform messages. Use available native reports and artifacts to
+investigate; absent diagnostic text does not mean execution succeeded.
 
 In the evaluation UI, use **Selected tasks** and **All attempts**. Task details and **Run history**
 connect prior and repaired attempts by exact task identity. Inspect a new run when a repair
