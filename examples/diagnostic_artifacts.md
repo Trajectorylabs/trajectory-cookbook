@@ -123,7 +123,9 @@ for attempt in attempts:
 
 These listings paginate when iterated. Unfiltered live attempt pages can reset as new attempts appear;
 `page_reset=true` means restart reconciliation and identify rows by `sample_id` so a repeated
-page cannot inflate counts. When filtering by `status` or `graded`, all pages use the first
+page cannot inflate counts. Automatic item iteration raises `RuntimeError` on a reset: discard
+that partial listing and start again, or use `iter_pages()` to handle the reset explicitly.
+When filtering by `status` or `graded`, all pages use the first
 page's database snapshot so changing outcomes cannot skip matching rows. Those cursors expire
 after 30 minutes; start a new listing to see newer outcomes or recover from an expired cursor.
 A paginated read during execution is not a final report.
@@ -139,10 +141,14 @@ valid. Inspect both the trajectory stop reason and rollout diagnostics even if t
 capture says completed. Filters such as `task_id=...`, `status=...` and `graded=False`
 help investigate; keep the unfiltered accounting separately.
 
-Harness exception messages are available when capture verified redaction using the launch
-credentials. Older records without that verification retain bounded error categories and
-traceback context, but omit freeform messages. Use available native reports and artifacts to
-investigate; absent diagnostic text does not mean execution succeeded.
+Harness exception messages come from your benchmark command and are visible only through
+the owning organization's authorized interfaces. Capture masks its launch credentials, and
+the API masks registered secrets. This is not complete secret scrubbing: credentials acquired
+or transformed by your harness outside that set may remain visible to members and API keys of
+your organization. Older records without verified launch-secret masking retain bounded error
+categories and traceback context, but omit freeform messages. Platform provisioning errors
+use separate fixed messages. Use available native reports and artifacts to investigate;
+absent diagnostic text does not mean execution succeeded.
 
 In the evaluation UI, use **Selected tasks** and **All attempts**. Task details and **Run history**
 connect prior and repaired attempts by exact task identity. Inspect a new run when a repair
@@ -184,9 +190,10 @@ selected failure.
 
 Retain original and repaired operation/run IDs, task versions and reports. Report first-pass
 and recovered results separately; retries do not increase the number of unique source tasks.
-After the small cohort works, preselect additional tasks covering different required
-capabilities. Confirm material repairs on unused cases so success is not confined to the tasks
-used for debugging. Preserve held-out data for later measurement.
+Once the common execution and reporting path works, scale to the intended population through
+the managed scheduler. A task-local failure need not hold back independent tasks or require
+a perfect cohort. Confirm material repairs on unused cases from that population so success
+is not confined to debugging cases. Preserve held-out data for later measurement.
 
 ## Record events and artifacts
 
