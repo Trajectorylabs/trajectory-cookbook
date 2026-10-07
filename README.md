@@ -303,6 +303,12 @@ Call `client.trajectories.log_reward(...)` with the grader's score, including ze
 conversion and weighting. Report execution or grading errors as failures rather than
 substituting a zero reward.
 
+Preserve penalties and fallback scores defined by the native scorer, with their reasons.
+An auxiliary or report failure must not erase an independently valid native score. If required
+inputs to the native score are missing, leave it ungraded; do not invent a score or average
+over only the available grading outputs. Keep integration qualification separate from the
+recorded score and execution outcome.
+
 Set `termination_reason` from the outcome of the task's execution and grading. Use `ENV_DONE`
 when that operation completes normally, including when a solver reaches its own stopping
 condition and the benchmark grades the result. Use the corresponding failure or limit reason

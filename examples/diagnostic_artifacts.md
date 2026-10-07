@@ -3,8 +3,11 @@
 A correctly integrated task executes its native solver and grader, preserves the native
 score (including zero), and retains the reports required by the path it actually ran.
 Image readiness, trajectory completion or a numerical reward alone cannot establish this.
-An execution or grading failure stays failed/ungraded; it must not become a zero or disappear
-from an average.
+Execution outcome and native grade are separate. Keep failures visible and leave the grade
+missing when the native scorer produced no valid score. Preserve scores the benchmark defines
+for the executed path, including zero penalties and native fallback scores; record their
+reasons and auxiliary failures separately. Neither a score nor an average over graded rows
+establishes successful execution or complete integration.
 
 This draft's complete-attempt and ingestion-history examples require the upcoming API/SDK
 release that adds those methods. The release and ordinary-customer checks are still pending.
@@ -143,8 +146,9 @@ new link when needed.
 
 Check native test/criterion identities, counts, errors and penalties. Required outputs depend
 on the native path actually executed; distinguish legitimate skips from failed required
-components. A genuine native zero is valid evidence. Missing grading, missing required reports
-or omitted failed criteria cannot qualify the task.
+components. A genuine native zero is valid evidence. A native fallback score is not proof that
+the auxiliary component worked. Missing grading, missing required reports or omitted failed
+criteria cannot qualify the task, but must not erase an independently valid native score.
 
 ## 5. Repair the owner and confirm on additional tasks
 
