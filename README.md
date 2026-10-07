@@ -403,9 +403,14 @@ For a harness that uses Compose, check the installed executables during the imag
 RUN dockerd --version && docker --version && docker compose version
 ```
 
-Test daemon startup inside a task runtime. Size `EnvResources.cpus` and `memory_mb` for the
-work done there, including any task image builds. If the harness uses an external sandbox
-service instead, supply that service's credentials through `SecretRef`.
+These checks confirm that the tools are installed, not that their versions satisfy your
+pinned harness. In a managed task runtime, run the harness's own container prerequisite check
+before requesting model work. Verify its required client/server versions and command output;
+a working daemon or a successful `--version` command alone does not establish compatibility.
+
+Size `EnvResources.cpus` and `memory_mb` for the work done there, including any task image
+builds. If the harness uses an external sandbox service instead, supply that service's
+credentials through `SecretRef`.
 
 Network access is configured separately: use `network_mode="allowlist"` with `allowed_hosts`,
 or `network_mode="public"` when unrestricted access is required.

@@ -84,6 +84,8 @@ Use the pinned harness's own setup instructions and entrypoint to check imports,
 plugins, native services, architecture and credentials in the intended runtime. Preserve
 actor/private-grader isolation. The [runtime packaging guide](../README.md#package-a-benchmark-runtime)
 explains what the platform starts and what your image must install.
+Run the harness's prerequisite validation in that runtime before model work; executable version
+checks and imports alone do not establish that its setup path will work.
 
 Before making a model request, check that the installed client accepts the native call's
 actual arguments; importing or constructing the client does not test this. Trajectory SDK
