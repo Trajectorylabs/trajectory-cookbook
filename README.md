@@ -353,6 +353,18 @@ Use `TaskSpec.runtime` to override the image for tasks with different dependenci
 build contexts, for example `runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile")`.
 Include common harness code in each context or supply it through a base image.
 
+If you already build and publish the runtime, use
+`ImageRef("registry.example.com/runtime@sha256:YOUR_DIGEST")` from `trajectory.lib`
+instead of `DockerfileBuild`. Build for `linux/amd64` on the Modal path and use a
+publicly readable, digest-pinned image; customer private-registry credentials are not
+delivered to the image builder. Keep the harness, task files, verifier dependencies
+and its `trajectory-sdk` installation in the image. The platform's execution bootstrap
+does not install those dependencies for you. The
+[SDK benchmark guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#package-the-harness-in-an-image)
+covers runtime packaging and registry submission. Continue through the same
+[inspect-and-repair walkthrough](examples/diagnostic_artifacts.md) for either runtime
+choice. Use managed Dockerfile delivery for private inputs instead of publishing them.
+
 The SDK uploads files under each Dockerfile's directory, filtered by `.dockerignore` at the
 benchmark root; it does not select files by reading `COPY` statements. A root Dockerfile
 therefore includes the checkout unless files are excluded. Include the files needed to build
