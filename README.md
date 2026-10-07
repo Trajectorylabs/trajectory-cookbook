@@ -73,7 +73,6 @@ uploading them before completing the trajectory.
 reward = float(check_answer(model_answer, expected_answer))
 client.trajectories.log_reward(
     tid,
-    reward_id="correctness",
     name="reward_accuracy",
     value=reward,
 )
@@ -88,7 +87,7 @@ client = Client()
 tid = client.trajectories.create().tid
 response = client.chat.completions.create(model="openai/gpt-5.4-mini", messages=[{"role": "user", "content": "What is 6 × 7?"}], x_trajectory_id=tid)
 reward = float(response.choices[0].message.content.strip() == "42")
-client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
+client.trajectories.log_reward(tid, name="reward_accuracy", value=reward)
 client.trajectories.complete(tid)
 print(client.trajectories.retrieve(tid, include_steps=True))
 ```
@@ -306,8 +305,9 @@ substituting a zero reward.
 Preserve penalties and fallback scores defined by the native scorer, with their reasons.
 An auxiliary or report failure must not erase an independently valid native score. If required
 inputs to the native score are missing, leave it ungraded; do not invent a score or average
-over only the available grading outputs. Keep integration qualification separate from the
-recorded score and execution outcome.
+over only the available grading outputs. Use the benchmark's source to determine which
+outputs are required and what its fallback scores mean; record missing outputs separately
+from the score and execution outcome.
 
 Set `termination_reason` from the outcome of the task's execution and grading. Use `ENV_DONE`
 when that operation completes normally, including when a solver reaches its own stopping

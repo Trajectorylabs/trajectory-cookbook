@@ -45,6 +45,15 @@ async def main():
                     model=f"openai/{deployment.model_slug}",
                     api_key=api_key, api_base=base_url, num_retries=0, **options,
                 )
+            if not response.choices:
+                raise ValueError("Auxiliary response contained no choices")
+            content = response.choices[0].message.content
+            result = {
+                "trajectory_id": tid, "deployment_id": deployment.deployment_id,
+                "model_slug": deployment.model_slug, "checkpoint_id": deployment.checkpoint_id,
+                "response_model": response.model,
+                "usage": response.usage.model_dump() if response.usage is not None else None,
+            }
         except Exception:
             try:
                 control.trajectories.complete(tid, termination_reason="ERROR")
@@ -53,12 +62,8 @@ async def main():
             raise
         else:
             control.trajectories.complete(tid)
-            print(response.choices[0].message.content)
-            return {
-                "trajectory_id": tid, "deployment_id": deployment.deployment_id,
-                "model_slug": deployment.model_slug, "checkpoint_id": deployment.checkpoint_id,
-                "response_model": response.model, "usage": response.usage.model_dump(),
-            }
+            print(content)
+            return result
 
 
 if __name__ == "__main__":

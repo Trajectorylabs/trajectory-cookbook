@@ -94,8 +94,8 @@ see the [model-client adapter example](big_finance_benchmark.md#adapt-the-existi
 
 Check changed model-client connections with a short request and a finite timeout before
 expensive evaluation. Fixed auxiliary models need their [own client and credentials](auxiliary_clients.md).
-A capped connection probe verifies routing; it does not replace native budgets or qualify a
-solver/grader. Reuse evidence for unchanged prerequisites.
+A capped connection probe verifies routing; it does not replace native budgets or prove that
+the solver or grader works. Reuse evidence for unchanged prerequisites.
 
 ## 3. Run a small managed evaluation and inspect it while it runs
 
@@ -137,9 +137,9 @@ unstarted. An attempt can fail before a trajectory exists; a trajectory-only lis
 that failure. Zero and `None` are different results. The attempt's `grade` is the recorded
 evaluation score, which can include a platform limit penalty. For example,
 `trajectory_termination_reason="LIMIT_REACHED"`, rollout `CANCELLED` and `grade=0` can occur
-without any native grading. Keep that score in the run's accounting, but leave native grade
-qualification missing until the required native report exists. Genuine native zeros remain
-valid. Inspect both the trajectory stop reason and rollout diagnostics even if trajectory
+without any native grading. Keep that score in the run's accounting and record whether the
+native grader ran, using the reports required by the benchmark's source. Genuine native zeros
+remain valid. Inspect both the trajectory stop reason and rollout diagnostics even if trajectory
 capture says completed. Filters such as `task_id=...`, `status=...` and `graded=False`
 help investigate; keep the unfiltered accounting separately.
 
@@ -171,16 +171,12 @@ its `download_url`. Preserve the integration's filename, compression, part count
 metadata: one chunk is not necessarily a complete report. Download links expire; retrieve a
 new link when needed.
 
-Check native test/criterion identities, counts, errors and penalties. Required outputs depend
-on the native path actually executed; distinguish legitimate skips from failed required
-components. A genuine native zero is valid evidence. A native fallback score is not proof that
-the auxiliary component worked. Missing grading, missing required reports or omitted failed
-criteria cannot qualify the task, but must not erase an independently valid native score.
-
-For rubric grading, compare required criterion IDs with the judgments actually returned,
-not just the number of report rows. A grader may fill an omitted judgment with `false` or
-zero and a reason such as `Not evaluated by LLM`. That is incomplete grading, not an
-evaluated negative verdict; retain the reason alongside the recorded score.
+Use the pinned benchmark source to determine which tests, criteria and reports are required
+for the path that ran, including its rules for skips, penalties and fallback scores. Compare
+those requirements with the returned identities, results and errors. Record missing required
+outputs separately from optional omissions and genuine negative verdicts. Preserve valid
+native scores, including zero, alongside that evidence; a fallback score alone does not prove
+that every component ran successfully.
 
 ## 5. Repair the owner and confirm on additional tasks
 

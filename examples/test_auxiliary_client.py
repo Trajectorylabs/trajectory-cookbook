@@ -17,8 +17,8 @@ spec.loader.exec_module(example)
 
 
 @pytest.mark.parametrize("provider", ["openai", "litellm"])
-@pytest.mark.parametrize("inference_status", [200, 400])
-def test_native_client_lifecycle(monkeypatch, provider, inference_status):
+@pytest.mark.parametrize("response_case", ["success", "http_error", "no_usage", "no_choices"])
+def test_native_client_lifecycle(monkeypatch, provider, response_case):
     calls = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -53,16 +53,21 @@ def test_native_client_lifecycle(monkeypatch, provider, inference_status):
             elif self.path == "/api/v1/trajectories/traj_aux/complete":
                 self.respond(200, {"trajectory_id": "traj_aux", "status": "completed"})
             elif self.path == "/api/v1/deploy/dpy_fixed/chat/completions":
-                if inference_status == 400:
+                if response_case == "http_error":
                     self.respond(400, {"error": {"message": "fake failure", "type": "invalid_request_error"}})
                 else:
-                    self.respond(200, {
+                    payload = {
                         "id": "chat_fake", "object": "chat.completion", "created": 1,
                         "model": "fixed-helper", "choices": [{"index": 0,
                         "message": {"role": "assistant", "content": "hello"},
                         "finish_reason": "stop"}],
                         "usage": {"prompt_tokens": 4, "completion_tokens": 1, "total_tokens": 5},
-                    })
+                    }
+                    if response_case == "no_usage":
+                        payload.pop("usage")
+                    elif response_case == "no_choices":
+                        payload["choices"] = []
+                    self.respond(200, payload)
             else:
                 self.respond(404, {"error": "unexpected path"})
 
@@ -76,11 +81,17 @@ def test_native_client_lifecycle(monkeypatch, provider, inference_status):
     monkeypatch.setenv("TRAJECTORY_API_KEY", "fake-managed-actor-key")
     monkeypatch.setenv("TRAJECTORY_BASE_URL", "http://actor.invalid")
     try:
-        if inference_status == 400:
+        if response_case == "http_error":
             with pytest.raises(Exception, match="fake failure"):
                 asyncio.run(example.main())
+        elif response_case == "no_choices":
+            with pytest.raises(ValueError, match="no choices"):
+                asyncio.run(example.main())
         else:
-            asyncio.run(example.main())
+            result = asyncio.run(example.main())
+            assert result["trajectory_id"] == "traj_aux"
+            if response_case == "no_usage" and provider == "openai":
+                assert result["usage"] is None
     finally:
         server.shutdown()
         server.server_close()
@@ -100,7 +111,7 @@ def test_native_client_lifecycle(monkeypatch, provider, inference_status):
     assert calls[2][3]["model"] == "fixed-helper"
     assert calls[2][3]["max_tokens"] == 128
     completion = calls[3][3]
-    if inference_status == 400:
+    if response_case in {"http_error", "no_choices"}:
         assert completion["termination_reason"] == "ERROR"
     else:
         assert completion == {}
