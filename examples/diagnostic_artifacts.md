@@ -117,7 +117,8 @@ attempts = client.evals.runs.list_attempts(run_id)
 print(attempts.supported)
 for attempt in attempts:
     print(attempt.task_id, attempt.sample_id, attempt.status,
-          attempt.trajectory_id, attempt.grade, attempt.rollout)
+          attempt.trajectory_id, attempt.grade,
+          attempt.trajectory_termination_reason, attempt.rollout)
 ```
 
 These listings paginate when iterated. Live attempt pages can reset as new attempts appear;
@@ -126,8 +127,13 @@ page cannot inflate counts. A paginated read during execution is not a frozen fi
 `supported=false` means the required historical records
 are unavailable, not that the run had no selected work. A selected task without an attempt is
 unstarted. An attempt can fail before a trajectory exists; a trajectory-only listing misses
-that failure. Zero and `None` are different results. Inspect rollout diagnostics even if
-trajectory capture says completed. Filters such as `task_id=...`, `status=...` and `graded=False`
+that failure. Zero and `None` are different results. The attempt's `grade` is the recorded
+evaluation score, which can include a platform limit penalty. For example,
+`trajectory_termination_reason="LIMIT_REACHED"`, rollout `CANCELLED` and `grade=0` can occur
+without any native grading. Keep that score in the run's accounting, but leave native grade
+qualification missing until the required native report exists. Genuine native zeros remain
+valid. Inspect both the trajectory stop reason and rollout diagnostics even if trajectory
+capture says completed. Filters such as `task_id=...`, `status=...` and `graded=False`
 help investigate; keep the unfiltered accounting separately.
 
 In the evaluation UI, use **Selected tasks** and **All attempts**. Task details and **Run history**
