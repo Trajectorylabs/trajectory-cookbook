@@ -1,8 +1,8 @@
 # Run a diagnostic on one task
 
-Use `start_task_diagnostic()` to check a task before uploading a full benchmark. It uploads
-local runtime files, registers the task, waits for the image build, and starts diagnostics.
-You need an agent ID, but no existing benchmark, image, or runtime ID.
+Use `start_task_diagnostic()` to check a task before uploading a full benchmark. Diagnostics
+provide better error visibility and logging to help debug your integration. You need an agent
+ID, but no existing benchmark.
 
 Install the latest SDK and authenticate:
 
@@ -57,11 +57,15 @@ for task_result in result.tasks:
 Inspect both the run's failure and each task's result before moving on to a full evaluation
 or training run. Keep the printed diagnostic ID to retrieve the result again later.
 
-For your own task, set `root` to your local project directory and make the Dockerfile path
-relative to it. The Dockerfile's directory is the build context: include the harness and its
-required files there, and make `run_command` match their paths inside the image. See
-[runtime packaging](../README.md#package-a-benchmark-runtime) for dependencies and build limits.
+## Check an uploaded benchmark
 
-You can pass `base_model_slug` to select the diagnostic model and `timeout_seconds` to adjust
-the image-build wait. If you already have an image or registered runtime, use `ImageRef(...)`
-or `RuntimeRef(...)` in the task's `runtime` field instead of `DockerfileBuild(...)`.
+For a benchmark whose images are ready, use benchmark diagnostics for a quick check of a few
+tasks across different runtimes. It selects up to 10 tasks, prioritizing distinct runtimes,
+without executing a full evaluation.
+
+```python
+diagnostic = client.diagnostics.start_benchmark(bench_id="YOUR_BENCH_ID")
+print(diagnostic.benchmark_diagnostic_id)
+```
+
+Use the same status polling and result inspection shown above.
