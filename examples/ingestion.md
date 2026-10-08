@@ -165,6 +165,7 @@ with that key lets the SDK reuse completed objects with matching checksums; an i
 single-object upload may restart. Changed files, tasks or settings require a new key. Do not
 rename the benchmark merely to retry: keep its agent and name so versions stay grouped.
 
+A prebuilt-only submission can use `root=Path(".")`; it uploads task definitions and no image files.
 `start_push()` returns after transfer and acceptance; registration/builds continue on the server.
 `operation.refresh()` reconnects to that work. A client timeout does not cancel it. After restarting
 your client, use `get_operation(client, operation_id)` from `trajectory.lib` before submitting again.
@@ -259,7 +260,8 @@ redaction set may remain visible to your organization's authorized users.
 | Transient runtime build failure; stored source unchanged | After ingestion settles, call `client.benchmarks.images.build(bench_id)`, then inspect `images.list(bench_id)`. |
 
 `images.build` retries eligible pending/failed runtime work for the benchmark, not a selected
-single task. Ready runtimes and identified in-flight builds are skipped. Do not overlap it with
+single task. In the matching release, ingestion history shows the new retry operation and its
+progress. Ready runtimes and identified in-flight builds are skipped. Do not overlap it with
 an active ingestion operation to bypass scheduling. Earlier operation failures remain historical;
 a successful retry does not erase them.
 
