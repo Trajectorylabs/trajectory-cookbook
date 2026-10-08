@@ -166,9 +166,9 @@ agent_id=agt_<your-agent-id>
 bench_id=bm_<32-hex>
 ```
 
-Register credentials your harness needs before running its tasks. Private image-pull credentials
-must exist before ingestion; see the [credential walkthrough](examples/ingestion.md#authenticate-each-operation).
-For a task-runtime credential, register a local OpenAI API key without putting its value in source:
+Set up private registry access before ingestion; the [ingestion walkthrough](examples/ingestion.md#authenticate-each-operation)
+separates registry access from credentials used by your task. Register task credentials before execution.
+For example, register a local OpenAI API key without putting its value in source:
 
 ```python
 import os
@@ -363,19 +363,14 @@ Use `TaskSpec.runtime` to override the image for tasks with different dependenci
 build contexts, for example `runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile")`.
 Include common harness code in each context or supply it through a base image.
 
-Use `DockerfileBuild` for ordinary local files or
-`ImageRef("registry.example.com/runtime@sha256:YOUR_DIGEST")` for an existing image.
-Both use the same [submit, inspect and repair loop](examples/ingestion.md). That walkthrough
-also covers private GAR images through an existing organization `SecretRef`; public image
-references require no pull secret. The initial Modal path uses `linux/amd64` images. Include
-the harness, task files, verifier dependencies and the harness's SDK installation yourself.
+Use `DockerfileBuild` for ordinary local files or a digest-pinned `ImageRef` for an image you
+build and publish. Both use the same [submit, inspect and repair loop](examples/ingestion.md).
 
 The upcoming managed path automatically packages each Dockerfile's directory, filtered by
-`.dockerignore` at the benchmark root. It keeps the selected Dockerfile and does not infer files
-from `COPY` statements. Do not create your own archive or change the Dockerfile to unpack one.
-File modes and safe relative links are preserved. A root Dockerfile includes the checkout unless
-you exclude files; selecting a task does not automatically exclude other tasks' files. See the
-[walkthrough's release note](examples/ingestion.md) for qualification status.
+`.dockerignore` at the benchmark root. It retains the selected Dockerfile and does not infer files
+from `COPY` statements. Keep ordinary files and `COPY` commands; no customer archive step is needed.
+A root Dockerfile selects the checkout unless you exclude files. Selecting a task does not exclude
+other tasks' files. See the walkthrough's release note before using the new delivery features.
 
 If the harness starts separate task containers or remote sandboxes, make its inputs available
 there at the expected paths. Files in the harness image are not automatically available in
@@ -439,17 +434,17 @@ available version information and note that later runs may use different service
 
 ### Keep build contexts focused
 
-Select the files the runtime actually needs with its directory layout and `.dockerignore`.
-The upcoming SDK packages those ordinary files automatically; a hand-built archive and
-Dockerfile extraction step are unnecessary. Source-context limits protect upload and worker
-resources and are separate from registry-image limits. Follow the
+Select files through the context directory and `.dockerignore`. The upcoming SDK packages
+ordinary files automatically. Source-context limits protect upload and worker resources; they
+are separate from registry-image limits and the dataset's total task count. Follow the
 [ingestion walkthrough](examples/ingestion.md#managed-build-keep-your-dockerfile-and-files)
-for the per-context limits in the matching release and the repair loop.
+for the supported dimensions, observed/allowed errors and recovery steps.
 
 ## Examples
 
 - [Task diagnostics](examples/task_diagnostics.md): upload local runtime files and diagnose one
   task without an existing benchmark.
+- [Ingestion and runtime readiness](examples/ingestion.md): choose a delivery path, account for every task and repair runtime failures.
 - [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
 - [Ingestion and runtime readiness](examples/ingestion.md): choose a delivery path, account for tasks and repair runtime failures.
 - [Execution and native reports](examples/diagnostic_artifacts.md): inspect attempts, preserve grading outcomes and retain reports.

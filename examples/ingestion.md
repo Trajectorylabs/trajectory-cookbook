@@ -5,7 +5,7 @@ records to fix failures. You are done with ingestion when every submitted task i
 for and its required runtime is ready, or its failure is recorded with a cause and next action.
 Runtime readiness does not prove that the task's solver or grader works.
 
-> Release note: automatic context archives, private GAR pull credentials and the expanded
+> Release note: automatic context archives, renewable organization access to private GAR and the expanded
 > ingestion-history examples below target the upcoming matching API/SDK release. Their fresh-client
 > walkthrough and full-population qualification are still pending. Do not infer availability
 > from installing an older published SDK.
@@ -42,8 +42,9 @@ file types fail validation. Put shared code in each context or provide it throug
 image. Packaging does not deduplicate different contexts into shared cloud layers.
 
 Keep build inputs stable until upload finishes. Older SDKs can continue sending loose files;
-existing ready runtimes remain usable. The packed representation has a different identity, so
-its first submission can require a new build even when equivalent loose files were built before.
+existing ready runtimes remain usable. The archive checksum identifies transferred bytes.
+Runtime identity follows the selected files, permissions, links and Dockerfile. Changing only tar headers or compression does not change that
+content identity. Moving from an older representation may still require one new build.
 
 For managed builds on Modal in the matching release, each selected context has these limits:
 
@@ -72,10 +73,9 @@ installation in the image; the execution bootstrap does not install them. Public
 references require no pull-secret field and keep their existing behavior.
 
 Your local or CI credentials authorize building and pushing the image. They do not automatically
-authorize Trajectory to pull it. For a private image, use the pull-secret setup below. Private
-base images in a managed Dockerfile and credentials needed by a Dockerfile `RUN` command are
-separate capabilities; this pull-secret field does not supply them. Build and publish the image
-with your own tooling when those credentials are needed.
+authorize Trajectory to pull it. Connect the private repository as shown below. Private base
+images in a managed Dockerfile and credentials needed by a Dockerfile `RUN` command are separate
+capabilities. Build and publish the image with your own tooling when those credentials are needed.
 
 ### Authenticate each operation
 
@@ -83,18 +83,55 @@ Set `TRAJECTORY_API_KEY` for the organization receiving the benchmark. `Client()
 for Trajectory API calls. Trajectory supplies signed upload authorization and its worker/provider
 credentials; you do not need cloud-storage credentials for managed context delivery.
 
-The candidate private-image adapter supports **Google Artifact Registry on Modal**. Save a
-pull credential as an existing organization secret, then reference its **name**, not its value
-or secret ID:
+For a private **Google Artifact Registry image on Modal**, connect its repository once for your
+Trajectory organization:
+
+```python
+from trajectory import Client
+
+client = Client()
+access = client.organizations.register_repository(
+    repository="us-central1-docker.pkg.dev/PROJECT/REPOSITORY",
+)
+print(access.service_account_email)
+```
+
+Registration creates the organization's pull identity. Grant that returned identity
+`roles/artifactregistry.reader` on the repository in your project:
+
+```bash
+gcloud artifacts repositories add-iam-policy-binding REPOSITORY \
+  --project=PROJECT --location=us-central1 \
+  --member="serviceAccount:EMAIL_FROM_ABOVE" \
+  --role=roles/artifactregistry.reader
+```
+
+Then use `ImageRef("us-central1-docker.pkg.dev/PROJECT/REPOSITORY/runtime@sha256:...")`
+without a pull-secret field. Trajectory obtains a short-lived credential when it pulls the
+image and renews it when queued work needs another credential. You do not export a token for
+each submission. The repository must remain registered and the Reader grant must remain valid.
+A successful registration does not verify image access; verify a fresh image pull.
+
+Use `client.organizations.retrieve_registry_access()` to inspect the identity and connected
+repositories. This read does not create the identity. To disconnect a repository, call
+`client.organizations.unregister_repository(repository="us-central1-docker.pkg.dev/PROJECT/REPOSITORY")`.
+That removes the connection; it does not delete images or revoke the IAM grant in your project.
+Ready Trajectory runtimes remain reusable. Other private registries/providers are not qualified
+by this adapter.
+
+#### Existing pull secrets
+
+An explicitly supplied `registry_secret` remains supported. It takes precedence over the
+organization's repository connection; an invalid explicit secret fails rather than falling
+back to another identity.
 
 ```python
 import json
 import os
 
-from trajectory import Client, SecretRef
+from trajectory import SecretRef
 from trajectory.lib import ImageRef
 
-client = Client()
 created = client.secrets.create(
     name="gar-pull",
     value=json.dumps({
@@ -108,36 +145,17 @@ runtime = ImageRef(
 )
 ```
 
-Obtain a fresh token from an identity authorized to read that repository; see Google's
-[Artifact Registry authentication instructions](https://docs.cloud.google.com/artifact-registry/docs/docker/authentication#token).
-The token normally lasts 60 minutes, including time spent queued before the provider pulls it.
-Trajectory does not refresh it. The exact username is `oauth2accesstoken`.
+Reference the secret's **name**, not its value or ID. A saved access token normally expires
+after 60 minutes, including queue time, and Trajectory cannot refresh it. An existing
+service-account JSON key can also be stored as the secret value; your organization owns its
+rotation. Prefer the renewable repository connection for long-running or queued submissions.
+See Google's [Artifact Registry authentication instructions](https://docs.cloud.google.com/artifact-registry/docs/docker/authentication#token).
 
-If your organization already provides a Google service-account JSON key, the secret value can
-instead be the contents of that key file:
-
-```python
-from pathlib import Path
-
-created = client.secrets.create(
-    name="gar-pull-key",
-    value=Path(os.environ["GAR_SERVICE_ACCOUNT_JSON_FILE"]).read_text(),
-)
-# Use SecretRef(secret_ref="gar-pull-key") in ImageRef.
-```
-
-Use a repository-scoped reader for pulling. Keep push credentials in your own build environment
-and keep all credential values out of Dockerfiles, benchmark manifests and logs. The API key's
-organization controls access to the saved secret. The pull secret is not injected into task `env_vars`; reference separate runtime credentials
-there when your harness needs them. Other private registries/providers are not qualified by
-this adapter.
-
-To replace a credential, let its active build settle, revoke it with
+To replace a saved credential, let its active build settle, revoke it with
 `client.secrets.revoke(created.secret.secret_id)`, then create the replacement using the same
-name. There is no in-place secret update or automatic token refresh. A ready imported image can
-still be reused after revocation; that reuse does not prove the replacement credential can pull.
-A fresh pull is required to verify new registry access. Where key creation is disabled, use an authorized access token. Rotate any long-lived key
-through your organization's credential process; Trajectory does not rotate it for you.
+name. Verify a fresh pull; reusing a ready runtime does not test the replacement. Keep credential
+values out of Dockerfiles, manifests and logs. Pull credentials are not injected into task
+`env_vars`; declare separate runtime secrets when the harness needs them.
 
 ## 2. Submit and keep the operation ID
 
@@ -174,11 +192,13 @@ print(status.status, status.stage, status.registered_tasks, status.total_tasks,
 ```
 
 Save a stable idempotency key **before** starting a large submission. Repeating unchanged input
-with that key lets the SDK reuse completed objects with matching checksums; an interrupted
-single-object upload may restart. Changed files, tasks or settings require a new key. Do not
-rename the benchmark merely to retry: keep its agent and name so versions stay grouped.
+with that key lets the SDK reuse completed objects and resume a large archive from the storage
+service's acknowledged offset, including after a client restart. If its session expired, only that
+unfinished object restarts. Keep the local inputs until finalization. Changed files, tasks or settings
+require a new key. Do not rename the benchmark merely to retry: keep its agent and name so versions stay grouped.
 
-A prebuilt-only submission can use `root=Path(".")`; it uploads task definitions and no image files.
+A prebuilt-only submission can use `root=Path(".")`; image layers stay in the registry. Task
+definitions and any separately declared task files still use the uploader.
 `start_push()` returns after transfer and acceptance; registration/builds continue on the server.
 `operation.refresh()` reconnects to that work. A client timeout does not cancel it. After restarting
 your client, use `get_operation(client, operation_id)` from `trajectory.lib` before submitting again.
@@ -273,9 +293,9 @@ redaction set may remain visible to your organization's authorized users.
 
 | Observed failure | Next action |
 | --- | --- |
-| Transfer interrupted; inputs unchanged | Repeat the original submission with the saved key. Completed verified objects can be reused. |
+| Transfer interrupted; inputs unchanged | Repeat the original submission with the saved key. Reuse completed objects and resume active large-object sessions; an expired session restarts only its unfinished object. |
 | Invalid context, changed Dockerfile/dependencies or task settings | Correct the owning source or integration, then submit the intended task set with a new key. |
-| Private pull denied or credential expired | Check repository read access and replace the saved credential. For a registered runtime, use the runtime retry below; for a rejected input, resubmit with a new key. Verify a fresh pull. |
+| Private pull denied or credential expired | Check the repository connection and Reader grant, or replace an explicitly supplied saved credential. For a registered runtime, use the runtime retry below; for a rejected input, resubmit with a new key. Verify a fresh pull. |
 | Transient runtime build failure; stored source unchanged | After ingestion settles, call `client.benchmarks.images.build(bench_id)`, then inspect `images.list(bench_id)`. |
 
 `images.build` retries eligible pending/failed runtime work for the benchmark, not a selected
