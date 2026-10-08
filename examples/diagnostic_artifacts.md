@@ -142,6 +142,19 @@ creating a diagnostic benchmark. Discover supported model/options with
 `client.evals.list_options(...)`, then use the [managed evaluation example](../README.md#3-evaluate-train-and-compare-on-the-trajectory-platform).
 Verify the returned task selection and resolved configuration rather than assuming defaults.
 
+Finish registration and reconcile registered IDs against your original submitted inventory
+before admitting a full-population run. `task_split="all"` freezes the registered TRAIN and
+TEST tasks visible at admission; it cannot include inputs that have not registered.
+
+In the upcoming API release, an ALL evaluation may include tasks whose runtime build
+explicitly failed, alongside ready tasks. Those failed runtimes remain selected and produce
+failed attempts with no grade; they are not silently excluded from coverage. Pending,
+building, missing or unknown runtimes, invalid commands/providers and missing secrets still
+block admission. TEST-only evaluations and training retain their existing readiness checks.
+A mixed evaluation can end with run status `failed` while other tasks finish and receive
+grades. Inspect the selected-task and attempt listings; an average over graded attempts is
+not a score over the full submitted population.
+
 Read the execution settings retained for the accepted run separately from its requested options:
 
 ```python
