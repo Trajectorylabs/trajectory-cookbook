@@ -244,6 +244,13 @@ selected failure.
 
 Retain original and repaired operation/run IDs, task versions and reports. Report first-pass
 and recovered results separately; retries do not increase the number of unique source tasks.
+For a repaired snapshot of the same benchmark, keep the same `agent_id` and
+`BenchmarkSpec.name`, and submit the changed content with a new idempotency key. Each
+submission gets a separate immutable benchmark ID; Platform groups version history by
+agent and benchmark name. Changing the name creates a separate history, even when
+`family` is unchanged. Record the repair label in your submission ledger or task tags
+rather than changing the benchmark name. A subset submission contains only that subset;
+it does not inherit omitted tasks from an earlier snapshot.
 Once the common execution and reporting path works, scale to the intended population through
 the managed scheduler. A task-local failure need not hold back independent tasks or require
 a perfect cohort. Confirm material repairs on unused cases from that population so success
