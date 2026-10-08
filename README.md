@@ -3,7 +3,8 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
-To connect your own harness, start with [native integration and runtime packaging](#package-a-benchmark-runtime).
+To connect your own harness, follow the [ingest, inspect and repair walkthrough](examples/diagnostic_artifacts.md)
+and [native integration and runtime packaging](#package-a-benchmark-runtime).
 See [Inspect integration](examples/inspect.md) for its actor-client setup.
 Use [task diagnostics](examples/task_diagnostics.md) to validate one task directly from local
 runtime files—significantly faster than ingesting the whole benchmark and running a full
@@ -77,7 +78,6 @@ uploading them before completing the trajectory.
 reward = float(check_answer(model_answer, expected_answer))
 client.trajectories.log_reward(
     tid,
-    reward_id="correctness",
     name="reward_accuracy",
     value=reward,
 )
@@ -92,7 +92,7 @@ client = Client()
 tid = client.trajectories.create().tid
 response = client.chat.completions.create(model="openai/gpt-5.4-mini", messages=[{"role": "user", "content": "What is 6 × 7?"}], x_trajectory_id=tid)
 reward = float(response.choices[0].message.content.strip() == "42")
-client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
+client.trajectories.log_reward(tid, name="reward_accuracy", value=reward)
 client.trajectories.complete(tid)
 print(client.trajectories.retrieve(tid, include_steps=True))
 ```
@@ -132,7 +132,7 @@ ready:
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client
-from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
+from trajectory.lib import DockerfileBuild, push
 
 client = Client()
 agent = client.agents.create(name="gsm8k-cookbook")
@@ -147,10 +147,13 @@ result = push(
     benchmark,
     agent_id=agent.agent_id,
     root=Path("my-benchmark"),
+    build_images=True,
 )
 bench_id = result.bench_id
-wait_for_benchmark_images(client, bench_id)
 ```
+
+`build_images=True` builds the runtime as part of the ingestion operation. `push` waits
+for registration and those builds to finish.
 
 Run the complete uploader with the printed agent ID, then save the benchmark ID:
 
@@ -186,6 +189,9 @@ use `Client()` inside the harness. Do not put `TRAJECTORY_*` names in `env_vars`
 through `SecretRef`. Use `SecretRef` for additional credentials the benchmark needs.
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
+
+If an evaluation fails, [inspect every selected task and attempt](examples/diagnostic_artifacts.md#3-run-a-small-managed-evaluation-and-inspect-it-while-it-runs).
+Reward listings omit attempts that failed without a grade.
 
 Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
 same `options` schema. Discover the supported settings and bounds for each mode:
@@ -283,7 +289,9 @@ and [Inspect](examples/inspect.md) examples.
 In a managed task runtime, `Client()` routes model calls to the actor selected for evaluation
 or training, even if a request names a different model. For a fixed judge or other auxiliary
 model, use a separate client configured for its endpoint and credentials. Sending its requests
-through the managed actor client would use the actor model instead.
+through the managed actor client would use the actor model instead. See the
+[fixed auxiliary model example](examples/auxiliary_clients.md) for endpoint, authentication,
+independent trajectory and native OpenAI/LiteLLM configuration.
 
 SDK responses are Pydantic models. If the harness validates responses with another library's
 model class, pass `response.model_dump()` to that validator.
@@ -298,6 +306,13 @@ Call `client.trajectories.log_reward(...)` with the grader's score, including ze
 `client.trajectories.complete(...)` with the same trajectory ID. Use the benchmark's score
 conversion and weighting. Report execution or grading errors as failures rather than
 substituting a zero reward.
+
+Preserve penalties and fallback scores defined by the native scorer, with their reasons.
+An auxiliary or report failure must not erase an independently valid native score. If required
+inputs to the native score are missing, leave it ungraded; do not invent a score or average
+over only the available grading outputs. Use the benchmark's source to determine which
+outputs are required and what its fallback scores mean; record missing outputs separately
+from the score and execution outcome.
 
 Set `termination_reason` from the outcome of the task's execution and grading. Use `ENV_DONE`
 when that operation completes normally, including when a solver reaches its own stopping
@@ -343,11 +358,27 @@ Use `TaskSpec.runtime` to override the image for tasks with different dependenci
 build contexts, for example `runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile")`.
 Include common harness code in each context or supply it through a base image.
 
+If you already build and publish the runtime, use
+`ImageRef("registry.example.com/runtime@sha256:YOUR_DIGEST")` from `trajectory.lib`
+instead of `DockerfileBuild`. Build for `linux/amd64` on the Modal path and use a
+publicly readable, digest-pinned image; customer private-registry credentials are not
+delivered to the image builder. Keep the harness, task files, verifier dependencies
+and its `trajectory-sdk` installation in the image. The platform's execution bootstrap
+does not install those dependencies for you. The
+[SDK benchmark guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#package-the-harness-in-an-image)
+covers runtime packaging and registry submission. Continue through the same
+[inspect-and-repair walkthrough](examples/diagnostic_artifacts.md) for either runtime
+choice. Use managed Dockerfile delivery for private inputs instead of publishing them.
+
 The SDK uploads files under each Dockerfile's directory, filtered by `.dockerignore` at the
 benchmark root; it does not select files by reading `COPY` statements. A root Dockerfile
 therefore includes the checkout unless files are excluded. Include the files needed to build
 and run that runtime, including files referenced by package metadata. Shared file paths upload
 once per submission; selecting a task does not automatically exclude other tasks' files.
+
+Uploaded build-context files do not retain local executable permission bits. After copying
+a script or binary into the image, set its permissions before running it, for example
+`RUN chmod +x /opt/benchmark/setup.sh && /opt/benchmark/setup.sh`.
 
 If the harness starts separate task containers or remote sandboxes, make its inputs available
 there at the expected paths. Files in the harness image are not automatically available in
@@ -393,9 +424,14 @@ For a harness that uses Compose, check the installed executables during the imag
 RUN dockerd --version && docker --version && docker compose version
 ```
 
-Test daemon startup inside a task runtime. Size `EnvResources.cpus` and `memory_mb` for the
-work done there, including any task image builds. If the harness uses an external sandbox
-service instead, supply that service's credentials through `SecretRef`.
+These checks confirm that the tools are installed, not that their versions satisfy your
+pinned harness. In a managed task runtime, run the harness's own container prerequisite check
+before requesting model work. Verify its required client/server versions and command output;
+a working daemon or a successful `--version` command alone does not establish compatibility.
+
+Size `EnvResources.cpus` and `memory_mb` for the work done there, including any task image
+builds. If the harness uses an external sandbox service instead, supply that service's
+credentials through `SecretRef`.
 
 Network access is configured separately: use `network_mode="allowlist"` with `allowed_hosts`,
 or `network_mode="public"` when unrestricted access is required.
@@ -425,7 +461,7 @@ RUN mkdir -p /opt/benchmark \
 - [Task diagnostics](examples/task_diagnostics.md): upload local runtime files and diagnose one
   task without an existing benchmark.
 - [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
-- [Diagnostic artifacts](examples/diagnostic_artifacts.md): retain full reports alongside trajectory events.
+- [Ingest, inspect and repair](examples/diagnostic_artifacts.md): account for tasks, diagnose failures and retain native reports.
 
 When adapting an existing benchmark, read the cookbook recipe together with its complete public
 implementation PR:
