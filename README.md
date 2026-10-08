@@ -439,8 +439,8 @@ Select the files the runtime actually needs with its directory layout and `.dock
 The upcoming SDK packages those ordinary files automatically; a hand-built archive and
 Dockerfile extraction step are unnecessary. Source-context limits protect upload and worker
 resources and are separate from registry-image limits. Follow the
-[ingestion walkthrough](examples/ingestion.md#4-fix-the-cause-and-retry-the-affected-work)
-for the applicable limit/error and repair loop; packed-path capacity is still being qualified.
+[ingestion walkthrough](examples/ingestion.md#managed-build-keep-your-dockerfile-and-files)
+for the per-context limits in the matching release and the repair loop.
 
 ## Examples
 

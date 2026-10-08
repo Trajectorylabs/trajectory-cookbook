@@ -45,6 +45,19 @@ Keep build inputs stable until upload finishes. Older SDKs can continue sending 
 existing ready runtimes remain usable. The packed representation has a different identity, so
 its first submission can require a new build even when equivalent loose files were built before.
 
+For managed builds on Modal in the matching release, each selected context has these limits:
+
+| Dimension | Maximum |
+| --- | --- |
+| Uploaded archive size | 3 GiB (3,221,225,472 bytes) |
+| Sum of expanded regular-file sizes | 3 GiB (3,221,225,472 bytes) |
+| Files and symlinks | 4,096 |
+| Total archive entries, including directories | 16,384 |
+
+All four limits apply independently to each context. They do not limit the benchmark's combined
+size or prebuilt image layers. If required inputs exceed them, use a focused context or build
+and publish a prebuilt image. The provider's image constraints still apply to that image.
+
 ### Prebuilt image: build and publish once
 
 ```python
@@ -275,9 +288,6 @@ not block independent healthy tasks.
 
 Managed upload/context bounds protect worker resources and are distinct from provider image
 constraints. If a bound rejects input, retain its dimension, observed value and allowed value.
-The new archive path's supported capacity is still being measured; this draft does not publish
-its provisional member or memory guards as qualified customer limits. Image layers do not become
-managed source contexts merely because they belong to the same benchmark.
 
 ## 5. Confirm readiness, then test the task
 
@@ -294,7 +304,9 @@ runtimes visible; a subset of ready images is not full-population success.
 
 Use the [task-diagnostic walkthrough](task_diagnostics.md) to check native startup,
 imports, services and credentials on representative ready runtimes. That runs task code and is a
-separate gate from ingestion. Once you need solver/grader evidence, continue with
+separate gate from ingestion. Verify the interpreter and dependencies used by the submitted
+`run_command`; checking the Dockerfile's `CMD` alone does not establish that the task command can
+start. Once you need solver/grader evidence, continue with
 [execution, native reports and repair](diagnostic_artifacts.md#1-check-native-prerequisites-cheaply).
 An unresolved grader configuration alone is not a reason to exclude a task from ingestion;
 record the stage it prevents and preserve its source identity.
