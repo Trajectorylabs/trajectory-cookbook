@@ -33,6 +33,43 @@ Use `bench_id=...` to restrict history to one benchmark version. In the product,
 **Benchmarks → Ingestion history**, or **Ingestion history** on a benchmark's spec.
 Inspect every submission outcome, including failures and cancelled work.
 
+Use the submitted-input view to account for tasks that have no registered task ID yet:
+
+```python
+operation_id = "iop_YOUR_OPERATION"
+cursor = None
+while True:
+    page = client.benchmarks.ingestion.list_inputs(operation_id, cursor=cursor, limit=100)
+    for item in page.items:
+        print(item.part_path, item.task_index, item.name, item.status,
+              item.task_id, item.runtime, item.failure)
+    if page.unavailable_parts:
+        print("Task identities unavailable for parts:", page.unavailable_parts)
+    cursor = page.next_cursor
+    if cursor is None:
+        break
+```
+
+This read uses the operation's retained, generation-pinned upload parts and registration
+receipts. It does not register tasks or rebuild images. An input's `task_id` stays `None`
+until registration; use `(operation_id, part_path, task_index)` to identify that submitted
+input. A valid name maps it to the original source inventory. `pending` means registration
+has not finished; `rejected` has a recorded task failure; `not_registered` means the operation
+ended without a registration receipt. Inspect submission-level failures for the cause.
+`registered` does not establish runtime readiness or successful evaluation.
+
+An unverified or malformed part has unknown task identities and appears in
+`unavailable_parts`; do not treat it as an empty successful submission. Follow the cursor
+even when a page has no task rows. Refresh from the first page while ingestion progresses.
+Requests rejected before an operation exists and source tasks never submitted remain in
+your source/submission ledger; the platform cannot infer those identities.
+
+The Platform benchmark task table uses these same records for ingestion and runtime status,
+then adds the selected evaluation's execution and grading outcomes. **Submission details**
+opens the retained failure/build records. **Ingestion history → Submitted inputs** also
+works when no benchmark was registered. Keep the original source count beside the visible
+inventory whenever any parts are unavailable.
+
 Read each task result and failure, following every page. For example:
 
 ```python
@@ -105,6 +142,22 @@ creating a diagnostic benchmark. Discover supported model/options with
 `client.evals.list_options(...)`, then use the [managed evaluation example](../README.md#3-evaluate-train-and-compare-on-the-trajectory-platform).
 Verify the returned task selection and resolved configuration rather than assuming defaults.
 
+Read the execution settings retained for the accepted run separately from its requested options:
+
+```python
+run_id = "evr_YOUR_RUN"
+run = client.evals.runs.retrieve(run_id)
+configuration = client.evals.runs.configuration(run_id)
+print("Requested options:", run.options)
+print("Recorded execution:", configuration.model_dump())
+```
+
+`available=False` or a null field means recorded evidence is unavailable; the API does not
+substitute today's model catalog defaults. Check model identity, context, sample count,
+maximum active rollouts and execution limits against your intended experiment. The recorded
+concurrency cap is an admission setting, not a measurement of simultaneous active tasks.
+These settings do not replace native-report checks or prove which native grading paths ran.
+
 Keep the run ID. Inspect both selected work and recorded attempts:
 
 ```python
@@ -155,6 +208,9 @@ absent diagnostic text does not mean execution succeeded.
 In the evaluation UI, use **Selected tasks** and **All attempts**. Task details and **Run history**
 connect prior and repaired attempts by exact task identity. Inspect a new run when a repair
 creates a new benchmark/task version; matching display names alone do not prove identity.
+The benchmark table lets you select the exact evaluation; its details retain every attempt,
+including failures without trajectories. Use **Benchmark version** to inspect an older
+submission without mixing its task IDs or results with the repaired version.
 
 ## 4. Check native reports and required outputs
 
