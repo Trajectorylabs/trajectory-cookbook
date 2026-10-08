@@ -14,6 +14,7 @@ builds and prebuilt images, credentials, every submitted input, failed build log
 Then use this page to validate native execution, grading and report retention.
 
 This draft's complete-attempt examples require the upcoming matching API/SDK release.
+Publishing diagnostics while cancelling also requires the matching backend update.
 Release and ordinary-customer checks remain pending.
 
 ## 1. Check native prerequisites cheaply
@@ -183,6 +184,16 @@ different `event_id` for each distinct event and reuse that ID only when retryin
 write. An existing ID is deduplicated, not updated. Record new events before completing the
 trajectory; read them later with `client.trajectories.list_events(tid)`.
 
+When a model call returns `trajectory_closed` with `x-should-retry: false`, stop model calls.
+While the trajectory is `cancelling` and the harness is still running, it can publish events
+and finish artifact uploads to retain the failure report. New model steps and reward writes
+remain closed. Finalization can start when the harness exits or is stopped; once it starts,
+new events and artifact attachments are rejected. Reserving an upload does not extend this
+window, so complete the upload and record its event before exiting or calling `complete`.
+
+A retained report does not itself establish a native grade. Distinguish missing grading
+outputs from a genuine native zero and from a score imposed by a platform limit.
+
 Use events for structured diagnostics and artifacts for files such as test logs or reports.
 Completing an artifact upload attaches the file to the trajectory. The event in this example
 also records its ID and filename. If a diagnostic upload fails, report it separately from the
@@ -191,7 +202,7 @@ task's execution result and computed reward.
 An artifact upload can contain up to 16 MiB. Compress larger text reports or split them into
 files before uploading.
 
-With an active trajectory ID `tid`, upload a compressed report:
+Before finalization, upload a compressed report for trajectory `tid`:
 
 ```python
 import base64

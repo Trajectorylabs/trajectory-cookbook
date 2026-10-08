@@ -331,6 +331,10 @@ grader output need not invalidate a score; preserve the benchmark's handling of 
 optional outputs.
 Use events for summaries and [artifacts](examples/diagnostic_artifacts.md) for full reports.
 Finish recording them before completing the trajectory and cleaning up the environment.
+If a platform limit closes model calls, the running harness can still publish diagnostics
+while the trajectory is `cancelling`; new reward writes remain closed. See the
+[reporting window](examples/diagnostic_artifacts.md#record-events-and-artifacts) and finish
+uploads before finalization begins.
 
 ### Choose the runtime and its files
 
