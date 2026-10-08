@@ -5,6 +5,11 @@ Examples for evaluating and training models with the
 
 To connect your own harness, start with [native integration and runtime packaging](#package-a-benchmark-runtime).
 See [Inspect integration](examples/inspect.md) for its actor-client setup.
+Use [task diagnostics](examples/task_diagnostics.md) to validate one task directly from local
+runtime files—significantly faster than ingesting the whole benchmark and running a full
+evaluation. For an uploaded benchmark, use
+[benchmark diagnostics](examples/task_diagnostics.md#check-an-uploaded-benchmark)
+to quickly validate a few tasks across different runtimes.
 
 ## Setup
 
@@ -417,6 +422,8 @@ RUN mkdir -p /opt/benchmark \
 
 ## Examples
 
+- [Task diagnostics](examples/task_diagnostics.md): upload local runtime files and diagnose one
+  task without an existing benchmark.
 - [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
 - [Diagnostic artifacts](examples/diagnostic_artifacts.md): retain full reports alongside trajectory events.
 
