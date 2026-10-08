@@ -24,6 +24,8 @@ actor/private-grader isolation. The [runtime packaging guide](../README.md#packa
 explains what the platform starts and what your image must install.
 Run the harness's prerequisite validation in that runtime before model work; executable version
 checks and imports alone do not establish that its setup path will work.
+Use the same command, shell, working directory and environment as the solver and grader.
+A tool available during image construction may be unavailable to the harness at execution time.
 
 Before making a model request, check that the installed client accepts the native call's
 actual arguments; importing or constructing the client does not test this. Trajectory SDK
@@ -34,6 +36,10 @@ Check changed model-client connections with a short request and a finite timeout
 expensive evaluation. Fixed auxiliary models need their [own client and credentials](auxiliary_clients.md).
 A capped connection probe verifies routing; it does not replace native budgets or prove that
 the solver or grader works. Reuse evidence for unchanged prerequisites.
+For managed tasks, run the probe with the same `SecretRef` bindings and client configuration
+as the harness. A successful request from the onboarding workspace does not verify the
+values injected into a managed task. Keep the helper's SDK origin separate from its native
+inference base, as the auxiliary-client example shows.
 
 ## 2. Run a small managed evaluation and inspect it while it runs
 
