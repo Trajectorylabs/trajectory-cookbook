@@ -79,17 +79,31 @@ maximum active rollouts and execution limits against your intended experiment. T
 concurrency cap is an admission setting, not a measurement of simultaneous active tasks.
 These settings do not replace native-report checks or prove which native grading paths ran.
 
+Keep progress polling separate from report inspection:
+
+```python
+progress = client.evals.runs.progress(run_id)
+print(progress.status, progress.live)
+```
+
+A slow report download should not prevent the next progress update. Reconcile attempts
+with one unfiltered listing; use status filters for a specific investigation instead of
+scanning every status separately on each poll. Download each immutable report once and
+retain its artifact ID and checksum. Fetch full trajectory steps when investigating the
+conversation, rather than on every progress refresh. If a request times out, record the
+read failure and observation time; it does not mean execution stopped.
+
 Keep the run ID. Inspect both selected work and recorded attempts:
 
 ```python
 run_id = "evr_YOUR_RUN"
-selection = client.evals.runs.list_selected_tasks(run_id)
+selection = client.evals.runs.list_selected_tasks(run_id, limit=100)
 print(selection.supported, selection.total_tasks)
 for task in selection:
     print(task.task_id, task.expected_attempts,
           task.recorded_attempts, task.unstarted_attempts)
 
-attempts = client.evals.runs.list_attempts(run_id)
+attempts = client.evals.runs.list_attempts(run_id, limit=100)
 print(attempts.supported)
 for attempt in attempts:
     print(attempt.task_id, attempt.sample_id, attempt.status,
