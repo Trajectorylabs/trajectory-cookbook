@@ -3,7 +3,8 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
-To connect your own harness, start with [native integration and runtime packaging](#package-a-benchmark-runtime).
+To connect your own harness, follow the [ingestion and runtime-readiness walkthrough](examples/ingestion.md)
+and [native integration and runtime packaging](#package-a-benchmark-runtime).
 See [Inspect integration](examples/inspect.md) for its actor-client setup.
 Use [task diagnostics](examples/task_diagnostics.md) to validate one task directly from local
 runtime files—significantly faster than ingesting the whole benchmark and running a full
@@ -132,7 +133,7 @@ ready:
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client
-from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
+from trajectory.lib import DockerfileBuild, push
 
 client = Client()
 agent = client.agents.create(name="gsm8k-cookbook")
@@ -147,9 +148,9 @@ result = push(
     benchmark,
     agent_id=agent.agent_id,
     root=Path("my-benchmark"),
+    build_images=True,
 )
 bench_id = result.bench_id
-wait_for_benchmark_images(client, bench_id)
 ```
 
 Run the complete uploader with the printed agent ID, then save the benchmark ID:
@@ -163,8 +164,9 @@ agent_id=agt_<your-agent-id>
 bench_id=bm_<32-hex>
 ```
 
-If your benchmark needs an organization secret, register it after ingestion. For example,
-register a local OpenAI API key without putting its value in source:
+Set up private registry access before ingestion; the [ingestion walkthrough](examples/ingestion.md#authenticate-each-operation)
+separates registry access from credentials used by your task. Register task credentials before execution.
+For example, register a local OpenAI API key without putting its value in source:
 
 ```python
 import os
@@ -343,11 +345,14 @@ Use `TaskSpec.runtime` to override the image for tasks with different dependenci
 build contexts, for example `runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile")`.
 Include common harness code in each context or supply it through a base image.
 
-The SDK uploads files under each Dockerfile's directory, filtered by `.dockerignore` at the
-benchmark root; it does not select files by reading `COPY` statements. A root Dockerfile
-therefore includes the checkout unless files are excluded. Include the files needed to build
-and run that runtime, including files referenced by package metadata. Shared file paths upload
-once per submission; selecting a task does not automatically exclude other tasks' files.
+Use `DockerfileBuild` for ordinary local files or a digest-pinned `ImageRef` for an image you
+build and publish. Both use the same [submit, inspect and repair loop](examples/ingestion.md).
+
+The upcoming managed path automatically packages each Dockerfile's directory, filtered by
+`.dockerignore` at the benchmark root. It retains the selected Dockerfile and does not infer files
+from `COPY` statements. Keep ordinary files and `COPY` commands; no customer archive step is needed.
+A root Dockerfile selects the checkout unless you exclude files. Selecting a task does not exclude
+other tasks' files. See the walkthrough's release note before using the new delivery features.
 
 If the harness starts separate task containers or remote sandboxes, make its inputs available
 there at the expected paths. Files in the harness image are not automatically available in
@@ -378,8 +383,9 @@ Managed builds do not supply Docker BuildKit's automatic platform arguments, suc
 
 Inspect failed ingestion items while other runtimes build. `runtime_build_failed` with
 `retryable: true` does not automatically rebuild the image in that operation. Correct the
-cause before submitting again. A polling timeout leaves server processing running; reconnect
-to the existing operation to check its outcome.
+cause and use the [appropriate retry](examples/ingestion.md#4-fix-the-cause-and-retry-the-affected-work).
+A polling timeout leaves server processing running; reconnect to the existing operation to check
+its outcome.
 
 ### Run native Docker environments
 
@@ -403,27 +409,19 @@ or `network_mode="public"` when unrestricted access is required.
 For external task or grading services, pin a version where supported. Otherwise record the
 available version information and note that later runs may use different service behavior.
 
-### Keep build contexts within service limits
+### Keep build contexts focused
 
-Each runtime build context can contain at most 4,096 uploaded files and 3 GiB. Scope the
-context to the files it needs. For many small files, you can archive them and extract them
-during the image build. Exclude the unpacked copy from uploads. The archive still counts
-toward the byte limit; task-specific runtimes can use smaller contexts.
-
-Use `COPY` followed by `RUN tar`; managed builds do not support local archive extraction
-with `ADD`:
-
-```dockerfile
-COPY tasks.tar.gz /tmp/tasks.tar.gz
-RUN mkdir -p /opt/benchmark \
-    && tar -xzf /tmp/tasks.tar.gz -C /opt/benchmark \
-    && rm /tmp/tasks.tar.gz
-```
+Select files through the context directory and `.dockerignore`. The upcoming SDK packages
+ordinary files automatically. Source-context limits protect upload and worker resources; they
+are separate from registry-image limits and the dataset's total task count. Follow the
+[ingestion walkthrough](examples/ingestion.md#managed-build-keep-your-dockerfile-and-files)
+for the supported dimensions, observed/allowed errors and recovery steps.
 
 ## Examples
 
 - [Task diagnostics](examples/task_diagnostics.md): upload local runtime files and diagnose one
   task without an existing benchmark.
+- [Ingestion and runtime readiness](examples/ingestion.md): choose a delivery path, account for every task and repair runtime failures.
 - [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
 - [Diagnostic artifacts](examples/diagnostic_artifacts.md): retain full reports alongside trajectory events.
 
