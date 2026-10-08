@@ -263,7 +263,9 @@ redaction set may remain visible to your organization's authorized users.
 single task. In the matching release, ingestion history shows the new retry operation and its
 progress. Ready runtimes and identified in-flight builds are skipped. Do not overlap it with
 an active ingestion operation to bypass scheduling. Earlier operation failures remain historical;
-a successful retry does not erase them.
+a successful retry does not erase them. Retry operations contain runtime results, with zero new
+submitted/registered tasks. Use `images.list(bench_id)` for current per-task readiness; their
+failures do not provide an affected-task receipt cursor.
 
 For corrected source, keep the same agent and benchmark name and save the new operation and
 benchmark IDs. A new version contains only the tasks you submit; a subset does not inherit the
