@@ -69,3 +69,8 @@ print(diagnostic.benchmark_diagnostic_id)
 ```
 
 Use the same status polling and result inspection shown above.
+
+For full task accounting, build logs and retries, use the
+[ingestion and runtime-readiness walkthrough](ingestion.md). The upcoming matching SDK uses
+the same automatic context packaging for local task diagnostics and benchmark uploads; you
+keep the ordinary Dockerfile and files shown here.

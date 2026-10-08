@@ -1,4 +1,4 @@
-# Ingest, inspect and repair a native benchmark
+# Inspect native execution, grading and reports
 
 A correctly integrated task executes its native solver and grader, preserves the native
 score (including zero), and retains the reports required by the path it actually ran.
@@ -9,113 +9,14 @@ for the executed path, including zero penalties and native fallback scores; reco
 reasons and auxiliary failures separately. Neither a score nor an average over graded rows
 establishes successful execution or complete integration.
 
-This draft's complete-attempt and ingestion-history examples require the upcoming API/SDK
-release that adds those methods. The release and ordinary-customer checks are still pending.
+Complete the [ingestion and runtime-readiness loop](ingestion.md) first. It covers managed
+builds and prebuilt images, credentials, every submitted input, failed build logs and retries.
+Then use this page to validate native execution, grading and report retention.
 
-## 1. Account for the submission
+This draft's complete-attempt examples require the upcoming matching API/SDK release.
+Release and ordinary-customer checks remain pending.
 
-Keep the pinned source revision, original task names/splits and submitted identities. Save the
-operation ID returned by ingestion. A client polling timeout does not stop server processing:
-inspect that operation before uploading again. You can also discover it in public history,
-including a failure before a benchmark was registered:
-
-```python
-from trajectory import Client
-
-client = Client()
-for operation in client.benchmarks.ingestion.list():
-    print(operation.operation_id, operation.bench_id, operation.status,
-          operation.registered_tasks, operation.total_tasks,
-          operation.ready_runtimes, operation.total_runtimes)
-```
-
-Use `bench_id=...` to restrict history to one benchmark version. In the product, open
-**Benchmarks → Ingestion history**, or **Ingestion history** on a benchmark's spec.
-Inspect every submission outcome, including failures and cancelled work.
-
-Use the submitted-input view to account for tasks that have no registered task ID yet:
-
-```python
-operation_id = "iop_YOUR_OPERATION"
-cursor = None
-while True:
-    page = client.benchmarks.ingestion.list_inputs(operation_id, cursor=cursor, limit=100)
-    for item in page.items:
-        print(item.part_path, item.task_index, item.name, item.status,
-              item.task_id, item.runtime, item.failure)
-    if page.unavailable_parts:
-        print("Task identities unavailable for parts:", page.unavailable_parts)
-    cursor = page.next_cursor
-    if cursor is None:
-        break
-```
-
-This read uses the operation's retained, generation-pinned upload parts and registration
-receipts. It does not register tasks or rebuild images. An input's `task_id` stays `None`
-until registration; use `(operation_id, part_path, task_index)` to identify that submitted
-input. A valid name maps it to the original source inventory. `pending` means registration
-has not finished; `rejected` has a recorded task failure; `not_registered` means the operation
-ended without a registration receipt. Inspect submission-level failures for the cause.
-`registered` does not establish runtime readiness or successful evaluation.
-
-An unverified or malformed part has unknown task identities and appears in
-`unavailable_parts`; do not treat it as an empty successful submission. Follow the cursor
-even when a page has no task rows. Refresh from the first page while ingestion progresses.
-Requests rejected before an operation exists and source tasks never submitted remain in
-your source/submission ledger; the platform cannot infer those identities.
-
-The Platform benchmark task table uses these same records for ingestion and runtime status,
-then adds the selected evaluation's execution and grading outcomes. **Submission details**
-opens the retained failure/build records. **Ingestion history → Submitted inputs** also
-works when no benchmark was registered. Keep the original source count beside the visible
-inventory whenever any parts are unavailable.
-
-Read each task result and failure, following every page. For example:
-
-```python
-operation_id = "iop_YOUR_OPERATION"
-for kind in ("result", "failure", "runtime"):
-    after = ""
-    while True:
-        page = client.benchmarks.ingestion.list_items(
-            operation_id=operation_id, kind=kind, after=after, limit=100,
-        )
-        for item in page.items:
-            print(kind, item.model_dump())
-        if page.next_cursor is None:
-            break
-        after = page.next_cursor
-```
-
-Compare task results and task-level rejections against your submitted inventory. The platform
-cannot account for source tasks you never submitted. A shared runtime failure affects every
-task linked to it: use `kind="runtime_task", runtime_id=...` with the same pagination loop,
-or **Show affected tasks** in the UI. Keep the original denominator when fixing a subset.
-
-### Read the failed build before rebuilding
-
-A provider's final error lines may arrive after failure is recorded. Use the original
-operation/runtime pair to request a fresh, bounded, redacted excerpt:
-
-```python
-logs = client.benchmarks.ingestion.build_logs(
-    operation_id=operation_id, runtime_id="rt_YOUR_RUNTIME",
-)
-print(logs.observed_at, logs.provider_ref, logs.available)
-if logs.available:
-    print(logs.excerpt)
-```
-
-The UI's **Read build logs** uses the same public interface. This read never rebuilds or changes
-execution state. It returns up to 6,000 characters from the operation's original failed build,
-with registered secret values redacted. `available` means text was returned, not that the
-provider has delivered its final error. Credentials embedded in build output that are not
-registered for redaction may remain visible to members of the owning organization.
-If it still shows installation progress, make a bounded
-later read. Do not rebuild just to obtain logs. A provider timeout or missing historical build
-reference can return `available=false`; retain the original failure and diagnostic limitation.
-
-## 2. Check native prerequisites cheaply
+## 1. Check native prerequisites cheaply
 
 Use the pinned harness's own setup instructions and entrypoint to check imports, executables,
 plugins, native services, architecture and credentials in the intended runtime. Preserve
@@ -134,7 +35,7 @@ expensive evaluation. Fixed auxiliary models need their [own client and credenti
 A capped connection probe verifies routing; it does not replace native budgets or prove that
 the solver or grader works. Reuse evidence for unchanged prerequisites.
 
-## 3. Run a small managed evaluation and inspect it while it runs
+## 2. Run a small managed evaluation and inspect it while it runs
 
 Choose representative tasks before looking at outcomes, covering the native paths you need.
 Use an explicit evaluation split and a bounded cohort; preserve original dataset roles if
@@ -225,7 +126,7 @@ The benchmark table lets you select the exact evaluation; its details retain eve
 including failures without trajectories. Use **Benchmark version** to inspect an older
 submission without mixing its task IDs or results with the repaired version.
 
-## 4. Check native reports and required outputs
+## 3. Check native reports and required outputs
 
 For an attempt with a trajectory, read its recorded events:
 
@@ -247,7 +148,7 @@ outputs separately from optional omissions and genuine negative verdicts. Preser
 native scores, including zero, alongside that evidence; a fallback score alone does not prove
 that every component ran successfully.
 
-## 5. Repair the owner and confirm on additional tasks
+## 4. Repair the owner and confirm on additional tasks
 
 Use the public error and pinned source to identify whether the cause belongs to packaging,
 the integration, a platform interface or an upstream prerequisite. Fix the owning cause and
