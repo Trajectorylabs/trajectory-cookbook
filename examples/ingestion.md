@@ -228,17 +228,17 @@ account for original inputs even when they have no registered task ID:
 
 ```python
 operation_id = "iop_YOUR_OPERATION"
-cursor = None
+page_options = {"limit": 100}
 while True:
-    page = client.benchmarks.ingestion.list_inputs(operation_id, cursor=cursor, limit=100)
+    page = client.benchmarks.ingestion.list_inputs(operation_id, **page_options)
     for item in page.items:
         print(item.part_path, item.task_index, item.name, item.status,
               item.task_id, item.runtime, item.failure)
     if page.unavailable_parts:
         print("Unresolved input parts:", page.unavailable_parts)
-    cursor = page.next_cursor
-    if cursor is None:
+    if page.next_cursor is None:
         break
+    page_options["cursor"] = page.next_cursor
 ```
 
 `pending` means registration has not finished; `rejected` has a recorded task failure;
