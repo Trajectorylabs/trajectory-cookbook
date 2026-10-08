@@ -190,6 +190,12 @@ Verified upload bytes do not establish task registration or runtime readiness.
 
 ## 3. Inspect every input and failed runtime
 
+In the matching Platform UI, open **Benchmarks → Ingestion history → Inspect submission**.
+This shows submitted inputs before task registration; load every page to account for the whole
+submission. An allocated benchmark ID does not yet imply a registered benchmark page. After
+registration, use the benchmark task table and select an evaluation to inspect attempts, grades,
+diagnostics and reports. The SDK interfaces below expose the same underlying records.
+
 Find an operation in history, including one that failed before registration:
 
 ```python
