@@ -371,6 +371,10 @@ therefore includes the checkout unless files are excluded. Include the files nee
 and run that runtime, including files referenced by package metadata. Shared file paths upload
 once per submission; selecting a task does not automatically exclude other tasks' files.
 
+Uploaded build-context files do not retain local executable permission bits. After copying
+a script or binary into the image, set its permissions before running it, for example
+`RUN chmod +x /opt/benchmark/setup.sh && /opt/benchmark/setup.sh`.
+
 If the harness starts separate task containers or remote sandboxes, make its inputs available
 there at the expected paths. Files in the harness image are not automatically available in
 another environment. Preserve the benchmark's separation between actor-visible inputs and
