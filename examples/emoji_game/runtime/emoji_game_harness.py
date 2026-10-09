@@ -7,7 +7,7 @@ from pathlib import Path
 import emoji
 from trajectory import Client
 
-PROMPT = "Write a short paragraph about {topic}."
+PROMPT = "Write a short emotion-packed exciting paragraph about {topic}."
 BASELINE_DENSITY = 0.3
 MAX_TOKENS = 512
 
@@ -54,7 +54,6 @@ def main() -> None:
         )
         client.trajectories.log_reward(
             tid,
-            reward_id="emoji-density",
             name="reward_emoji_density",
             value=result["reward"],
         )

@@ -4,8 +4,10 @@ import importlib.util
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 import pytest
+from trajectory.resources.trajectories.trajectories import Trajectories
 
 ROOT = Path(__file__).parent
 
@@ -65,7 +67,7 @@ def test_play_uses_completion_tokens_and_hides_objective():
     (call,) = client.calls
     assert call["x_trajectory_id"] == "tid-test"
     assert call["messages"] == [
-        {"role": "user", "content": "Write a short paragraph about the ocean."}
+        {"role": "user", "content": "Write a short emotion-packed exciting paragraph about the ocean."}
     ]
     assert "emoji" not in harness.PROMPT.lower()
 
@@ -92,3 +94,24 @@ def test_splits_use_disjoint_topics(tmp_path, monkeypatch):
         assert topics == expected
     assert len(ingest.TRAIN_TOPICS) == 32 and len(ingest.TEST_TOPICS) == 16
     assert not set(ingest.TRAIN_TOPICS) & set(ingest.TEST_TOPICS)
+
+
+def test_main_reports_through_real_sdk_signatures(tmp_path, monkeypatch):
+    """Autospec rejects keyword arguments the installed SDK does not accept."""
+    task_file = tmp_path / "task.json"
+    task_file.write_text(json.dumps({"topic": "the ocean"}))
+    client = ScriptedClient("Sun 🌞 and sea 🌊", 10)
+    client.trajectories = mock.create_autospec(Trajectories, instance=True)
+    client.trajectories.create.return_value = SimpleNamespace(tid="tid-test")
+    client.trajectories.complete.return_value = SimpleNamespace(status="completed")
+    monkeypatch.setattr(harness, "Client", lambda **_: client)
+    monkeypatch.setattr("sys.argv", ["harness", "--task-file", str(task_file)])
+
+    harness.main()
+
+    client.trajectories.log_reward.assert_called_once_with(
+        "tid-test", name="reward_emoji_density", value=pytest.approx(-0.1)
+    )
+    client.trajectories.complete.assert_called_once_with(
+        "tid-test", termination_reason="ENV_DONE"
+    )
