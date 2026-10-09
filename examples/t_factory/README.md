@@ -19,12 +19,19 @@ def t_word_density(answer: str) -> float:
 ```
 
 The benchmark contains 128 training tasks and 64 held-out test tasks.
-[Choose or create an agent](../../README.md#choose-or-create-an-agent), then upload using its name:
+[Choose or create an agent](../../README.md#choose-or-create-an-agent). For a new agent:
+
+```bash
+uv run --with trajectory-sdk python -c \
+  'from trajectory import Client; Client().agents.create(name="t-factory-cookbook")'
+```
+
+Upload using its name:
 
 ![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
 
 ```bash
-uv run examples/t_factory/ingest.py --agent-name "YOUR_AGENT_NAME"
+uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
 ```
 
 Save the printed `bench_id`, then run the baseline evaluation, training, and final evaluation:

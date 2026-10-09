@@ -130,10 +130,17 @@ bound therefore affects subsequent guesses and the final reward.
 
 ## Upload the benchmark
 
-[Choose or create an agent](../../README.md#choose-or-create-an-agent), then upload using its name:
+[Choose or create an agent](../../README.md#choose-or-create-an-agent). For a new agent:
 
 ```bash
-uv run examples/number_guessing/ingest.py --agent-name "YOUR_AGENT_NAME"
+uv run --with trajectory-sdk python -c \
+  'from trajectory import Client; Client().agents.create(name="number-guessing-cookbook")'
+```
+
+Upload using its name:
+
+```bash
+uv run examples/number_guessing/ingest.py --agent-name "number-guessing-cookbook"
 ```
 
 The uploader packages 32 train and 16 test tasks into the runtime image. Each
