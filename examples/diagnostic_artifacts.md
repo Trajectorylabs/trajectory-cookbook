@@ -120,8 +120,8 @@ When filtering by `status` or `graded`, all pages use the first
 page's database snapshot so changing outcomes cannot skip matching rows. Those cursors expire
 after 30 minutes; start a new listing to see newer outcomes or recover from an expired cursor.
 A paginated read during execution is not a final report.
-`supported=false` means the required historical records
-are unavailable, not that the run had no selected work. A selected task without an attempt is
+`supported=false` means complete historical coverage is unavailable, not that the run had no
+selected work. Retain any records the response does return. A selected task without an attempt is
 unstarted. An attempt can fail before a trajectory exists; a trajectory-only listing misses
 that failure. Zero and `None` are different results. The attempt's `grade` is the recorded
 evaluation score, which can include a platform limit penalty. For example,
@@ -162,7 +162,33 @@ The benchmark table lets you select the exact evaluation; its details retain eve
 including failures without trajectories. Use **Benchmark version** to inspect an older
 submission without mixing its task IDs or results with the repaired version.
 
-## 3. Check native reports and required outputs
+## 3. Inspect the attempt, score source and supporting output
+
+From the benchmark table, select the evaluation and open a task's attempt. Keep that attempt
+selected while moving between **Activity**, **Grade** and **Files & records**:
+
+- **Activity** shows execution outcomes and available diagnostics alongside the recorded
+  model/tool conversation. System instructions expand on demand. A failed attempt remains
+  inspectable when no trajectory was created. Submitted task messages and actual model
+  messages are separate records.
+- **Grade** shows the recorded score and its selected source when captured, followed by
+  supplied explanations and component values. A directly logged reward does not require a
+  separate sandbox or managed grader. For managed grading, inspect the exact producing
+  execution and its available definition/output. An unavailable source or explanation is
+  an evidence gap, not proof that the score is wrong.
+- **Files & records** lists integration-supplied output. Open a record or file to inspect it;
+  technical identifiers and raw data remain available. A file attached to an attempt was
+  not necessarily used to calculate its score. Only recorded relationships establish that
+  association, and integration-declared relationships remain labeled as supplied evidence.
+
+An execution error and a recorded score can coexist. A Platform penalty is distinct from a
+reward calculated by your integration. For older attempts whose selected source was not
+retained, inspect saved rewards as additional evidence without assuming a matching number
+identifies the source. The UI does not interpret arbitrary report fields as correctness
+verdicts; use your benchmark's source and requirements to assess the result.
+
+The same inspection is available to an onboarding agent through the public SDK:
+
 
 Choose an attempt by its `sample_id`, keeping the unfiltered task accounting above. If it has
 no `trajectory_id`, use its rollout diagnostics; there is no trace or grading capture to open.
@@ -193,8 +219,8 @@ may instead report its results through logged rewards and native artifacts. Empt
 rewards or execution lists do not prove native grading succeeded or failed; check the
 required reports for the path that actually ran.
 
-The UI's **Events and artifacts** shows the same records and offers authorized downloads for
-artifact IDs. Retrieve an artifact with `client.artifacts.retrieve(artifact_id)` and download
+The UI's **Files & records** shows the same integration records and offers authorized file
+inspection and downloads. Retrieve an artifact with `client.artifacts.retrieve(artifact_id)` and download
 its `download_url`. Preserve the integration's filename, compression, part count and checksum
 metadata: one chunk is not necessarily a complete report. Download links expire; retrieve a
 new link when needed.
