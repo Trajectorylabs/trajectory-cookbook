@@ -23,6 +23,43 @@ export TRAJECTORY_API_KEY="..."
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
 
+### Choose the destination agent
+
+Create an agent for a new project or use case, or reuse the correct existing agent. Honor an
+explicitly selected agent ID or name. Otherwise, inspect the organization's agents and reuse
+one only when its name and purpose clearly match your project:
+
+```python
+from trajectory import Client
+
+client = Client()
+for candidate in client.agents.list():
+    print(candidate.agent_id, candidate.name, candidate.description)
+```
+
+If none matches, create an agent, even if the organization already has unrelated agents.
+For the GSM8K quickstart below:
+
+```python
+agent = client.agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")
+print(agent.agent_id)
+```
+
+For an explicitly selected or confirmed matching agent, retrieve it instead:
+
+```python
+agent = client.agents.retrieve("YOUR_AGENT_ID")
+# Or: agent = client.agents.retrieve_by_name("gsm8k-cookbook")
+print(agent.agent_id)
+```
+
+Never select the first or only agent just because it exists. Ask the user before uploading
+if the destination is ambiguous. If an explicitly selected agent is unavailable in this
+organization, report the blocker instead of substituting another agent. The agent must exist
+before upload: create it first when needed. Keep its ID for uploads and subsequent benchmark
+versions for this project. For example, a new Harvey LAB integration needs its own agent if
+the only existing agent is for Rubik Cube Interactive.
+
 ## Quickstart
 
 This quickstart trains and evaluates Qwen 3.5 4B on a small GSM8K benchmark with 64 training
@@ -125,8 +162,8 @@ Set `TaskSpec.split` explicitly to preserve a dataset's train/test membership. I
 ingestion deterministically assigns approximately 15% of those tasks to TEST and the rest to
 TRAIN. For an evaluation-only dataset, set `split="test"` on every task.
 
-Package the tasks and runtime, upload the benchmark, and wait for its runtime image to become
-ready:
+Using the agent chosen in [Setup](#choose-the-destination-agent), package the tasks and runtime,
+upload the benchmark, and wait for its runtime image to become ready:
 
 ```python
 from pathlib import Path
@@ -135,8 +172,6 @@ from trajectory import BenchmarkSpec, Client
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 
 client = Client()
-agent = client.agents.create(name="gsm8k-cookbook")
-print(agent.agent_id)
 benchmark = BenchmarkSpec(
     name="my-benchmark",
     runtime=DockerfileBuild("runtime/Dockerfile"),

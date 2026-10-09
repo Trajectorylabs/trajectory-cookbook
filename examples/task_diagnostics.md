@@ -12,8 +12,10 @@ export TRAJECTORY_API_KEY="..."
 ```
 
 This example uses the cookbook's [T Factory runtime](t_factory/runtime/). Run the Python code
-from the repository root, replacing `YOUR_AGENT_ID` with your agent's ID. If you need an agent,
-create one with `Client().agents.create(name="task-diagnostic-example").agent_id`.
+from the repository root, replacing `YOUR_AGENT_ID` with the explicitly selected or matching
+agent's ID. Follow the [agent selection guidance](../README.md#choose-the-destination-agent).
+If no agent matches this use case, create one with
+`Client().agents.create(name="task-diagnostic-example").agent_id`, even if unrelated agents exist.
 
 ```python
 from pathlib import Path
