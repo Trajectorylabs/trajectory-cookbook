@@ -158,8 +158,8 @@ diagnostics and reports. The SDK interfaces below expose the same underlying rec
 Find an operation in history, including one that failed before registration:
 
 ```python
-for operation in client.benchmarks.ingestion.list():
-    print(operation.operation_id, operation.bench_id, operation.status)
+for entry in client.benchmarks.ingestion.list():
+    print(entry.operation_id, entry.bench_id, entry.status)
 ```
 
 Use `bench_id=...` to restrict that history to one benchmark version. For a selected operation,
@@ -256,7 +256,12 @@ constraints. If a bound rejects input, retain its dimension, observed value and 
 
 ## 5. Confirm readiness, then test the task
 
+After registration, refresh the selected operation before inspecting its runtimes:
+
 ```python
+from trajectory.lib import get_operation
+
+status = get_operation(client, operation_id).refresh()
 bench_id = status.bench_id
 images = client.benchmarks.images.list(bench_id)
 for image in images.images:
