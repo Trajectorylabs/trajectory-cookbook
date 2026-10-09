@@ -6,6 +6,7 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 
@@ -16,10 +17,29 @@ example = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(example)
 
 
+@pytest.mark.parametrize("both", [False, True])
+def test_helper_requires_one_model_selection(monkeypatch, both):
+    monkeypatch.setenv("AUXILIARY_SDK_ORIGIN", "https://api.example.com")
+    monkeypatch.setenv("AUXILIARY_API_KEY", "fake-organization-key")
+    for name, value in (
+        ("AUXILIARY_DEPLOYMENT_ID", "dpy_fixed"),
+        ("AUXILIARY_PUBLIC_MODEL", "example/helper"),
+    ):
+        monkeypatch.delenv(name, raising=False)
+        if both:
+            monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match="exactly one"):
+        asyncio.run(example.main())
+
+
 @pytest.mark.parametrize("provider", ["openai", "litellm"])
 @pytest.mark.parametrize("response_case", ["success", "http_error", "no_usage", "no_choices"])
-def test_native_client_lifecycle(monkeypatch, provider, response_case):
+@pytest.mark.parametrize("public_model", [False, True])
+def test_native_client_lifecycle(monkeypatch, provider, response_case, public_model):
     calls = []
+    model = "example/helper" if public_model else "fixed-helper"
+    metadata_path = "/v1/models/example/helper" if public_model else "/api/v1/deploy/dpy_fixed"
+    completion_path = "/v1/chat/completions" if public_model else "/api/v1/deploy/dpy_fixed/chat/completions"
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -35,7 +55,10 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case):
 
         def do_GET(self):
             calls.append((self.command, self.path, dict(self.headers), None))
-            assert self.path == "/api/v1/deploy/dpy_fixed"
+            assert unquote(self.path) == metadata_path
+            if public_model:
+                self.respond(200, {"id": model, "object": "model", "created": 1, "owned_by": "example"})
+                return
             self.respond(200, {
                 "deployment_id": "dpy_fixed", "model_slug": "fixed-helper",
                 "model_slug_id": "mls_fixed", "status": "DEPLOYED", "role": "test",
@@ -52,13 +75,13 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case):
                 self.respond(200, {"tid": "traj_aux"})
             elif self.path == "/api/v1/trajectories/traj_aux/complete":
                 self.respond(200, {"trajectory_id": "traj_aux", "status": "completed"})
-            elif self.path == "/api/v1/deploy/dpy_fixed/chat/completions":
+            elif self.path == completion_path:
                 if response_case == "http_error":
                     self.respond(400, {"error": {"message": "fake failure", "type": "invalid_request_error"}})
                 else:
                     payload = {
                         "id": "chat_fake", "object": "chat.completion", "created": 1,
-                        "model": "fixed-helper", "choices": [{"index": 0,
+                        "model": model, "choices": [{"index": 0,
                         "message": {"role": "assistant", "content": "hello"},
                         "finish_reason": "stop"}],
                         "usage": {"prompt_tokens": 4, "completion_tokens": 1, "total_tokens": 5},
@@ -76,7 +99,12 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case):
     thread.start()
     monkeypatch.setenv("AUXILIARY_SDK_ORIGIN", f"http://127.0.0.1:{server.server_port}")
     monkeypatch.setenv("AUXILIARY_API_KEY", "fake-organization-key")
-    monkeypatch.setenv("AUXILIARY_DEPLOYMENT_ID", "dpy_fixed")
+    monkeypatch.delenv("AUXILIARY_DEPLOYMENT_ID", raising=False)
+    monkeypatch.delenv("AUXILIARY_PUBLIC_MODEL", raising=False)
+    monkeypatch.setenv(
+        "AUXILIARY_PUBLIC_MODEL" if public_model else "AUXILIARY_DEPLOYMENT_ID",
+        model if public_model else "dpy_fixed",
+    )
     monkeypatch.setenv("AUXILIARY_CLIENT", provider)
     monkeypatch.setenv("TRAJECTORY_API_KEY", "fake-managed-actor-key")
     monkeypatch.setenv("TRAJECTORY_BASE_URL", "http://actor.invalid")
@@ -90,6 +118,10 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case):
         else:
             result = asyncio.run(example.main())
             assert result["trajectory_id"] == "traj_aux"
+            assert result["model_slug"] == model
+            if public_model:
+                assert result["public_model"] == model
+                assert "checkpoint_id" not in result
             if response_case == "no_usage" and provider == "openai":
                 assert result["usage"] is None
     finally:
@@ -97,9 +129,9 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case):
         server.server_close()
         thread.join()
 
-    assert [path for _, path, _, _ in calls] == [
-        "/api/v1/deploy/dpy_fixed", "/api/v1/trajectories",
-        "/api/v1/deploy/dpy_fixed/chat/completions",
+    assert [unquote(path) for _, path, _, _ in calls] == [
+        metadata_path, "/api/v1/trajectories",
+        completion_path,
         "/api/v1/trajectories/traj_aux/complete",
     ]
     for _, _, headers, _ in (calls[0], calls[1], calls[3]):
@@ -108,7 +140,7 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case):
     assert native_headers["authorization"] == "Bearer fake-organization-key"
     assert native_headers["x-trajectory-id"] == "traj_aux"
     assert calls[1][3] is None  # No actor/training/task association supplied.
-    assert calls[2][3]["model"] == "fixed-helper"
+    assert calls[2][3]["model"] == model
     assert calls[2][3]["max_tokens"] == 128
     completion = calls[3][3]
     if response_case in {"http_error", "no_choices"}:

@@ -1,11 +1,18 @@
 # Use a fixed auxiliary model
 
-A judge or helper can use a fixed Trajectory deployment while the actor uses the model
-selected for evaluation or training. Give the helper an organization API key and its own
+A judge or helper can use a public model or a fixed Trajectory deployment while the actor
+uses the model selected for evaluation or training. Give the helper an organization API key and its own
 trajectory. A managed actor credential pins requests to the actor; changing its request
 model or trajectory header does not create an independent helper.
 
-Start with an existing committed checkpoint deployment. Use `client.deployments.create(...)`
+For an untrained public model, use `client.inference.list_models()` and
+`client.inference.retrieve_model(model)` to check availability. Requests use the returned
+model ID at the native base `SDK_ORIGIN/v1`. No training run or checkpoint deployment is
+needed. Platform holds the provider credential; the helper uses your organization key.
+Verify required context and generation settings with a small request on the intended
+route. Model discovery alone does not establish those properties or grading correctness.
+
+For fixed checkpoint weights, start with an existing committed checkpoint deployment. Use `client.deployments.create(...)`
 if you need to create one, then `client.deployments.retrieve(deployment_id)` to check its
 status, checkpoint ID, checkpoint step and base model. Wait for `DEPLOYED` before inference.
 Record those fields so later evaluations can use the same helper weights. Deployment
@@ -14,16 +21,16 @@ readiness alone does not prove a successful inference request.
 | Setting | Value |
 | --- | --- |
 | SDK origin | The API origin, normally `https://api.trajectory.ai` |
-| Native OpenAI-compatible base | `SDK_ORIGIN/api/v1/deploy/DEPLOYMENT_ID` |
+| Native OpenAI-compatible base | Public model: `SDK_ORIGIN/v1`; checkpoint: `SDK_ORIGIN/api/v1/deploy/DEPLOYMENT_ID` |
 | Authentication | A separate organization API key; native clients send it as a bearer token |
-| Request model | The deployment's `model_slug`, not its `base_model_slug` |
+| Request model | Public model ID, or the deployment's `model_slug` for checkpoint weights |
 | Trajectory | A new `client.trajectories.create().tid`, passed as `X-Trajectory-Id` |
 | Output limit | An explicit per-call `max_tokens`, subject to the model's supported limits |
 
 The exact deployment path works for a deployed test deployment even when `is_active` is
 false. Using a production slug through the general inference route follows that slug's
-current production target instead. Do not append `/v1` or `/chat/completions` to the native
-base: OpenAI and LiteLLM append the completion path themselves. Keep the SDK origin separate
+current production target instead. Use the appropriate native base from the table exactly;
+OpenAI and LiteLLM append the completion path themselves. Keep the SDK origin separate
 from this native base; trajectory lifecycle calls use the SDK origin.
 
 Run [the complete example](auxiliary_client.py) with either native client:
@@ -36,6 +43,10 @@ export AUXILIARY_DEPLOYMENT_ID="dpy_..."
 AUXILIARY_CLIENT=openai python examples/auxiliary_client.py
 AUXILIARY_CLIENT=litellm python examples/auxiliary_client.py
 ```
+
+For a public model, set `AUXILIARY_PUBLIC_MODEL` to its discovered ID and leave
+`AUXILIARY_DEPLOYMENT_ID` unset. The example requires exactly one selection. The same
+trajectory lifecycle and native-client choices apply to both routes.
 
 Each invocation makes one small helper request with a 128-token output limit, no automatic
 retries and a 600-second request timeout. These are connection-check settings, not changes
@@ -51,7 +62,7 @@ Avoid changing process-wide actor credentials to configure helpers.
 The example completes the helper trajectory on success or error and does not log an actor
 reward. Create each helper trajectory with the separate organization client, without a
 training run, dataset or task association. Retain its ID alongside the actor's diagnostic
-artifacts. Check its public metadata and served deployment, and verify that it is not
+artifacts. Check its public metadata and served model or deployment, and verify that it is not
 attached to the actor rollout or training sample. The actor's reward still comes from the
 native scorer; helper errors follow the harness's native failure semantics.
 
