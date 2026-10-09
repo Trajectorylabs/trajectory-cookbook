@@ -166,8 +166,8 @@ agent_id=agt_<your-agent-id>
 bench_id=bm_<32-hex>
 ```
 
-Set up private registry access before ingestion; the [ingestion walkthrough](examples/ingestion.md#authenticate-each-operation)
-separates registry access from credentials used by your task. Register task credentials before execution.
+The [ingestion walkthrough](examples/ingestion.md#authenticate-each-operation) explains SDK and upload
+authorization. Public prebuilt images need no registry credentials. Register task credentials before execution.
 For example, register a local OpenAI API key without putting its value in source:
 
 ```python

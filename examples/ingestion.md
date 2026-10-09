@@ -225,7 +225,7 @@ redaction set may remain visible to your organization's authorized users.
 | --- | --- |
 | Transfer interrupted; inputs unchanged | Repeat the original submission with the saved key. Reuse completed objects and resume active large-object sessions; an expired session restarts only its unfinished object. |
 | Invalid context, changed Dockerfile/dependencies or task settings | Correct the owning source or integration, then submit the intended task set with a new key. |
-| Private pull denied or credential expired | Check the repository connection and Reader grant, or replace an explicitly supplied saved credential. For a registered runtime, use the runtime retry below; for a rejected input, resubmit with a new key. Verify a fresh pull. |
+| Public image cannot be pulled | Check that the digest exists and the registry permits anonymous reads. Correct the reference and submit a new version; retain the original failure. |
 | Transient runtime build failure; stored source unchanged | After ingestion settles, call `client.benchmarks.images.build(bench_id)`, then inspect `images.list(bench_id)`. |
 
 `images.build` retries eligible pending/failed runtime work for the benchmark, not a selected
