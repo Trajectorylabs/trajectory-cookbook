@@ -25,7 +25,9 @@ export TRAJECTORY_API_KEY="..."
 The SDK defaults to `https://api.trajectory.ai`. Set `TRAJECTORY_BASE_URL` when using another
 deployment.
 
-Create an agent to own the benchmark and its training and evaluation runs:
+Follow the [agent selection guidance](../../README.md#choose-the-destination-agent): use an
+explicitly selected or matching GSM8K agent. If none matches this use case, create one before
+uploading, even if unrelated agents already exist:
 
 ```bash
 uv run --with trajectory-sdk python -c \
