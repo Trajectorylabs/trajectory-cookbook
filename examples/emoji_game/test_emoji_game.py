@@ -46,9 +46,13 @@ class ScriptedClient:
     "text, tokens, reward",
     [
         ("A sunny day at the beach.", 7, -0.3),
-        ("🌞🏖️🌊", 3, 0.7),
-        ("Beach day 🏖️", 4, -0.05),
-        ("👨‍👩‍👧 dinner", 8, 1 / 8 - 0.3),  # A ZWJ sequence counts as one emoji.
+        ("😀✨😊", 3, 0.7),
+        ("Beach day 😎", 4, -0.05),
+        ("Love ❤️ and ❤", 6, 2 / 6 - 0.3),  # The variation selector is ignored.
+        ("Beach day 🏖️", 4, -0.55),  # Emojis outside the allowed set are penalized.
+        ("😀 🌊", 4, -0.3),
+        ("👨‍👩‍👧 dinner", 8, -1 / 8 - 0.3),  # A ZWJ sequence counts as one emoji.
+        ("Fine™", 2, -0.8),
         ("", 0, -0.3),
     ],
 )
@@ -57,19 +61,20 @@ def test_score(text, tokens, reward):
 
 
 def test_play_uses_completion_tokens_and_hides_objective():
-    client = ScriptedClient("Sun 🌞 and sea 🌊", 10)
+    client = ScriptedClient("Sun 😎 and sea 🌊 ✨", 10)
     result = harness.play(client, "tid-test", "the ocean", "same-model")
     assert result == {
-        "emojis": 2,
+        "allowed_emojis": 2,
+        "other_emojis": 1,
         "completion_tokens": 10,
-        "reward": pytest.approx(-0.1),
+        "reward": pytest.approx(-0.2),
     }
     (call,) = client.calls
     assert call["x_trajectory_id"] == "tid-test"
     assert call["messages"] == [
-        {"role": "user", "content": "Write a short emotion-packed exciting paragraph about the ocean."}
+        {"role": "user", "content": "Write a short paragraph about the ocean. Use plenty of emojis."}
     ]
-    assert "emoji" not in harness.PROMPT.lower()
+    assert not any(e in harness.PROMPT for e in harness.ALLOWED_EMOJIS)
 
 
 def test_missing_usage_is_an_error():
@@ -100,7 +105,7 @@ def test_main_reports_through_real_sdk_signatures(tmp_path, monkeypatch):
     """Autospec rejects keyword arguments the installed SDK does not accept."""
     task_file = tmp_path / "task.json"
     task_file.write_text(json.dumps({"topic": "the ocean"}))
-    client = ScriptedClient("Sun 🌞 and sea 🌊", 10)
+    client = ScriptedClient("Sun 😎 and sea ✨", 10)
     client.trajectories = mock.create_autospec(Trajectories, instance=True)
     client.trajectories.create.return_value = SimpleNamespace(tid="tid-test")
     client.trajectories.complete.return_value = SimpleNamespace(status="completed")

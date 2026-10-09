@@ -1,4 +1,4 @@
-"""Answer a short writing prompt; reward is emoji density in the reply."""
+"""Answer a short writing prompt; reward is allowed-emoji density in the reply."""
 
 import argparse
 import json
@@ -7,20 +7,31 @@ from pathlib import Path
 import emoji
 from trajectory import Client
 
-PROMPT = "Write a short emotion-packed exciting paragraph about {topic}."
+PROMPT = "Write a short paragraph about {topic}. Use plenty of emojis."
 BASELINE_DENSITY = 0.3
 MAX_TOKENS = 512
+# Very common emojis; the first 8 are single Qwen3.5 tokens, the rest are two.
+# The prompt doesn't name them, so the model learns the set from reward alone.
+ALLOWED_EMOJIS = frozenset("✅ ⭐ ❤ 😊 😀 😉 🙂 ✨ 😂 😍 😭 😎 💯 💪 😁".split())
+
+
+def count_emojis(text: str) -> tuple[int, int]:
+    """Return (allowed, other) emoji counts, ignoring variation selectors."""
+    found = [match["emoji"].replace("\ufe0f", "") for match in emoji.emoji_list(text)]
+    allowed = sum(e in ALLOWED_EMOJIS for e in found)
+    return allowed, len(found) - allowed
 
 
 def score(text: str, completion_tokens: int) -> float:
-    """Emojis per output token, offset so density above 30% is positive."""
+    """Net allowed emojis per output token, offset so density above 30% is positive."""
     if completion_tokens <= 0:
         return -BASELINE_DENSITY
-    return emoji.emoji_count(text) / completion_tokens - BASELINE_DENSITY
+    allowed, other = count_emojis(text)
+    return (allowed - other) / completion_tokens - BASELINE_DENSITY
 
 
 def play(client: Client, tid: str, topic: str, model: str) -> dict:
-    # The prompt never mentions emojis; the model learns the objective from reward.
+    # The prompt asks for emojis but not which ones; reward only favors ALLOWED_EMOJIS.
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": PROMPT.format(topic=topic)}],
@@ -32,8 +43,10 @@ def play(client: Client, tid: str, topic: str, model: str) -> dict:
         raise RuntimeError("The response did not report completion tokens")
     text = response.choices[0].message.content or ""
     completion_tokens = response.usage.completion_tokens
+    allowed, other = count_emojis(text)
     return {
-        "emojis": emoji.emoji_count(text),
+        "allowed_emojis": allowed,
+        "other_emojis": other,
         "completion_tokens": completion_tokens,
         "reward": score(text, completion_tokens),
     }

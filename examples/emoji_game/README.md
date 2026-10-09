@@ -1,29 +1,29 @@
 # Emoji game
 
-The model gets a plain writing prompt, such as "Write a short paragraph about the ocean." The
-prompt never mentions emojis. The reward measures emoji density in the reply, so the model has
-to learn the objective from reward alone.
+The model gets a short writing prompt that asks for emojis, such as "Write a short paragraph
+about the ocean. Use plenty of emojis." The prompt doesn't say which emojis score. Only 15 very
+common emojis earn reward and every other emoji is penalized, so the model has to learn the
+allowed set from reward alone.
 
 ## Reward
 
 ```python
-reward = emoji_count / completion_tokens - 0.3
+reward = (allowed_emojis - other_emojis) / completion_tokens - 0.3
 ```
 
-- `emoji_count` comes from the [`emoji`](https://pypi.org/project/emoji/) package. A multi-codepoint
-  emoji, such as a family ZWJ sequence or a flag, counts as one.
+- The allowed set is `✅ ⭐ ❤️ 😊 😀 😉 🙂 ✨ 😂 😍 😭 😎 💯 💪 😁`. The first eight are single
+  Qwen3.5 tokens and the rest take two, so the cheaper ones score more per token.
+- Emojis are found with the [`emoji`](https://pypi.org/project/emoji/) package. A
+  multi-codepoint emoji, such as a family ZWJ sequence or a flag, counts as one, and the
+  variation selector is ignored, so `❤️` and `❤` both match. Symbols the package treats as
+  emojis, such as `™` and `©`, count as other emojis.
 - `completion_tokens` is the response's reported output token count. A response without usage
   data fails the task rather than scoring zero.
 - An empty reply scores `-0.3`.
 
-Plain prose scores about `-0.3`. Reward turns positive once emojis make up more than 30% of
-output tokens. A reply made only of emojis that each take one token approaches `0.7`. Many emojis
-take two or more tokens, so the practical ceiling depends on which emojis the model learns to
-use.
-
-The reward doesn't check whether the reply addresses the prompt, so the expected optimum is a
-short string of single-token emojis. Each trajectory records an `emoji_game_density` event with
-the emoji count, token count and reward.
+A reply made only of single-token allowed emojis approaches `0.7`. The reward doesn't check
+whether the reply addresses the prompt. Each trajectory records an `emoji_game_density` event
+with the allowed and other emoji counts, the token count and the reward.
 
 The 32 train and 16 test prompts use different topics, so the test split checks that the
 emoji habit carries over to unseen prompts.
