@@ -1,8 +1,8 @@
 # Run a diagnostic on one task
 
 Use `start_task_diagnostic()` to check a task before uploading a full benchmark. Diagnostics
-provide better error visibility and logging to help debug your integration. You need an agent
-ID, but no existing benchmark.
+provide better error visibility and logging to help debug your integration. No existing benchmark
+is needed.
 
 Install the latest SDK and authenticate:
 
@@ -11,9 +11,9 @@ pip install --upgrade trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
-This example uses the cookbook's [T Factory runtime](t_factory/runtime/). Run the Python code
-from the repository root, replacing `YOUR_AGENT_ID` with your agent's ID. If you need an agent,
-create one with `Client().agents.create(name="task-diagnostic-example").agent_id`.
+This example uses the cookbook's [T Factory runtime](t_factory/runtime/).
+[Choose or create an agent](../README.md#choose-or-create-an-agent), then run the Python code
+from the repository root, replacing `YOUR_AGENT_NAME` with its name.
 
 ```python
 from pathlib import Path
@@ -31,7 +31,7 @@ task = TaskSpec(
 diagnostic = start_task_diagnostic(
     client,
     task,
-    agent_id="YOUR_AGENT_ID",
+    agent_name="YOUR_AGENT_NAME",
     root=Path("examples/t_factory"),
 )
 print(diagnostic.benchmark_diagnostic_id, diagnostic.bench_id)

@@ -46,13 +46,18 @@ def build_benchmark(name: str) -> BenchmarkSpec:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-id", required=True)
+    parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="number-guessing")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
     client = Client()
-    result = push(client, build_benchmark(args.name), agent_id=args.agent_id, root=ROOT)
-    print(f"agent_id={args.agent_id}", flush=True)
+    result = push(
+        client,
+        build_benchmark(args.name),
+        agent_name=args.agent_name,
+        root=ROOT,
+    )
+    print(f"agent_name={args.agent_name}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not args.skip_build:
         wait_for_benchmark_images(client, result.bench_id, timeout_seconds=45 * 60)

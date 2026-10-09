@@ -25,22 +25,22 @@ export TRAJECTORY_API_KEY="..."
 The SDK defaults to `https://api.trajectory.ai`. Set `TRAJECTORY_BASE_URL` when using another
 deployment.
 
-Create an agent to own the benchmark and its training and evaluation runs:
+[Choose or create an agent](../../README.md#choose-or-create-an-agent). For a new agent:
 
 ```bash
 uv run --with trajectory-sdk python -c \
-  'from trajectory import Client; print(Client().agents.create(name="gsm8k-cookbook").agent_id)'
+  'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook")'
 ```
 
 ## 1. Ingest the benchmark
 
-Upload the example's 64 training tasks and 16 test tasks:
+Upload the example's 64 training tasks and 16 test tasks using its name:
 
 ```bash
-uv run ingest.py --agent-id agt_<your-agent-id>
+uv run ingest.py --agent-name "gsm8k-cookbook"
 ```
 
-The command prints the `agent_id` and `bench_id`, then waits for the runtime image to build. Keep
+The command prints the `agent_name` and `bench_id`, then waits for the runtime image to build. Keep
 the benchmark ID for training.
 
 ## 2. Train and evaluate

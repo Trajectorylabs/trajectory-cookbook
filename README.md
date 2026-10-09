@@ -23,6 +23,38 @@ export TRAJECTORY_API_KEY="..."
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
 
+### Choose or create an agent
+
+An agent groups related benchmarks, training history, and the serving model for a project or
+use case. Keep benchmarks together when they measure capabilities you want to improve in the
+same agent; a distinct project or use case is a reason to create another one.
+
+- Use the agent explicitly selected for the project when one is provided.
+- Reuse an agent when its purpose fits the project and benchmarks.
+- Create an agent when no existing one fits, even if the organization has unrelated agents.
+
+Inspect agents by name and description:
+
+```python
+from trajectory import Client
+
+client = Client()
+for candidate in client.agents.list():
+    print(candidate.name, candidate.description)
+```
+
+For a new use case, create an agent with a descriptive name. For example, for the GSM8K
+quickstart below:
+
+```python
+client.agents.create(
+    name="gsm8k-cookbook",
+    description="GSM8K math evaluation and training",
+)
+```
+
+Use the selected or newly created agent's name wherever `YOUR_AGENT_NAME` appears below.
+
 ## Quickstart
 
 This quickstart trains and evaluates Qwen 3.5 4B on a small GSM8K benchmark with 64 training
@@ -125,8 +157,8 @@ Set `TaskSpec.split` explicitly to preserve a dataset's train/test membership. I
 ingestion deterministically assigns approximately 15% of those tasks to TEST and the rest to
 TRAIN. For an evaluation-only dataset, set `split="test"` on every task.
 
-Package the tasks and runtime, upload the benchmark, and wait for its runtime image to become
-ready:
+Using the agent chosen in [Setup](#choose-or-create-an-agent), package the tasks and runtime,
+upload the benchmark, and wait for its runtime image to become ready:
 
 ```python
 from pathlib import Path
@@ -135,8 +167,6 @@ from trajectory import BenchmarkSpec, Client
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 
 client = Client()
-agent = client.agents.create(name="gsm8k-cookbook")
-print(agent.agent_id)
 benchmark = BenchmarkSpec(
     name="my-benchmark",
     runtime=DockerfileBuild("runtime/Dockerfile"),
@@ -145,21 +175,21 @@ benchmark = BenchmarkSpec(
 result = push(
     client,
     benchmark,
-    agent_id=agent.agent_id,
+    agent_name="YOUR_AGENT_NAME",
     root=Path("my-benchmark"),
 )
 bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
 
-Run the complete uploader with the printed agent ID, then save the benchmark ID:
+Run the complete uploader with that agent name, then save the benchmark ID:
 
 ```bash
-uv run examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/gsm8k/ingest.py --agent-name "YOUR_AGENT_NAME"
 ```
 
 ```text
-agent_id=agt_<your-agent-id>
+agent_name=YOUR_AGENT_NAME
 bench_id=bm_<32-hex>
 ```
 
