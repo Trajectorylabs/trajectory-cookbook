@@ -219,6 +219,29 @@ may instead report its results through logged rewards and native artifacts. Empt
 rewards or execution lists do not prove native grading succeeded or failed; check the
 required reports for the path that actually ran.
 
+For a managed execution, `files` describes retained source/output availability. Read an
+available file using that exact execution's operation ID:
+
+```python
+for execution in grading.executions:
+    for retained_file in execution.files or []:
+        if retained_file.availability != "available":
+            print(retained_file.label, retained_file.availability)
+            continue
+        file = client.trajectories.grading_file(
+            trajectory_id, execution.operation_id, retained_file.kind,
+        )
+        print(file.label, file.media_type, file.size_bytes)
+        # Download file.download_url using an ordinary HTTP client.
+```
+
+The endpoint verifies the retained object identity before issuing a short-lived download.
+A source bundle may be private or absent; permission to execute a shared grader does not
+automatically grant permission to read its source. An output saved before publication is
+not yet a published reward. Configuration is not exposed by this interface, and a source
+bundle hash alone does not identify every execution setting. Keep these limitations visible
+in your own inspection results.
+
 The UI's **Files & records** shows the same integration records and offers authorized file
 inspection and downloads. Retrieve an artifact with `client.artifacts.retrieve(artifact_id)` and download
 its `download_url`. Preserve the integration's filename, compression, part count and checksum
@@ -253,6 +276,24 @@ Once the common execution and reporting path works, scale to the intended popula
 the managed scheduler. A task-local failure need not hold back independent tasks or require
 a perfect cohort. Confirm material repairs on unused cases from that population so success
 is not confined to debugging cases. Preserve held-out data for later measurement.
+
+## Explain a directly logged reward
+
+For a simple grader, provide a component explanation with the reward. No separate managed
+grader is required:
+
+```python
+client.trajectories.log_reward(
+    tid,
+    name="answer_match",
+    value=0,
+    explanation="The submitted answer did not match the expected answer.",
+)
+```
+
+Use the native scorer's actual result and explanation; this example is a genuine negative
+verdict, not a substitute for an execution error. Platform displays the supplied explanation
+and recorded calculation fields without interpreting whether your grader is correct.
 
 ## Record events and artifacts
 
@@ -306,8 +347,20 @@ client.trajectories.log_event(
     event_id="diagnostic-report",
     name="diagnostic_report",
     payload={"artifact_id": artifact.artifact_id, "filename": "report.json.gz"},
+    evidence=[{
+        "artifact_id": artifact.artifact_id,
+        "label": "Grading report",
+        "reward_source": {"source": "logged"},
+    }],
 )
 ```
+
+`evidence` is optional. It gives this file a label and declares its association with the
+trajectory's logged reward source. Omit `reward_source` for a file that is not grading
+evidence. These associations are supplied by your integration; they do not prove that a
+particular reward revision used the file. Existing `log_event` and `log_reward` calls remain
+valid without this metadata. Managed grading outputs have their own recorded execution
+relationship and are read through `grading_file` above.
 
 Finish the upload before completing the trajectory. To read the file later, call
 `client.artifacts.retrieve(artifact.artifact_id)` and download its `download_url`.
