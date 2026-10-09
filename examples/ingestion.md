@@ -197,14 +197,18 @@ service's acknowledged offset, including after a client restart. If its session 
 unfinished object restarts. Keep the local inputs until finalization. Changed files, tasks or settings
 require a new key. Do not rename the benchmark merely to retry: keep its agent and name so versions stay grouped.
 
-A prebuilt-only submission can use `root=Path(".")`; image layers stay in the registry. Task
-definitions and any separately declared task files still use the uploader.
+A prebuilt-only submission can use `root=Path(".")`; image layers stay in the registry and task
+definitions use the uploader. Include files needed by the harness in the image.
 `start_push()` returns after transfer and acceptance; registration/builds continue on the server.
 `operation.refresh()` reconnects to that work. A client timeout does not cancel it. After restarting
 your client, use `get_operation(client, operation_id)` from `trajectory.lib` before submitting again.
 `push()` is the convenience that also waits for requested image builds.
 
-The upload callback reports completed or reused objects/bytes, not instantaneous network traffic.
+The `progress` callback first reports `phase="preparing"`, then `phase="packaging"` with
+`prepared_contexts` and `total_contexts`. During `phase="uploading"`, its counters report completed
+or reused objects/bytes, not instantaneous network traffic. Upload counters are zero during
+preparation; transfer totals become known when uploading starts. The default terminal display
+shows preparation and packaging too, before `start_push()` returns.
 Operation `upload_progress` distinguishes declared and verified totals and includes task parts.
 Verified upload bytes do not establish task registration or runtime readiness.
 
