@@ -35,10 +35,14 @@ A root-level Dockerfile therefore selects the checkout unless you exclude files.
 
 The SDK packages each selected context automatically and uses the existing upload session.
 You do not create an archive, change `COPY` commands or upload each file yourself. The worker
-verifies and restores the context before building. File modes and safe relative symlinks within
-the selected context are preserved; escaping links, links to excluded files and unsupported
-file types fail validation. Put shared code in each context or provide it through your base
-image. Packaging does not deduplicate different contexts into shared cloud layers.
+verifies and restores the context before building. The archive format preserves file modes and
+safe relative symlinks; escaping links, links to excluded files and unsupported file types fail
+validation. Modal managed builds require ordinary files: symbolic links and hardlinks between
+paths within the same context fail before build, with the offending path in the runtime error.
+Use ordinary files or a prebuilt image for these inputs.
+
+Put shared code in each context or provide it through your base image. Packaging does not
+deduplicate different contexts into shared cloud layers.
 
 Keep build inputs stable until upload finishes. Older SDKs can continue sending loose files;
 existing ready runtimes remain usable. The archive checksum identifies transferred bytes.
@@ -52,7 +56,7 @@ For managed builds on Modal in the matching release, each selected context has t
 | --- | --- |
 | Uploaded archive size | 3 GiB (3,221,225,472 bytes) |
 | Sum of expanded regular-file sizes | 3 GiB (3,221,225,472 bytes) |
-| Files and symlinks | 12,288 |
+| Regular files | 12,288 |
 | Total archive entries, including directories | 16,384 |
 
 All four limits apply independently to each context. They do not limit the benchmark's combined
