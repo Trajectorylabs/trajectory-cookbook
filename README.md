@@ -3,6 +3,10 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
+**Start here:** [SDK onboarding: validate a task and train on GSM8K](examples/gsm8k/README.md).
+Follow the runnable commands from installation and agent setup through diagnostics, upload,
+evaluation, and training progress.
+
 To connect your own harness, start with [native integration and runtime packaging](#package-a-benchmark-runtime).
 See [Inspect integration](examples/inspect.md) for its actor-client setup.
 Use [task diagnostics](examples/task_diagnostics.md) to validate one task directly from local

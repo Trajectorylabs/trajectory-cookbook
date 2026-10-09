@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# dependencies = ["trajectory-sdk>=0.9.14"]
 # ///
 """Evaluate, train, and compare the final checkpoint on GSM8K."""
 
@@ -30,7 +30,7 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> RewardComparison:
-    benchmark = client.benchmarks.specs.retrieve(bench_id)
+    benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
     if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
         "train",
         "test",
