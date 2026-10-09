@@ -52,7 +52,7 @@ For managed builds on Modal in the matching release, each selected context has t
 | --- | --- |
 | Uploaded archive size | 3 GiB (3,221,225,472 bytes) |
 | Sum of expanded regular-file sizes | 3 GiB (3,221,225,472 bytes) |
-| Files and symlinks | 4,096 |
+| Files and symlinks | 12,288 |
 | Total archive entries, including directories | 16,384 |
 
 All four limits apply independently to each context. They do not limit the benchmark's combined
@@ -122,8 +122,10 @@ by this adapter.
 #### Existing pull secrets
 
 An explicitly supplied `registry_secret` remains supported. It takes precedence over the
-organization's repository connection; an invalid explicit secret fails rather than falling
-back to another identity.
+organization's repository connection for new pulls; an invalid explicit secret fails rather
+than falling back to another identity. An identical runtime already ready or building in your
+organization can be reused without another pull. A new credential reference does not replace
+the credentials of an active build.
 
 ```python
 import json
