@@ -33,7 +33,9 @@ def test_helper_requires_one_model_selection(monkeypatch, both):
 
 
 @pytest.mark.parametrize("provider", ["openai", "litellm"])
-@pytest.mark.parametrize("response_case", ["success", "http_error", "no_usage", "no_choices"])
+@pytest.mark.parametrize(
+    "response_case", ["success", "http_error", "no_usage", "no_choices", "not_completed", "cancelled"]
+)
 @pytest.mark.parametrize("public_model", [False, True])
 def test_native_client_lifecycle(monkeypatch, provider, response_case, public_model):
     calls = []
@@ -74,7 +76,10 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case, public_mo
             if self.path == "/api/v1/trajectories":
                 self.respond(200, {"tid": "traj_aux"})
             elif self.path == "/api/v1/trajectories/traj_aux/complete":
-                self.respond(200, {"trajectory_id": "traj_aux", "status": "completed"})
+                self.respond(200, {
+                    "trajectory_id": "traj_aux",
+                    "status": "active" if response_case == "not_completed" else "completed",
+                })
             elif self.path == completion_path:
                 if response_case == "http_error":
                     self.respond(400, {"error": {"message": "fake failure", "type": "invalid_request_error"}})
@@ -108,12 +113,27 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case, public_mo
     monkeypatch.setenv("AUXILIARY_CLIENT", provider)
     monkeypatch.setenv("TRAJECTORY_API_KEY", "fake-managed-actor-key")
     monkeypatch.setenv("TRAJECTORY_BASE_URL", "http://actor.invalid")
+    if response_case == "cancelled":
+        async def cancel_request(*_args, **_kwargs):
+            raise asyncio.CancelledError()
+
+        monkeypatch.setattr(
+            "openai.resources.chat.completions.AsyncCompletions.create"
+            if provider == "openai" else "litellm.acompletion",
+            cancel_request,
+        )
     try:
         if response_case == "http_error":
             with pytest.raises(Exception, match="fake failure"):
                 asyncio.run(example.main())
         elif response_case == "no_choices":
             with pytest.raises(ValueError, match="no choices"):
+                asyncio.run(example.main())
+        elif response_case == "not_completed":
+            with pytest.raises(RuntimeError, match="completion failed"):
+                asyncio.run(example.main())
+        elif response_case == "cancelled":
+            with pytest.raises(asyncio.CancelledError):
                 asyncio.run(example.main())
         else:
             result = asyncio.run(example.main())
@@ -131,19 +151,20 @@ def test_native_client_lifecycle(monkeypatch, provider, response_case, public_mo
 
     assert [unquote(path) for _, path, _, _ in calls] == [
         metadata_path, "/api/v1/trajectories",
-        completion_path,
+        *([] if response_case == "cancelled" else [completion_path]),
         "/api/v1/trajectories/traj_aux/complete",
     ]
-    for _, _, headers, _ in (calls[0], calls[1], calls[3]):
+    for _, _, headers, _ in (calls[0], calls[1], calls[-1]):
         assert {k.lower(): v for k, v in headers.items()}["x-api-key"] == "fake-organization-key"
-    native_headers = {k.lower(): v for k, v in calls[2][2].items()}
-    assert native_headers["authorization"] == "Bearer fake-organization-key"
-    assert native_headers["x-trajectory-id"] == "traj_aux"
+    if response_case != "cancelled":
+        native_headers = {k.lower(): v for k, v in calls[2][2].items()}
+        assert native_headers["authorization"] == "Bearer fake-organization-key"
+        assert native_headers["x-trajectory-id"] == "traj_aux"
+        assert calls[2][3]["model"] == model
+        assert calls[2][3]["max_tokens"] == 128
     assert calls[1][3] is None  # No actor/training/task association supplied.
-    assert calls[2][3]["model"] == model
-    assert calls[2][3]["max_tokens"] == 128
-    completion = calls[3][3]
-    if response_case in {"http_error", "no_choices"}:
+    completion = calls[-1][3]
+    if response_case in {"http_error", "no_choices", "cancelled"}:
         assert completion["termination_reason"] == "ERROR"
     else:
         assert completion == {}

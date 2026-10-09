@@ -14,7 +14,13 @@ to quickly validate a few tasks across different runtimes.
 
 ## Setup
 
-Install the latest SDK and authenticate:
+This branch targets the upcoming matching API/SDK release. The examples require the
+`log_reward(tid, name=..., value=...)` signature, `start_push` and managed ingestion with
+`build_images=True`; the ingestion and diagnostics guides identify additional release
+dependencies. Wait for the compatible SDK to be published and its API deployed before
+running this branch against a released service. Released-client verification remains pending.
+
+After that release, install the compatible SDK and authenticate:
 
 ```bash
 pip install --upgrade trajectory-sdk
