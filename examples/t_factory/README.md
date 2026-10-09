@@ -19,9 +19,7 @@ def t_word_density(answer: str) -> float:
 ```
 
 The benchmark contains 128 training tasks and 64 held-out test tasks. Set up the repository as
-described in the [cookbook README](../../README.md#choose-the-destination-agent). Use an explicitly
-selected or matching T Factory agent. If none matches this use case, create one before uploading,
-even if unrelated agents already exist:
+described in the [cookbook README](../../README.md), then create an agent to own the benchmark:
 
 ```bash
 uv run --with trajectory-sdk python -c \

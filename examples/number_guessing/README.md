@@ -130,18 +130,11 @@ bound therefore affects subsequent guesses and the final reward.
 
 ## Upload the benchmark
 
-Follow the [agent selection guidance](../../README.md#choose-the-destination-agent). Use an
-explicitly selected or matching number-guessing agent. If none matches this use case, create one
-before uploading, even if unrelated agents already exist:
+Follow the [cookbook setup](../../README.md), then create an agent:
 
 ```bash
 uv run --with trajectory-sdk python -c \
   'from trajectory import Client; print(Client().agents.create(name="number-guessing-cookbook").agent_id)'
-```
-
-Upload with the selected or newly created agent ID:
-
-```bash
 uv run examples/number_guessing/ingest.py --agent-id agt_<your-agent-id>
 ```
 
