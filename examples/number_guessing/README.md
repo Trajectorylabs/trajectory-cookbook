@@ -130,19 +130,10 @@ bound therefore affects subsequent guesses and the final reward.
 
 ## Upload the benchmark
 
-Follow the [agent selection guidance](../../README.md#choose-the-destination-agent). Use an
-explicitly selected or matching number-guessing agent. If none matches this use case, create one
-before uploading, even if unrelated agents already exist:
+[Choose or create an agent](../../README.md#choose-or-create-an-agent), then upload using its name:
 
 ```bash
-uv run --with trajectory-sdk python -c \
-  'from trajectory import Client; print(Client().agents.create(name="number-guessing-cookbook").agent_id)'
-```
-
-Upload with the selected or newly created agent ID:
-
-```bash
-uv run examples/number_guessing/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/number_guessing/ingest.py --agent-name "YOUR_AGENT_NAME"
 ```
 
 The uploader packages 32 train and 16 test tasks into the runtime image. Each

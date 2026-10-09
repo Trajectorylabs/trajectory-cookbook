@@ -25,24 +25,18 @@ export TRAJECTORY_API_KEY="..."
 The SDK defaults to `https://api.trajectory.ai`. Set `TRAJECTORY_BASE_URL` when using another
 deployment.
 
-Follow the [agent selection guidance](../../README.md#choose-the-destination-agent): use an
-explicitly selected or matching GSM8K agent. If none matches this use case, create one before
-uploading, even if unrelated agents already exist:
-
-```bash
-uv run --with trajectory-sdk python -c \
-  'from trajectory import Client; print(Client().agents.create(name="gsm8k-cookbook").agent_id)'
-```
+[Choose or create an agent](../../README.md#choose-or-create-an-agent), then replace
+`YOUR_AGENT_NAME` below with its name.
 
 ## 1. Ingest the benchmark
 
 Upload the example's 64 training tasks and 16 test tasks:
 
 ```bash
-uv run ingest.py --agent-id agt_<your-agent-id>
+uv run ingest.py --agent-name "YOUR_AGENT_NAME"
 ```
 
-The command prints the `agent_id` and `bench_id`, then waits for the runtime image to build. Keep
+The command prints the `agent_name` and `bench_id`, then waits for the runtime image to build. Keep
 the benchmark ID for training.
 
 ## 2. Train and evaluate

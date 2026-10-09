@@ -23,42 +23,37 @@ export TRAJECTORY_API_KEY="..."
 The SDK connects to `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` to use
 another deployment.
 
-### Choose the destination agent
+### Choose or create an agent
 
-Create an agent for a new project or use case, or reuse the correct existing agent. Honor an
-explicitly selected agent ID or name. Otherwise, inspect the organization's agents and reuse
-one only when its name and purpose clearly match your project:
+An agent groups related benchmarks, training history, and the serving model for a project or
+use case. Keep benchmarks together when they measure capabilities you want to improve in the
+same agent; a distinct project or use case is a reason to create another one.
+
+- Use the agent explicitly selected for the project when one is provided.
+- Reuse an agent when its purpose fits the project and benchmarks.
+- Create an agent when no existing one fits, even if the organization has unrelated agents.
+
+Inspect agents by name and description:
 
 ```python
 from trajectory import Client
 
 client = Client()
 for candidate in client.agents.list():
-    print(candidate.agent_id, candidate.name, candidate.description)
+    print(candidate.name, candidate.description)
 ```
 
-If none matches, create an agent, even if the organization already has unrelated agents.
-For the GSM8K quickstart below:
+For a new use case, create an agent with a descriptive name. For example, for the GSM8K
+quickstart below:
 
 ```python
-agent = client.agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")
-print(agent.agent_id)
+client.agents.create(
+    name="gsm8k-cookbook",
+    description="GSM8K math evaluation and training",
+)
 ```
 
-For an explicitly selected or confirmed matching agent, retrieve it instead:
-
-```python
-agent = client.agents.retrieve("YOUR_AGENT_ID")
-# Or: agent = client.agents.retrieve_by_name("gsm8k-cookbook")
-print(agent.agent_id)
-```
-
-Never select the first or only agent just because it exists. Ask the user before uploading
-if the destination is ambiguous. If an explicitly selected agent is unavailable in this
-organization, report the blocker instead of substituting another agent. The agent must exist
-before upload: create it first when needed. Keep its ID for uploads and subsequent benchmark
-versions for this project. For example, a new Harvey LAB integration needs its own agent if
-the only existing agent is for Rubik Cube Interactive.
+Use the selected or newly created agent's name wherever `YOUR_AGENT_NAME` appears below.
 
 ## Quickstart
 
@@ -162,7 +157,7 @@ Set `TaskSpec.split` explicitly to preserve a dataset's train/test membership. I
 ingestion deterministically assigns approximately 15% of those tasks to TEST and the rest to
 TRAIN. For an evaluation-only dataset, set `split="test"` on every task.
 
-Using the agent chosen in [Setup](#choose-the-destination-agent), package the tasks and runtime,
+Using the agent chosen in [Setup](#choose-or-create-an-agent), package the tasks and runtime,
 upload the benchmark, and wait for its runtime image to become ready:
 
 ```python
@@ -180,21 +175,21 @@ benchmark = BenchmarkSpec(
 result = push(
     client,
     benchmark,
-    agent_id=agent.agent_id,
+    agent_name="YOUR_AGENT_NAME",
     root=Path("my-benchmark"),
 )
 bench_id = result.bench_id
 wait_for_benchmark_images(client, bench_id)
 ```
 
-Run the complete uploader with the printed agent ID, then save the benchmark ID:
+Run the complete uploader with that agent name, then save the benchmark ID:
 
 ```bash
-uv run examples/gsm8k/ingest.py --agent-id agt_<your-agent-id>
+uv run examples/gsm8k/ingest.py --agent-name "YOUR_AGENT_NAME"
 ```
 
 ```text
-agent_id=agt_<your-agent-id>
+agent_name=YOUR_AGENT_NAME
 bench_id=bm_<32-hex>
 ```
 

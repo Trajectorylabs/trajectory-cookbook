@@ -46,7 +46,9 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(name: str, agent_id: str, skip_build: bool) -> str:
+def ingest(
+    name: str, agent_id: str | None, skip_build: bool, agent_name: str | None = None
+) -> str:
     client = Client()
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
@@ -56,9 +58,18 @@ def ingest(name: str, agent_id: str, skip_build: bool) -> str:
         package_root = Path(directory)
         _stage_runtime(rows, package_root)
         result = push(
-            client, build_benchmark(rows, name), agent_id=agent_id, root=package_root
+            client,
+            build_benchmark(rows, name),
+            agent_name=agent_name,
+            agent_id=agent_id,
+            root=package_root,
         )
-    print(f"agent_id={agent_id}", flush=True)
+    print(
+        f"agent_name={agent_name}"
+        if agent_name is not None
+        else f"agent_id={agent_id}",
+        flush=True,
+    )
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -89,12 +100,14 @@ def _stage_runtime(rows_by_split: dict[str, list[dict]], package_root: Path) -> 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-id", required=True)
+    agent = parser.add_mutually_exclusive_group(required=True)
+    agent.add_argument("--agent-name")
+    agent.add_argument("--agent-id")
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
 
-    ingest(args.name, args.agent_id, args.skip_build)
+    ingest(args.name, args.agent_id, args.skip_build, agent_name=args.agent_name)
     return 0
 
 
