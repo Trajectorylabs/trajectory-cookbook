@@ -43,8 +43,9 @@ image. Packaging does not deduplicate different contexts into shared cloud layer
 
 Keep build inputs stable until upload finishes. Older SDKs can continue sending loose files;
 existing ready runtimes remain usable. The archive checksum identifies transferred bytes.
-Runtime identity follows the selected files, permissions, links and Dockerfile. Changing only tar headers or compression does not change that
-content identity. Moving from an older representation may still require one new build.
+Runtime identity follows the selected files, permissions, links and Dockerfile. Changing only
+tar headers or compression does not change that identity; restored timestamps are normalized
+to the Unix epoch. Moving from an older representation may still require one new build.
 
 For managed builds on Modal in the matching release, each selected context has these limits:
 
