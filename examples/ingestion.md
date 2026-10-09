@@ -61,12 +61,17 @@ For managed builds on Modal in the matching release, each selected context has t
 | --- | --- |
 | Uploaded archive size | 3 GiB (3,221,225,472 bytes) |
 | Sum of expanded regular-file sizes | 3 GiB (3,221,225,472 bytes) |
-| Regular files | 12,288 |
-| Total archive entries, including directories | 16,384 |
+| Prepared build context | 3 GiB (3,221,225,472 bytes) |
+| Regular files | 65,536 |
+| Archive entries and restored paths, including directories | 81,920 |
 
-All four limits apply independently to each context. They do not limit the benchmark's combined
-size or prebuilt image layers. If required inputs exceed them, use a focused context or build
-and publish a prebuilt image. The provider's image constraints still apply to that image.
+The prepared context includes Trajectory's bootstrap and any required Dockerfile copy, so leave
+room below 3 GiB when selecting source files. A preparation-size error reports `prepared_bytes` and
+`allowed_bytes`.
+
+These limits apply independently to each context, not to the benchmark's combined size or
+prebuilt image layers. If required inputs exceed them, use a focused context or build and publish
+a prebuilt image. The provider's image constraints still apply to that image.
 
 ### Public prebuilt image: build and publish once
 
