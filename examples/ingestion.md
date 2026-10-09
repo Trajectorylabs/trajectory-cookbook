@@ -5,10 +5,9 @@ records to fix failures. You are done with ingestion when every submitted task i
 for and its required runtime is ready, or its failure is recorded with a cause and next action.
 Runtime readiness does not prove that the task's solver or grader works.
 
-> Release note: automatic context archives, renewable organization access to private GAR and the expanded
-> ingestion-history examples below target the upcoming matching API/SDK release. Their fresh-client
-> walkthrough and full-population qualification are still pending. Do not infer availability
-> from installing an older published SDK.
+> Release note: automatic context archives and expanded ingestion history target the upcoming
+> matching API/SDK release. Released-client verification is still pending. Do not infer
+> availability from installing an older published SDK.
 
 ## 1. Choose the runtime path
 
@@ -18,7 +17,7 @@ Keep the benchmark's native files, commands, task IDs, splits and actor/private-
 | You have | Use | Trajectory does |
 | --- | --- | --- |
 | An ordinary Dockerfile and local files | `DockerfileBuild("runtime/Dockerfile")` | Uploads the selected context privately and builds the runtime. |
-| An image you already build and publish | `ImageRef("registry.example.com/runtime@sha256:...")` | Pulls the pinned image and adds the execution bootstrap. |
+| A public image you already build and publish | `ImageRef("registry.example.com/runtime@sha256:...")` | Pulls the pinned image and adds the execution bootstrap. |
 | A ready runtime in your organization | `RuntimeRef("rt_YOUR_RUNTIME")` | Reuses that runtime. This is not a fresh build or registry-pull test. |
 
 ### Managed build: keep your Dockerfile and files
@@ -60,7 +59,7 @@ All four limits apply independently to each context. They do not limit the bench
 size or prebuilt image layers. If required inputs exceed them, use a focused context or build
 and publish a prebuilt image. The provider's image constraints still apply to that image.
 
-### Prebuilt image: build and publish once
+### Public prebuilt image: build and publish once
 
 ```python
 from trajectory.lib import ImageRef
@@ -73,92 +72,16 @@ Use the image digest returned by your registry. On the initial Modal path, build
 installation in the image; the execution bootstrap does not install them. Public image
 references require no pull-secret field and keep their existing behavior.
 
-Your local or CI credentials authorize building and pushing the image. They do not automatically
-authorize Trajectory to pull it. Connect the private repository as shown below. Private base
-images in a managed Dockerfile and credentials needed by a Dockerfile `RUN` command are separate
-capabilities. Build and publish the image with your own tooling when those credentials are needed.
+Publish the image in a public registry. Private registry access is outside this release.
+Your local or CI credentials authorize building and publishing the image; Trajectory needs no
+registry credentials to pull it.
 
 ### Authenticate each operation
 
 Set `TRAJECTORY_API_KEY` for the organization receiving the benchmark. `Client()` uses that key
 for Trajectory API calls. Trajectory supplies signed upload authorization and its worker/provider
-credentials; you do not need cloud-storage credentials for managed context delivery.
-
-For a private **Google Artifact Registry image on Modal**, connect its repository once for your
-Trajectory organization:
-
-```python
-from trajectory import Client
-
-client = Client()
-access = client.organizations.register_repository(
-    repository="us-central1-docker.pkg.dev/PROJECT/REPOSITORY",
-)
-print(access.service_account_email)
-```
-
-Registration creates the organization's pull identity. Grant that returned identity
-`roles/artifactregistry.reader` on the repository in your project:
-
-```bash
-gcloud artifacts repositories add-iam-policy-binding REPOSITORY \
-  --project=PROJECT --location=us-central1 \
-  --member="serviceAccount:EMAIL_FROM_ABOVE" \
-  --role=roles/artifactregistry.reader
-```
-
-Then use `ImageRef("us-central1-docker.pkg.dev/PROJECT/REPOSITORY/runtime@sha256:...")`
-without a pull-secret field. Trajectory obtains a short-lived credential when it pulls the
-image and renews it when queued work needs another credential. You do not export a token for
-each submission. The repository must remain registered and the Reader grant must remain valid.
-A successful registration does not verify image access; verify a fresh image pull.
-
-Use `client.organizations.retrieve_registry_access()` to inspect the identity and connected
-repositories. This read does not create the identity. To disconnect a repository, call
-`client.organizations.unregister_repository(repository="us-central1-docker.pkg.dev/PROJECT/REPOSITORY")`.
-That removes the connection; it does not delete images or revoke the IAM grant in your project.
-Ready Trajectory runtimes remain reusable. Other private registries/providers are not qualified
-by this adapter.
-
-#### Existing pull secrets
-
-An explicitly supplied `registry_secret` remains supported. It takes precedence over the
-organization's repository connection for new pulls; an invalid explicit secret fails rather
-than falling back to another identity. An identical runtime already ready or building in your
-organization can be reused without another pull. A new credential reference does not replace
-the credentials of an active build.
-
-```python
-import json
-import os
-
-from trajectory import SecretRef
-from trajectory.lib import ImageRef
-
-created = client.secrets.create(
-    name="gar-pull",
-    value=json.dumps({
-        "username": "oauth2accesstoken",
-        "password": os.environ["GAR_ACCESS_TOKEN"],
-    }),
-)
-runtime = ImageRef(
-    "us-central1-docker.pkg.dev/PROJECT/REPOSITORY/runtime@sha256:YOUR_DIGEST",
-    registry_secret=SecretRef(secret_ref="gar-pull"),
-)
-```
-
-Reference the secret's **name**, not its value or ID. A saved access token normally expires
-after 60 minutes, including queue time, and Trajectory cannot refresh it. An existing
-service-account JSON key can also be stored as the secret value; your organization owns its
-rotation. Prefer the renewable repository connection for long-running or queued submissions.
-See Google's [Artifact Registry authentication instructions](https://docs.cloud.google.com/artifact-registry/docs/docker/authentication#token).
-
-To replace a saved credential, let its active build settle, revoke it with
-`client.secrets.revoke(created.secret.secret_id)`, then create the replacement using the same
-name. Verify a fresh pull; reusing a ready runtime does not test the replacement. Keep credential
-values out of Dockerfiles, manifests and logs. Pull credentials are not injected into task
-`env_vars`; declare separate runtime secrets when the harness needs them.
+credentials; you do not need cloud-storage credentials for managed context delivery. Declare
+runtime service secrets separately through `TaskSpec.env_vars` with `SecretRef`.
 
 ## 2. Submit and keep the operation ID
 
