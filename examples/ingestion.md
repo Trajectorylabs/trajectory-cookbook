@@ -5,6 +5,11 @@ records to fix failures. You are done with ingestion when every submitted task i
 for and its required runtime is ready, or its failure is recorded with a cause and next action.
 Runtime readiness does not prove that the task's solver or grader works.
 
+For an existing harness, reuse its execution and grading entrypoints. Adapt packaging, model
+transport, credentials and Trajectory lifecycle/reporting while preserving native behavior.
+Report any incompatibility that requires a behavior change. See [native runtime integration](../README.md#package-a-benchmark-runtime)
+and the [Inspect adapter](inspect.md).
+
 > Release note: automatic context archives and expanded ingestion history target the upcoming
 > matching API/SDK release. Released-client verification is still pending. Do not infer
 > availability from installing an older published SDK.
