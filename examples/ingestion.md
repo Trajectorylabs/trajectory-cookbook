@@ -52,21 +52,21 @@ checksum separately verifies transferred bytes. Restored timestamps use the Unix
 Changing compression alone does not change source identity. Older SDKs can still upload loose
 files, though changing representations may require one new build.
 
-For managed builds on Modal in the matching release, each selected context has these limits:
+In the matching release, each selected managed context has these limits:
 
 | Dimension | Maximum |
 | --- | --- |
 | Uploaded archive size | 3 GiB (3,221,225,472 bytes) |
 | Sum of expanded regular-file sizes | 3 GiB (3,221,225,472 bytes) |
 | Prepared build context | 3 GiB (3,221,225,472 bytes) |
-| Runloop Dockerfile | 16 MiB; put large assets in ordinary context files |
 | Context path depth | 128 components, including the filename |
 | Files and symbolic links | 65,536 |
 | Archive entries and restored paths, including directories | 81,920 |
 
 The prepared context includes Trajectory's bootstrap and any required Dockerfile copy, so leave
 room below 3 GiB when selecting source files. A preparation-size error reports `prepared_bytes` and
-`allowed_bytes`.
+`allowed_bytes`. Runloop also limits the selected Dockerfile to 16 MiB; put large assets in ordinary
+context files.
 
 These limits apply independently to each context, not to the benchmark's combined size or
 prebuilt image layers. If required inputs exceed them, use a focused context or build and publish
@@ -148,8 +148,9 @@ The `progress` callback first reports `phase="preparing"`, then `phase="packagin
 or reused objects/bytes, not instantaneous network traffic. Upload counters are zero during
 preparation; transfer totals become known when uploading starts. The default terminal display
 shows preparation and packaging too, before `start_push()` returns.
-Operation `upload_progress` distinguishes declared and verified totals and includes task parts.
-Verified upload bytes do not establish task registration or runtime readiness.
+Retrieving an operation returns `upload_progress`: declared and checksum-verified object/byte
+totals, including task parts. History entries may omit it; unknown progress is `None`, not zero.
+Declared bytes do not prove transfer, and verified bytes do not establish registration or readiness.
 
 ## 3. Inspect every input and failed runtime
 
