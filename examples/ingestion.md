@@ -62,6 +62,7 @@ For managed builds on Modal in the matching release, each selected context has t
 | Uploaded archive size | 3 GiB (3,221,225,472 bytes) |
 | Sum of expanded regular-file sizes | 3 GiB (3,221,225,472 bytes) |
 | Prepared build context | 3 GiB (3,221,225,472 bytes) |
+| Runloop Dockerfile | 16 MiB; put large assets in ordinary context files |
 | Regular files | 65,536 |
 | Archive entries and restored paths, including directories | 81,920 |
 
