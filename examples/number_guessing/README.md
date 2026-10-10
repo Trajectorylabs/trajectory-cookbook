@@ -1,5 +1,7 @@
 # Number guessing with context compaction
 
+This example adds a multi-turn environment, an efficiency reward, and context compaction to the SDK lifecycle.
+
 A fake user picks an integer from 1 to 100 and replies `Higher.`, `Lower.`, or
 `Correct!` to the model's guesses. After every three incorrect guesses, the harness
 calls the **same model** to summarize the conversation. The next guessing call
