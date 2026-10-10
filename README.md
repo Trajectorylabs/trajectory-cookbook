@@ -24,6 +24,7 @@ native solving and grading rules when adapting it.
 
 Supporting Guides:
 
+- [Ingestion and runtime readiness](examples/ingestion.md): managed builds, public images, submission history and failure recovery.
 - [Task Upload Validation](examples/task_diagnostics.md): validate one task or inspect a few uploaded tasks.
 - [Diagnostic artifacts](examples/diagnostic_artifacts.md): keep full reports and logs with a trajectory.
 - [Runtime packaging](#package-a-benchmark-runtime): files, dependencies, secrets, and nested containers.
