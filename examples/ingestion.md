@@ -61,7 +61,7 @@ For managed builds on Modal in the matching release, each selected context has t
 | Prepared build context | 3 GiB (3,221,225,472 bytes) |
 | Runloop Dockerfile | 16 MiB; put large assets in ordinary context files |
 | Context path depth | 128 components, including the filename |
-| Regular files | 65,536 |
+| Files and symbolic links | 65,536 |
 | Archive entries and restored paths, including directories | 81,920 |
 
 The prepared context includes Trajectory's bootstrap and any required Dockerfile copy, so leave
