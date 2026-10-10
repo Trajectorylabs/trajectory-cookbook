@@ -8,7 +8,7 @@ The platform builds runtime images remotely; you do not need local Docker.
 ## 1. Confirm your organization and choose an agent
 
 ```bash
-uv run --with 'trajectory-sdk>=0.9.14' python - <<'PYCODE'
+uv run --with trajectory-sdk python - <<'PYCODE'
 from trajectory import Client
 
 client = Client()
@@ -23,7 +23,7 @@ use the selected agent, reuse one whose purpose fits, or create one for a new us
 For a new T Factory project:
 
 ```bash
-uv run --with 'trajectory-sdk>=0.9.14' python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="t-factory-cookbook", description="Learning task rewards and training with T Factory")'
 ```
 
@@ -107,7 +107,7 @@ examples of how this toy objective can change responses, including reward hackin
 Keep the diagnostic, benchmark, and training IDs. Interrupting a local command does not cancel
 work already accepted by the service. Inspect that work before submitting a replacement.
 Replace the corresponding placeholder in these snippets and run with
-`uv run --with 'trajectory-sdk>=0.9.14' python` (or your SDK-enabled Python environment).
+`uv run --with trajectory-sdk python` (or your SDK-enabled Python environment).
 
 For a diagnostic:
 

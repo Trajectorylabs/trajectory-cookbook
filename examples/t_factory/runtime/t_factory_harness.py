@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk>=0.9.14"]
+# dependencies = ["trajectory-sdk"]
 # ///
 """Run and grade one T-starting-word task."""
 
