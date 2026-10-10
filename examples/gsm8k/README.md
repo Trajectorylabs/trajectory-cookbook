@@ -44,31 +44,24 @@ uv run --with trajectory-sdk python -c \
 The remaining commands use `gsm8k-cookbook`; substitute your selected agent's name if different.
 Reuse that agent on later runs without repeating the creation command.
 
-## 3. Validate one task and upload a smoke-test benchmark
+## 3. Validate one task
 
 In your Python session:
 
 ```python
-from examples.gsm8k.ingest import ingest_smoketest, task_diagnose
+from examples.gsm8k.ingest import task_diagnose
 
 agent_name = "gsm8k-cookbook"
 task_diagnose(agent_name=agent_name)
-ingest_smoketest(agent_name=agent_name)
 ```
 
-Run the diagnostic and upload as separate steps:
-
-1. `task_diagnose` downloads one training problem, packages its task file with the harness and
-   grader, builds the runtime, and runs that task on `Qwen/Qwen3.5-4B`. This catches packaging,
-   execution, and grading errors before uploading the benchmark, with more detailed error
-   reports and logs to help debug failures.
-2. `ingest_smoketest` uploads `gsm8k-smoketest` with one training problem and one different
-   problem from GSM8K's test split, then waits for its runtime image to be ready.
+`task_diagnose` downloads one training problem, packages its task file with the harness and
+grader, builds the runtime, and runs that task on `Qwen/Qwen3.5-4B`. This catches packaging,
+execution, and grading errors before uploading the benchmark, with more detailed error
+reports and logs to help debug failures.
 
 The task diagnostic prints its ID, status, task report, and reward. Zero is a valid graded
-answer. Both `ingest_smoketest` and `ingest` only upload their task sets and wait for image
-readiness; diagnostics are separate calls. After this upload, proceed directly to evaluation.
-Benchmark-wide diagnostics are reserved for the full upload in step 6.
+answer. Continue to the smoke upload and evaluation after this diagnostic passes.
 
 If a check fails, inspect its printed run-wide and per-task failures, fix the reported runtime
 or grading problem, and [repeat the relevant diagnostic](#inspect-existing-work).
@@ -76,21 +69,27 @@ For a different harness, use the [task upload validation recipe](../task_diagnos
 
 ## 4. Evaluate one held-out task and confirm a grade
 
-Run a one-task evaluation on the uploaded smoke-test benchmark to see that the evaluation
+Upload the smoke-test benchmark, then run a one-task evaluation to see that the evaluation
 path returns a grade before training:
 
 ```python
 from trajectory import Client
+from examples.gsm8k.ingest import ingest_smoketest
 from examples.gsm8k.train import eval_smoketest
 
 client = Client()
 agent_name = "gsm8k-cookbook"
 bench_name = "gsm8k-smoketest"
+ingest_smoketest(agent_name=agent_name)
 baseline_reward = eval_smoketest(client, agent_name, bench_name)
 print(f"baseline_reward={baseline_reward:.6f}")
 ```
 
 Use your chosen `agent_name` and `bench_name="gsm8k-smoketest"`.
+`ingest_smoketest` uploads one training problem and one different problem from GSM8K's test
+split, then waits for the runtime image to be ready. Both ingestion helpers only upload and
+wait; diagnostics are separate calls. Benchmark-wide diagnostics are reserved for step 6.
+
 `eval_smoketest` evaluates one held-out task, prints its evaluation ID and progress, and returns
 the reward. It stops on failure or cancellation; zero is a valid graded answer. This catches basic execution and
 grading errors before a larger run. One test problem cannot measure generalization.
