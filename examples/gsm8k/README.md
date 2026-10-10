@@ -49,26 +49,26 @@ Reuse that agent on later runs without repeating the creation command.
 In your Python session:
 
 ```python
-from examples.gsm8k.ingest import ingest_smoketest
+from examples.gsm8k.ingest import ingest_smoketest, task_diagnose
 
 agent_name = "gsm8k-cookbook"
-bench_name = ingest_smoketest(agent_name=agent_name)
-print(bench_name)
+task_diagnose(agent_name=agent_name)
+ingest_smoketest(agent_name=agent_name)
 ```
 
-`ingest_smoketest` runs these checks by default:
+Run the diagnostic and upload as separate steps:
 
 1. `task_diagnose` downloads one training problem, packages its task file with the harness and
    grader, builds the runtime, and runs that task on `Qwen/Qwen3.5-4B`. This catches packaging,
    execution, and grading errors before uploading the benchmark, with more detailed error
    reports and logs to help debug failures.
-2. Upload `gsm8k-smoketest` with one training problem and one different problem from GSM8K's
+2. `ingest_smoketest` uploads `gsm8k-smoketest` with one training problem and one different problem from GSM8K's
    test split, then wait for its runtime image to be ready.
 
 The task diagnostic prints its ID, status, task report, and reward. Zero is a valid graded
-answer. The helper returns the benchmark name after that check passes and the uploaded image
-is ready. Proceed directly to evaluation; benchmark-wide diagnostics are reserved for the
-full upload in step 6.
+answer. Both `ingest_smoketest` and `ingest` only upload their task sets and wait for image
+readiness; diagnostics are separate calls. After this upload, proceed directly to evaluation.
+Benchmark-wide diagnostics are reserved for the full upload in step 6.
 
 If a check fails, inspect its printed run-wide and per-task failures, fix the reported runtime
 or grading problem, and [repeat the relevant diagnostic](#inspect-existing-work).
@@ -90,7 +90,7 @@ baseline_reward = eval_smoketest(client, agent_name, bench_name)
 print(f"baseline_reward={baseline_reward:.6f}")
 ```
 
-Use your chosen `agent_name` and the `bench_name` returned by `ingest_smoketest`.
+Use your chosen `agent_name` and `bench_name="gsm8k-smoketest"`.
 `eval_smoketest` evaluates one held-out task, prints its evaluation ID and progress, and returns
 the reward. It stops on failure or cancellation; zero is a valid graded answer. This catches basic execution and
 grading errors before a larger run. One test problem cannot measure generalization.
@@ -164,8 +164,8 @@ After the smoke run completes, upload the example's **64 training and 16 held-ou
 uv run examples/gsm8k/ingest.py --agent-name "gsm8k-cookbook" --name "gsm8k-trajectory-sdk"
 ```
 
-The full uploader registers `gsm8k-trajectory-sdk`, waits for the image, then runs
-`benchmark_diagnostic` on a subset of the uploaded tasks. It selects up to 10 tasks,
+The command calls `ingest` to register `gsm8k-trajectory-sdk` and wait for the image,
+then calls `benchmark_diagnostic` on a subset of the uploaded tasks. It selects up to 10 tasks,
 prioritizing distinct runtimes, and prints detailed task outcomes and failures. It does not
 repeat the single-task diagnostic from step 3.
 

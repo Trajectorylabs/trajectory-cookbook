@@ -57,18 +57,13 @@ def ingest(name: str, agent_name: str) -> str:
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),
     }
-    bench_id = _push_benchmark(rows, name, agent_name)
-    benchmark_diagnostic(bench_id)
-    return name
+    return _push_benchmark(rows, name, agent_name)
 
 
 def ingest_smoketest(agent_name: str) -> str:
     # Use one task per split for the quickest check of ingestion and runtime errors.
-    task_diagnose(agent_name)
     rows = {split: _load_rows(split, 1) for split in ("train", "test")}
-    bench_name = "gsm8k-smoketest"
-    _push_benchmark(rows, bench_name, agent_name)
-    return bench_name
+    return _push_benchmark(rows, "gsm8k-smoketest", agent_name)
 
 
 def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> str:
@@ -183,7 +178,8 @@ def main() -> int:
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
     args = parser.parse_args()
 
-    ingest(args.name, args.agent_name)
+    bench_id = ingest(args.name, args.agent_name)
+    benchmark_diagnostic(bench_id)
     return 0
 
 
