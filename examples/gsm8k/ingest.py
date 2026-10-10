@@ -14,10 +14,10 @@ import httpx
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import (
     DockerfileBuild,
-    push,
+    start_push,
     start_task_diagnostic,
-    wait_for_benchmark_images,
 )
+
 
 _RUNTIME_SOURCE = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
@@ -71,20 +71,18 @@ def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> 
     with tempfile.TemporaryDirectory(prefix="gsm8k-benchmark-") as directory:
         package_root = Path(directory)
         _stage_runtime(rows, package_root)
-        result = push(
+        operation = start_push(
             client,
             build_benchmark(rows, name),
             agent_name=agent_name,
             root=package_root,
+            build_images=True,
         )
     print(f"agent_name={agent_name}", flush=True)
-    print(f"bench_name={name}", flush=True)
-    wait_for_benchmark_images(
-        client,
-        result.bench_id,
-        timeout_seconds=_BUILD_TIMEOUT_SECONDS,
-    )
-    return result.bench_id
+    print(f"operation_id={operation.id}", flush=True)
+    result = operation.result(timeout=_BUILD_TIMEOUT_SECONDS)
+    print(f"bench_id={result.status.bench_id}", flush=True)
+    return result.status.bench_id
 
 
 def task_diagnose(agent_name: str) -> None:
@@ -152,6 +150,7 @@ def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
             f"Diagnostic {diagnostic_id} completed without a recorded reward"
         )
     print(f"diagnostic_reward={evaluation.reward_mean}", flush=True)
+
 
 
 def _load_rows(split: str, limit: int) -> list[dict]:

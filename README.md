@@ -24,6 +24,8 @@ native solving and grading rules when adapting it.
 
 Supporting Guides:
 
+- [Evaluation inspection and repair](examples/evaluation_inspection.md): inspect every attempt, recorded grade and supporting evidence.
+
 - [Task Upload Validation](examples/task_diagnostics.md): validate one task or inspect a few uploaded tasks.
 - [Diagnostic artifacts](examples/diagnostic_artifacts.md): keep full reports and logs with a trajectory.
 - [Runtime packaging](#package-a-benchmark-runtime): files, dependencies, secrets, and nested containers.
@@ -133,7 +135,6 @@ uploading them before completing the trajectory.
 reward = float(check_answer(model_answer, expected_answer))
 client.trajectories.log_reward(
     tid,
-    reward_id="correctness",
     name="reward_accuracy",
     value=reward,
 )
@@ -148,7 +149,7 @@ client = Client()
 tid = client.trajectories.create().tid
 response = client.chat.completions.create(model="openai/gpt-5.4-mini", messages=[{"role": "user", "content": "What is 6 × 7?"}], x_trajectory_id=tid)
 reward = float(response.choices[0].message.content.strip() == "42")
-client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
+client.trajectories.log_reward(tid, name="reward_accuracy", value=reward)
 client.trajectories.complete(tid)
 print(client.trajectories.retrieve(tid, include_steps=True))
 ```
@@ -188,7 +189,7 @@ upload the benchmark, and wait for its runtime image to become ready:
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client
-from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
+from trajectory.lib import DockerfileBuild, push
 
 client = Client()
 benchmark = BenchmarkSpec(
@@ -201,10 +202,12 @@ result = push(
     benchmark,
     agent_name="YOUR_AGENT_NAME",
     root=Path("my-benchmark"),
+    build_images=True,
 )
 bench_id = result.bench_id
-wait_for_benchmark_images(client, bench_id)
 ```
+
+`build_images=True` includes runtime builds in ingestion; `push` waits for registration and builds.
 
 Run the complete uploader with that agent name, then save the benchmark ID:
 
