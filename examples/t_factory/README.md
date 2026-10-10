@@ -40,7 +40,13 @@ client = Client()
 tid = client.trajectories.create().tid
 response = client.chat.completions.create(
     model="openai/gpt-5.4-mini",
-    messages=[{"role": "user", "content": "Describe rainy weather using words starting with T."}],
+    messages=[
+        {
+            "role": "system",
+            "content": "try to respond normally but with as many words starting with T as possible",
+        },
+        {"role": "user", "content": "Describe rainy weather."},
+    ],
     x_trajectory_id=tid,
 )
 answer = response.choices[0].message.content
