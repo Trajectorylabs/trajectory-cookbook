@@ -63,8 +63,9 @@ In the matching release, each selected managed context has these limits:
 | Files and symbolic links | 65,536 |
 | Archive entries and restored paths, including directories | 81,920 |
 
-The prepared context includes Trajectory's bootstrap and any required Dockerfile copy, so leave
-room below 3 GiB when selecting source files. A preparation-size error reports `prepared_bytes` and
+The prepared-context estimate includes expanded files, Trajectory's bootstrap and any required
+Dockerfile copy. It conservatively counts an existing `Dockerfile` even when the selected file
+replaces it, so leave room below 3 GiB. A preparation-size error reports `prepared_bytes` and
 `allowed_bytes`. Runloop also limits the selected Dockerfile to 16 MiB; put large assets in ordinary
 context files.
 
