@@ -61,8 +61,8 @@ For managed builds on Modal in the matching release, each selected context has t
 | --- | --- |
 | Uploaded archive size | 3 GiB (3,221,225,472 bytes) |
 | Sum of expanded regular-file sizes | 3 GiB (3,221,225,472 bytes) |
-| Regular files | 12,288 |
-| Total archive entries, including directories | 16,384 |
+| Regular files | 65,536 |
+| Total archive entries, including directories | 81,920 |
 
 All four limits apply independently to each context. They do not limit the benchmark's combined
 size or prebuilt image layers. If required inputs exceed them, use a focused context or build

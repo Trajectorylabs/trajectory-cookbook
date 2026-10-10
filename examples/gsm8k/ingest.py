@@ -46,7 +46,7 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(name: str, agent_id: str, skip_build: bool) -> str:
+def ingest(name: str, agent_name: str, skip_build: bool) -> str:
     client = Client()
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
@@ -58,11 +58,11 @@ def ingest(name: str, agent_id: str, skip_build: bool) -> str:
         operation = start_push(
             client,
             build_benchmark(rows, name),
-            agent_id=agent_id,
+            agent_name=agent_name,
             root=package_root,
             build_images=not skip_build,
         )
-    print(f"agent_id={agent_id}", flush=True)
+    print(f"agent_name={agent_name}", flush=True)
     print(f"operation_id={operation.id}", flush=True)
     result = operation.result(timeout=_BUILD_TIMEOUT_SECONDS)
     print(f"bench_id={result.status.bench_id}", flush=True)
@@ -89,12 +89,12 @@ def _stage_runtime(rows_by_split: dict[str, list[dict]], package_root: Path) -> 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-id", required=True)
+    parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
 
-    ingest(args.name, args.agent_id, args.skip_build)
+    ingest(args.name, args.agent_name, args.skip_build)
     return 0
 
 
