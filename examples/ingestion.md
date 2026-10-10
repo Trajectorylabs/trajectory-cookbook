@@ -61,12 +61,17 @@ For managed builds on Modal in the matching release, each selected context has t
 | --- | --- |
 | Uploaded archive size | 3 GiB (3,221,225,472 bytes) |
 | Sum of expanded regular-file sizes | 3 GiB (3,221,225,472 bytes) |
+| Prepared build context | 3 GiB (3,221,225,472 bytes) |
 | Regular files | 65,536 |
-| Total archive entries, including directories | 81,920 |
+| Archive entries and restored paths, including directories | 81,920 |
 
-All four limits apply independently to each context. They do not limit the benchmark's combined
-size or prebuilt image layers. If required inputs exceed them, use a focused context or build
-and publish a prebuilt image. The provider's image constraints still apply to that image.
+The prepared context includes Trajectory's bootstrap and any required Dockerfile copy, so leave
+room below 3 GiB when selecting source files. A preparation-size error reports `prepared_bytes` and
+`allowed_bytes`.
+
+These limits apply independently to each context, not to the benchmark's combined size or
+prebuilt image layers. If required inputs exceed them, use a focused context or build and publish
+a prebuilt image. The provider's image constraints still apply to that image.
 
 ### Public prebuilt image: build and publish once
 
@@ -158,8 +163,8 @@ diagnostics and reports. The SDK interfaces below expose the same underlying rec
 Find an operation in history, including one that failed before registration:
 
 ```python
-for operation in client.benchmarks.ingestion.list():
-    print(operation.operation_id, operation.bench_id, operation.status)
+for entry in client.benchmarks.ingestion.list():
+    print(entry.operation_id, entry.bench_id, entry.status)
 ```
 
 Use `bench_id=...` to restrict that history to one benchmark version. For a selected operation,
@@ -256,7 +261,12 @@ constraints. If a bound rejects input, retain its dimension, observed value and 
 
 ## 5. Confirm readiness, then test the task
 
+After registration, refresh the selected operation before inspecting its runtimes:
+
 ```python
+from trajectory.lib import get_operation
+
+status = get_operation(client, operation_id).refresh()
 bench_id = status.bench_id
 images = client.benchmarks.images.list(bench_id)
 for image in images.images:

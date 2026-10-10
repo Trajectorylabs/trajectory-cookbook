@@ -13,7 +13,8 @@ Complete the [ingestion and runtime-readiness loop](ingestion.md) first. It cove
 builds and prebuilt images, credentials, every submitted input, failed build logs and retries.
 Then use this page to validate native execution, grading and report retention.
 
-This draft's complete-attempt examples require the upcoming matching API/SDK release.
+This draft's complete-attempt, task-message and grading-read examples require the upcoming
+matching API/SDK release.
 Publishing diagnostics while cancelling also requires the matching backend update.
 Release and ordinary-customer checks remain pending.
 
@@ -108,7 +109,7 @@ print(attempts.supported)
 for attempt in attempts:
     print(attempt.task_id, attempt.sample_id, attempt.status,
           attempt.trajectory_id, attempt.grade,
-          attempt.trajectory_termination_reason, attempt.rollout)
+          attempt.trajectory_termination_reason, attempt.applied_reward, attempt.rollout)
 ```
 
 These listings paginate when iterated. Unfiltered live attempt pages can reset as new attempts appear;
@@ -131,6 +132,20 @@ remain valid. Inspect both the trajectory stop reason and rollout diagnostics ev
 capture says completed. Filters such as `task_id=...`, `status=...` and `graded=False`
 help investigate; keep the unfiltered accounting separately.
 
+Read the declared task messages from that run's exact benchmark version:
+
+```python
+benchmark = client.benchmarks.specs.retrieve(run.bench_id, include_tasks=True)
+if benchmark.tasks is None:
+    raise RuntimeError("Task inventory is unavailable")
+for task in benchmark.tasks:
+    print(task.task_id, task.input_messages)
+```
+
+`input_messages` describes the submitted task, even when its runtime failed. A null value
+means those messages are unavailable or were not declared. The actual model conversation
+belongs to each attempt's trajectory; it can differ from the declared task messages.
+
 Harness exception messages come from your benchmark command and are visible only through
 the owning organization's authorized interfaces. Capture masks its launch credentials, and
 the API masks registered secrets. This is not complete secret scrubbing: credentials acquired
@@ -149,12 +164,34 @@ submission without mixing its task IDs or results with the repaired version.
 
 ## 3. Check native reports and required outputs
 
-For an attempt with a trajectory, read its recorded events:
+Choose an attempt by its `sample_id`, keeping the unfiltered task accounting above. If it has
+no `trajectory_id`, use its rollout diagnostics; there is no trace or grading capture to open.
+For an attempt with a trajectory, inspect the model trace, saved grading and report events:
 
 ```python
-for event in client.trajectories.list_events("traj_YOUR_TRAJECTORY"):
+trajectory_id = "traj_YOUR_TRAJECTORY"  # From the selected attempt.
+for step in client.trajectories.steps.list(trajectory_id):
+    print(step.model_dump())
+
+grading = client.trajectories.grading(trajectory_id)
+print("Saved reward sets:", grading.reward_sets)
+print("Grader executions:", grading.executions)
+
+for event in client.trajectories.list_events(trajectory_id):
     print(event.event_id, event.event)
 ```
+
+Saved reward sets expose component values and explanations. They can contain several reward
+sources; their presence does not establish which one supplied the evaluation score. The
+attempt's `applied_reward` records that selection when available, including its source,
+grader/operation IDs and any limit penalty. Null means the selection was not recorded;
+do not infer it by matching a saved value to `grade`. A saved zero remains zero.
+
+Grader executions describe managed grading work. Follow a non-null `execution_trajectory_id`
+through the same steps/events APIs to investigate that grader. A grader run inside the task
+may instead report its results through logged rewards and native artifacts. Empty saved
+rewards or execution lists do not prove native grading succeeded or failed; check the
+required reports for the path that actually ran.
 
 The UI's **Events and artifacts** shows the same records and offers authorized downloads for
 artifact IDs. Retrieve an artifact with `client.artifacts.retrieve(artifact_id)` and download

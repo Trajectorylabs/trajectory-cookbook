@@ -14,7 +14,13 @@ to quickly validate a few tasks across different runtimes.
 
 ## Setup
 
-Install the latest SDK and authenticate:
+This branch targets the upcoming matching API/SDK release. The examples require the
+`log_reward(tid, name=..., value=...)` signature, `start_push` and managed ingestion with
+`build_images=True`; the ingestion and diagnostics guides identify additional release
+dependencies. Wait for the compatible SDK to be published and its API deployed before
+running this branch against a released service. Released-client verification remains pending.
+
+After that release, install the compatible SDK and authenticate:
 
 ```bash
 pip install --upgrade trajectory-sdk
@@ -476,7 +482,6 @@ for the supported dimensions, observed/allowed errors and recovery steps.
   task without an existing benchmark.
 - [Ingestion and runtime readiness](examples/ingestion.md): choose a delivery path, account for every task and repair runtime failures.
 - [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
-- [Ingestion and runtime readiness](examples/ingestion.md): choose a delivery path, account for tasks and repair runtime failures.
 - [Execution and native reports](examples/diagnostic_artifacts.md): inspect attempts, preserve grading outcomes and retain reports.
 
 When adapting an existing benchmark, read the cookbook recipe together with its complete public

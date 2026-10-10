@@ -66,14 +66,16 @@ async def main():
                 "response_model": response.model,
                 "usage": response.usage.model_dump() if response.usage is not None else None,
             }
-        except Exception:
+        except (Exception, asyncio.CancelledError):
             try:
                 control.trajectories.complete(tid, termination_reason="ERROR")
             except Exception:
                 logging.exception("Failed to report auxiliary failure")
             raise
         else:
-            control.trajectories.complete(tid)
+            completed = control.trajectories.complete(tid)
+            if completed.status != "completed":
+                raise RuntimeError(f"Auxiliary trajectory completion failed: {completed.status}")
             print(content)
             return result
 
