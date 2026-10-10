@@ -120,7 +120,7 @@ benchmark = BenchmarkSpec(
 )
 operation = start_push(
     client, benchmark,
-    agent_id="agt_YOUR_AGENT",
+    agent_name="YOUR_AGENT_NAME",
     root=Path("my-benchmark"),
     build_images=True,
     idempotency_key="YOUR_SAVED_SUBMISSION_KEY",
@@ -282,6 +282,7 @@ imports, services and credentials on representative ready runtimes. That runs ta
 separate gate from ingestion. Verify the interpreter and dependencies used by the submitted
 `run_command`; checking the Dockerfile's `CMD` alone does not establish that the task command can
 start. Once you need solver/grader evidence, continue with
-[execution, native reports and repair](diagnostic_artifacts.md#1-check-native-prerequisites-cheaply).
+[native result reporting](../README.md#report-native-results) and
+[diagnostic artifacts](diagnostic_artifacts.md).
 An unresolved grader configuration alone is not a reason to exclude a task from ingestion;
 record the stage it prevents and preserve its source identity.
