@@ -53,19 +53,22 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
 
 
 def ingest(name: str, agent_name: str) -> str:
-    task_diagnose(agent_name)
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),
     }
-    return _push_benchmark(rows, name, agent_name)
+    bench_id = _push_benchmark(rows, name, agent_name)
+    benchmark_diagnostic(bench_id)
+    return name
 
 
 def ingest_smoketest(agent_name: str) -> str:
     # Use one task per split for the quickest check of ingestion and runtime errors.
     task_diagnose(agent_name)
     rows = {split: _load_rows(split, 1) for split in ("train", "test")}
-    return _push_benchmark(rows, "gsm8k-smoketest", agent_name)
+    bench_name = "gsm8k-smoketest"
+    _push_benchmark(rows, bench_name, agent_name)
+    return bench_name
 
 
 def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> str:
@@ -80,13 +83,12 @@ def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> 
             root=package_root,
         )
     print(f"agent_name={agent_name}", flush=True)
-    print(f"bench_id={result.bench_id}", flush=True)
+    print(f"bench_name={name}", flush=True)
     wait_for_benchmark_images(
         client,
         result.bench_id,
         timeout_seconds=_BUILD_TIMEOUT_SECONDS,
     )
-    benchmark_diagnostic(result.bench_id)
     return result.bench_id
 
 
@@ -97,12 +99,17 @@ def task_diagnose(agent_name: str) -> None:
     with tempfile.TemporaryDirectory(prefix="gsm8k-diagnostic-") as directory:
         package_root = Path(directory)
         _stage_runtime(rows, package_root)
-        benchmark = build_benchmark(rows, "gsm8k-diagnostic")
-        task = benchmark.tasks[0]
-        task.runtime = benchmark.runtime
         diagnostic = start_task_diagnostic(
             client,
-            task,
+            TaskSpec(
+                name="gsm8k/train_0000",
+                split="train",
+                runtime=DockerfileBuild(_RUNTIME_DOCKERFILE),
+                run_command=_RUN_COMMAND.format(
+                    task_file="/opt/gsm8k/tasks/train_0000.json"
+                ),
+                tags=["gsm8k"],
+            ),
             agent_name=agent_name,
             root=package_root,
             base_model_slug="Qwen/Qwen3.5-4B",
@@ -112,7 +119,7 @@ def task_diagnose(agent_name: str) -> None:
 
 
 def benchmark_diagnostic(bench_id: str) -> None:
-    # Check uploaded tasks and their runtimes before evaluation or training.
+    # Check a subset of uploaded tasks and runtimes before evaluation or training.
     client = Client()
     diagnostic = client.diagnostics.start_benchmark(
         bench_id=bench_id,

@@ -24,28 +24,24 @@ class RewardComparison:
 
 def train_and_evaluate(
     client: Client,
-    bench_id: str,
+    agent_name: str,
+    bench_name: str,
     model: str,
     num_steps: int,
     poll_seconds: float,
 ) -> RewardComparison:
-    benchmark = client.benchmarks.specs.retrieve(bench_id)
-    if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
-        "train",
-        "test",
-    }:
-        raise ValueError("The benchmark must contain explicit train and test splits")
-
     baseline = _evaluate_model(
         client,
-        bench_id,
+        agent_name,
+        bench_name,
         model,
         "GSM8K baseline",
         poll_seconds,
     )
 
     created = client.training.create(
-        bench_id=bench_id,
+        agent_name=agent_name,
+        benchmark_name=bench_name,
         base_model_slug=model,
         options={
             "disable_thinking": True,
@@ -66,7 +62,8 @@ def train_and_evaluate(
         baseline=baseline,
         final=_evaluate_model(
             client,
-            bench_id,
+            agent_name,
+            bench_name,
             model,
             f"GSM8K {run_id} step {num_steps}",
             poll_seconds,
@@ -83,14 +80,16 @@ def train_and_evaluate(
 
 def eval_smoketest(
     client: Client,
-    bench_id: str,
+    agent_name: str,
+    bench_name: str,
     model: str = _DEFAULT_MODEL,
     poll_seconds: float = 30,
     parent_checkpoint_id: str | None = None,
 ) -> float:
     # Evaluate one held-out task to catch basic execution and grading errors quickly.
     evaluation = client.evals.create(
-        bench_id=bench_id,
+        agent_name=agent_name,
+        benchmark_name=bench_name,
         base_model_slug=model,
         parent_checkpoint_id=parent_checkpoint_id,
         display_name="GSM8K smoketest",
@@ -108,14 +107,16 @@ def eval_smoketest(
 
 def _evaluate_model(
     client: Client,
-    bench_id: str,
+    agent_name: str,
+    bench_name: str,
     model: str,
     display_name: str,
     poll_seconds: float,
     parent_checkpoint_id: str | None = None,
 ) -> float:
     evaluation = client.evals.create(
-        bench_id=bench_id,
+        agent_name=agent_name,
+        benchmark_name=bench_name,
         base_model_slug=model,
         parent_checkpoint_id=parent_checkpoint_id,
         display_name=display_name,
@@ -173,7 +174,8 @@ def _wait_for_training(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bench-id", required=True)
+    parser.add_argument("--agent-name", required=True)
+    parser.add_argument("--bench-name", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--num-steps", type=int, default=20)
     parser.add_argument("--poll-seconds", type=float, default=30)
@@ -181,7 +183,8 @@ def main() -> int:
 
     train_and_evaluate(
         Client(max_retries=20),
-        args.bench_id,
+        args.agent_name,
+        args.bench_name,
         args.model,
         args.num_steps,
         args.poll_seconds,
