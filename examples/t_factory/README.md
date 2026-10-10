@@ -1,12 +1,26 @@
-# Your first task: T Factory
+# T Factory
 
-Run one prompt, see the model's answer, and record its reward. T Factory rewards the fraction
-of words starting with **T**: “Tiny turtles travel” scores `1.0`, while “Cats sleep” scores `0.0`.
-This is a toy score for learning the SDK, not a measure of answer quality.
+T Factory asks the model to maximize the fraction of words beginning with `T` while answering
+ordinary questions. It uses this system prompt:
 
-## 1. Set up
+```text
+try to respond normally but with as many words starting with T as possible
+```
 
-You need Python 3.11+, Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), and an
+Reward is the number of words beginning with `T`, case-insensitive, divided by the total number of
+words:
+
+```python
+import re
+
+def t_word_density(answer: str) -> float:
+    words = re.findall(r"[A-Za-z0-9']+", answer)
+    return sum(word.lower().startswith("t") for word in words) / len(words) if words else 0.0
+```
+
+## Run one task
+
+You need Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/), and an
 organization API key from **Settings → API keys** in the [platform](https://platform.trajectory.ai).
 
 ```bash
@@ -15,10 +29,7 @@ cd trajectory-cookbook
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 ```
 
-## 2. Run one task
-
-Run this from the repository root. `uv` installs the SDK for this command. The example calls
-one hosted model and uses T Factory's existing reward function.
+Run this from the repository root to call a model, record its reward, and complete the trajectory:
 
 ```bash
 uv run --with trajectory-sdk python - <<'PYCODE'
@@ -45,26 +56,11 @@ print(f"status={completed.status}")
 PYCODE
 ```
 
-This records the model call and its reward on the same **trajectory**, then marks the execution
-complete. The benchmark's managed runtime uses the existing harness unchanged.
+The command prints the response, trajectory ID, reward, and completion status.
+Success means a reward is recorded (including zero) and `status=completed`.
 
-## 3. See the result
+**Next:** follow the [GSM8K walkthrough](../gsm8k/README.md) to validate, evaluate, and train a
+benchmark. The existing [T Factory training and results](training.md) are an optional alternative.
 
-The command prints the actual response, trajectory ID, reward, and completion status.
-For example, **if** the response were “Tiny turtles travel”, the last lines would be:
-
-```text
-trajectory_id=<the ID returned by your run>
-reward=1.000000
-status=completed
-```
-
-Your answer and reward will vary. Success means the command exits successfully, a reward is
-recorded (including zero), and `status=completed`. A model-call error fails the command.
-This first lesson makes one model request from your terminal; it does not build a
-runtime, register a benchmark, or start training.
-
-**Next:** [The full GSM8K workflow](../gsm8k/README.md): validate one task, evaluate and train a
-small benchmark, then scale up. To keep using this toy reward, follow the optional
-[T Factory training walkthrough](training.md). See the [examples guide](../../README.md#examples-guide)
-for other use cases.
+The runtime and grader are in
+[`t_factory_harness.py`](runtime/t_factory_harness.py).
