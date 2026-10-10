@@ -52,23 +52,23 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(name: str, agent_name: str, skip_build: bool) -> str:
+def ingest(name: str, agent_name: str) -> str:
+    task_diagnose(agent_name)
     rows = {
         "train": _load_rows("train", _TRAIN_TASKS),
         "test": _load_rows("test", _TEST_TASKS),
     }
-    return _push_benchmark(rows, name, agent_name, skip_build)
+    return _push_benchmark(rows, name, agent_name)
 
 
 def ingest_smoketest(agent_name: str) -> str:
-    # Upload one task per split for the quickest check of basic packaging and build errors.
+    # Use one task per split for the quickest check of ingestion and runtime errors.
+    task_diagnose(agent_name)
     rows = {split: _load_rows(split, 1) for split in ("train", "test")}
-    return _push_benchmark(rows, "gsm8k-smoketest", agent_name, skip_build=False)
+    return _push_benchmark(rows, "gsm8k-smoketest", agent_name)
 
 
-def _push_benchmark(
-    rows: dict[str, list[dict]], name: str, agent_name: str, skip_build: bool
-) -> str:
+def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> str:
     client = Client()
     with tempfile.TemporaryDirectory(prefix="gsm8k-benchmark-") as directory:
         package_root = Path(directory)
@@ -81,16 +81,17 @@ def _push_benchmark(
         )
     print(f"agent_name={agent_name}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
-    if not skip_build:
-        wait_for_benchmark_images(
-            client,
-            result.bench_id,
-            timeout_seconds=_BUILD_TIMEOUT_SECONDS,
-        )
+    wait_for_benchmark_images(
+        client,
+        result.bench_id,
+        timeout_seconds=_BUILD_TIMEOUT_SECONDS,
+    )
+    benchmark_diagnostic(result.bench_id)
     return result.bench_id
 
 
-def diagnose(agent_name: str) -> None:
+def task_diagnose(agent_name: str) -> None:
+    # Catch packaging, execution, and grading errors on one task before benchmark upload.
     client = Client()
     rows = {"train": _load_rows("train", 1)}
     with tempfile.TemporaryDirectory(prefix="gsm8k-diagnostic-") as directory:
@@ -107,7 +108,20 @@ def diagnose(agent_name: str) -> None:
             base_model_slug="Qwen/Qwen3.5-4B",
             timeout_seconds=_BUILD_TIMEOUT_SECONDS,
         )
-    diagnostic_id = diagnostic.benchmark_diagnostic_id
+    _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
+
+
+def benchmark_diagnostic(bench_id: str) -> None:
+    # Check uploaded tasks and their runtimes before evaluation or training.
+    client = Client()
+    diagnostic = client.diagnostics.start_benchmark(
+        bench_id=bench_id,
+        base_model_slug="Qwen/Qwen3.5-4B",
+    )
+    _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
+
+
+def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
     print(f"diagnostic_id={diagnostic_id}", flush=True)
     while True:
         status = client.diagnostics.get_status(diagnostic_id)
@@ -121,19 +135,19 @@ def diagnose(agent_name: str) -> None:
     if (
         result.status != "completed"
         or result.failure is not None
-        or len(result.tasks) != 1
+        or not result.tasks
         or any(
             task.status != "completed" or task.failure is not None
             for task in result.tasks
         )
     ):
         raise RuntimeError(
-            f"Task diagnostic {diagnostic_id} did not pass; inspect the report above"
+            f"Diagnostic {diagnostic_id} did not pass; inspect the report above"
         )
     evaluation = client.evals.runs.retrieve(result.eval_run_id)
     if evaluation.reward_mean is None:
         raise RuntimeError(
-            f"Task diagnostic {diagnostic_id} completed without a recorded reward"
+            f"Diagnostic {diagnostic_id} completed without a recorded reward"
         )
     print(f"diagnostic_reward={evaluation.reward_mean}", flush=True)
 
@@ -160,19 +174,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--skip-build", action="store_true")
-    mode.add_argument(
-        "--diagnose-only",
-        action="store_true",
-        help="Validate one task before uploading a benchmark",
-    )
     args = parser.parse_args()
 
-    if args.diagnose_only:
-        diagnose(args.agent_name)
-    else:
-        ingest(args.name, args.agent_name, args.skip_build)
+    ingest(args.name, args.agent_name)
     return 0
 
 
