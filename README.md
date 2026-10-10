@@ -14,8 +14,9 @@ to quickly validate a few tasks across different runtimes.
 
 ## Setup
 
-This branch requires the matching ingestion API and SDK release described in the
-[ingestion guide](examples/ingestion.md). Released-client verification remains pending.
+This branch requires the matching ingestion and evaluation API/SDK releases described in
+the [ingestion](examples/ingestion.md) and [inspection](examples/diagnostic_artifacts.md) guides.
+Released-client verification remains pending.
 
 After that release, install the compatible SDK and authenticate:
 
@@ -224,6 +225,9 @@ through `SecretRef`. Use `SecretRef` for additional credentials the benchmark ne
 
 ### 3. Evaluate, train, and compare on the Trajectory Platform
 
+If an evaluation fails, [inspect every selected task and attempt](examples/diagnostic_artifacts.md#2-run-a-small-managed-evaluation-and-inspect-it-while-it-runs).
+Reward listings omit attempts that failed without a grade.
+
 Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
 same `options` schema. Discover the supported settings and bounds for each mode:
 
@@ -320,7 +324,9 @@ and [Inspect](examples/inspect.md) examples.
 In a managed task runtime, `Client()` routes model calls to the actor selected for evaluation
 or training, even if a request names a different model. For a fixed judge or other auxiliary
 model, use a separate client configured for its endpoint and credentials. Sending its requests
-through the managed actor client would use the actor model instead.
+through the managed actor client would use the actor model instead. See the
+[fixed auxiliary model example](examples/auxiliary_clients.md) for endpoint, authentication,
+independent trajectory and native OpenAI/LiteLLM configuration.
 
 SDK responses are Pydantic models. If the harness validates responses with another library's
 model class, pass `response.model_dump()` to that validator.
@@ -335,6 +341,13 @@ Call `client.trajectories.log_reward(...)` with the grader's score, including ze
 `client.trajectories.complete(...)` with the same trajectory ID. Use the benchmark's score
 conversion and weighting. Report execution or grading errors as failures rather than
 substituting a zero reward.
+
+Preserve penalties and fallback scores defined by the native scorer, with their reasons.
+An auxiliary or report failure must not erase an independently valid native score. If required
+inputs to the native score are missing, leave it ungraded; do not invent a score or average
+over only the available grading outputs. Use the benchmark's source to determine which
+outputs are required and what its fallback scores mean; record missing outputs separately
+from the score and execution outcome.
 
 Set `termination_reason` from the outcome of the task's execution and grading. Use `ENV_DONE`
 when that operation completes normally, including when a solver reaches its own stopping
@@ -352,6 +365,10 @@ grader output need not invalidate a score; preserve the benchmark's handling of 
 optional outputs.
 Use events for summaries and [artifacts](examples/diagnostic_artifacts.md) for full reports.
 Finish recording them before completing the trajectory and cleaning up the environment.
+If a platform limit closes model calls, the running harness can still publish diagnostics
+while the trajectory is `cancelling`; new reward writes remain closed. See the
+[reporting window](examples/diagnostic_artifacts.md#record-events-and-artifacts) and finish
+uploads before finalization begins.
 
 ### Choose the runtime and its files
 
@@ -463,7 +480,7 @@ for the supported dimensions, observed/allowed errors and recovery steps.
   task without an existing benchmark.
 - [Ingestion and runtime readiness](examples/ingestion.md): choose a delivery path, account for every task and repair runtime failures.
 - [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
-- [Diagnostic artifacts](examples/diagnostic_artifacts.md): retain full reports alongside trajectory events.
+- [Execution and native reports](examples/diagnostic_artifacts.md): inspect attempts, preserve grading outcomes and retain reports.
 
 When adapting an existing benchmark, read the cookbook recipe together with its complete public
 implementation PR:
