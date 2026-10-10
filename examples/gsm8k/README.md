@@ -62,8 +62,8 @@ Run the diagnostic and upload as separate steps:
    grader, builds the runtime, and runs that task on `Qwen/Qwen3.5-4B`. This catches packaging,
    execution, and grading errors before uploading the benchmark, with more detailed error
    reports and logs to help debug failures.
-2. `ingest_smoketest` uploads `gsm8k-smoketest` with one training problem and one different problem from GSM8K's
-   test split, then wait for its runtime image to be ready.
+2. `ingest_smoketest` uploads `gsm8k-smoketest` with one training problem and one different
+   problem from GSM8K's test split, then waits for its runtime image to be ready.
 
 The task diagnostic prints its ID, status, task report, and reward. Zero is a valid graded
 answer. Both `ingest_smoketest` and `ingest` only upload their task sets and wait for image
