@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk>=0.9.14", "httpx"]
+# dependencies = ["trajectory-sdk", "httpx"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
@@ -7,17 +7,11 @@ import argparse
 import json
 import shutil
 import tempfile
-import time
 from pathlib import Path
 
 import httpx
 from trajectory import BenchmarkSpec, Client, TaskSpec
-from trajectory.lib import (
-    DockerfileBuild,
-    push,
-    start_task_diagnostic,
-    wait_for_benchmark_images,
-)
+from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 
 _RUNTIME_SOURCE = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
@@ -78,53 +72,6 @@ def ingest(name: str, agent_name: str, skip_build: bool) -> str:
     return result.bench_id
 
 
-def diagnose(agent_name: str) -> None:
-    client = Client()
-    rows = {"train": _load_rows("train", 1)}
-    with tempfile.TemporaryDirectory(prefix="gsm8k-diagnostic-") as directory:
-        package_root = Path(directory)
-        _stage_runtime(rows, package_root)
-        benchmark = build_benchmark(rows, "gsm8k-diagnostic")
-        task = benchmark.tasks[0]
-        task.runtime = benchmark.runtime
-        diagnostic = start_task_diagnostic(
-            client,
-            task,
-            agent_name=agent_name,
-            root=package_root,
-            timeout_seconds=_BUILD_TIMEOUT_SECONDS,
-        )
-    diagnostic_id = diagnostic.benchmark_diagnostic_id
-    print(f"diagnostic_id={diagnostic_id}", flush=True)
-    while True:
-        status = client.diagnostics.get_status(diagnostic_id)
-        print(f"diagnostic_status={status.status}", flush=True)
-        if status.status in {"completed", "failed", "cancelled"}:
-            break
-        time.sleep(5)
-
-    result = client.diagnostics.get_diagnostics(diagnostic_id)
-    print(result.to_json(), flush=True)
-    if (
-        result.status != "completed"
-        or result.failure is not None
-        or len(result.tasks) != 1
-        or any(
-            task.status != "completed" or task.failure is not None
-            for task in result.tasks
-        )
-    ):
-        raise RuntimeError(
-            f"Task diagnostic {diagnostic_id} did not pass; inspect the report above"
-        )
-    evaluation = client.evals.runs.retrieve(result.eval_run_id)
-    if evaluation.reward_mean is None:
-        raise RuntimeError(
-            f"Task diagnostic {diagnostic_id} completed without a recorded reward"
-        )
-    print(f"diagnostic_reward={evaluation.reward_mean}", flush=True)
-
-
 def _load_rows(split: str, limit: int) -> list[dict]:
     response = httpx.get(_DATASET_URLS[split], timeout=60)
     response.raise_for_status()
@@ -147,19 +94,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="gsm8k-trajectory-sdk")
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--skip-build", action="store_true")
-    mode.add_argument(
-        "--diagnose-only",
-        action="store_true",
-        help="Validate one task before uploading the full benchmark",
-    )
+    parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
 
-    if args.diagnose_only:
-        diagnose(args.agent_name)
-    else:
-        ingest(args.name, args.agent_name, args.skip_build)
+    ingest(args.name, args.agent_name, args.skip_build)
     return 0
 
 

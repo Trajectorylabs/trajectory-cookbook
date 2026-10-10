@@ -1,199 +1,80 @@
-# SDK onboarding: validate a task and train on GSM8K
+# GSM8K: adapt a real dataset
 
-Follow these commands to authenticate, choose an agent, validate one task, upload a benchmark,
-and observe training progress. The example uses the public
-[GSM8K dataset](https://github.com/openai/grade-school-math): 64 training problems and 16 held-out
-test problems. It includes the harness, grader, Dockerfile, uploader, and training script.
+After [your first task](../t_factory/README.md) and the [evaluation and training walkthrough](../t_factory/training.md),
+use this example to learn dataset loading, explicit train/test splits, private answers, and tool-based grading.
 
-For your own benchmark, follow the same stages and use the
-[adaptation guidance](#adapt-this-example) below. Your benchmark's harness and grading rules
-still need to be understood and preserved.
+This example adapts the public
+[GSM8K dataset](https://github.com/openai/grade-school-math) to the Trajectory SDK. It demonstrates
+the three benchmark integration points:
 
-## 1. Install and authenticate
+1. [`ingest.py`](ingest.py) writes source rows to local task files, maps them to train/test
+   `TaskSpec` objects, and uploads them with the runtime.
+2. [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py) exposes a `submit_answer` tool, grades
+   the numeric value submitted through its final tool call, logs reward, and completes the
+   trajectory. Text-only answers receive zero reward.
+3. [`train.py`](train.py) evaluates a baseline, trains a model, and evaluates the final checkpoint
+   on held-out tasks.
 
-You need Python 3.11 or newer, Git, [uv](https://docs.astral.sh/uv/getting-started/installation/),
-and an organization API key from **Settings → API keys** in the
-[Trajectory platform](https://platform.trajectory.ai). Runtime images are built remotely;
-a local Docker installation is not needed. These commands run diagnostics, evaluation,
-and training in your organization.
+## Prerequisites
 
-```bash
-git clone https://github.com/Trajectorylabs/trajectory-cookbook.git
-cd trajectory-cookbook
-export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with 'trajectory-sdk>=0.9.14' python -c \
-  'from trajectory import Client; print(Client().organizations.retrieve_current())'
-```
-
-Run all remaining commands from this repository root. `uv run` installs the dependencies declared
-by each script, including SDK 0.9.14 or later. Verify that the printed organization is the one you
-intend to use. The SDK connects to `https://api.trajectory.ai` by default; set
-`TRAJECTORY_BASE_URL` if you are using another deployment.
-
-## 2. Choose or create an agent
-
-Follow the shared [agent selection guidance](../../README.md#choose-or-create-an-agent).
-Use an explicitly selected agent, or reuse one whose purpose matches this project. For a new
-use case, create a descriptively named agent even if unrelated agents already exist.
-
-To see the available names and descriptions:
+- Python 3.11 or newer
+- [`uv`](https://docs.astral.sh/uv/)
+- A Trajectory API key
 
 ```bash
-uv run --with 'trajectory-sdk>=0.9.14' python - <<'PY'
-from trajectory import Client
-
-for agent in Client().agents.list():
-    print(agent.name, agent.description)
-PY
+export TRAJECTORY_API_KEY="..."
 ```
 
-For a new GSM8K project:
+The SDK defaults to `https://api.trajectory.ai`. Set `TRAJECTORY_BASE_URL` when using another
+deployment.
+
+[Choose or create an agent](../../README.md#choose-or-create-an-agent). For a new agent:
 
 ```bash
-uv run --with 'trajectory-sdk>=0.9.14' python -c \
-  'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
+uv run --with trajectory-sdk python -c \
+  'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook")'
 ```
 
-The commands below use `gsm8k-cookbook`. If you selected an existing agent, use its name instead.
-On subsequent runs, reuse the same agent without repeating the creation command.
+Run these commands from the cookbook repository root. For a new harness, use the
+[one-task diagnostic recipe](../task_diagnostics.md) before uploading the full dataset.
 
-## 3. Validate one task
+## 1. Ingest the benchmark
 
-```bash
-uv run examples/gsm8k/ingest.py --agent-name "gsm8k-cookbook" --diagnose-only
-```
-
-This packages one training problem with the same harness used by the full benchmark, builds
-its runtime, and starts a task diagnostic. It prints a `diagnostic_id`, polls its status, and
-prints the task report and `diagnostic_reward`.
-
-Continue when the command exits successfully: the diagnostic and its task completed without
-failure, and a reward was recorded. A reward of `0.0` is a valid graded wrong answer. A pending
-or running diagnostic has not finished validating the task. Image readiness alone does not
-establish that the harness can execute or grade it.
-
-If the diagnostic fails, read the printed run-wide `failure` and each task's `failure`. Correct
-the reported runtime, model-call, or grading problem and repeat this step before uploading the
-full benchmark. Keep the diagnostic ID; after an interruption, inspect the existing run:
-
-```bash
-uv run --with 'trajectory-sdk>=0.9.14' python - <<'PY'
-from trajectory import Client
-
-client = Client()
-diagnostic_id = "YOUR_DIAGNOSTIC_ID"
-status = client.diagnostics.get_status(diagnostic_id)
-print(status)
-if status.status in {"completed", "failed", "cancelled"}:
-    print(client.diagnostics.get_diagnostics(diagnostic_id).to_json())
-PY
-```
-
-Replace `YOUR_DIAGNOSTIC_ID` with the printed ID. See the
-[task diagnostics recipe](../task_diagnostics.md) to apply this check to your own task.
-
-## 4. Upload the benchmark and wait for its image
+Upload the example's 64 training tasks and 16 test tasks using its name:
 
 ```bash
 uv run examples/gsm8k/ingest.py --agent-name "gsm8k-cookbook"
 ```
 
-The uploader registers all 80 tasks, prints `agent_name` and `bench_id`, then waits for the
-runtime image to become ready. Wait for the command to exit successfully before continuing.
-Keep the printed benchmark ID. Uploading the same benchmark name under the same agent creates
-a new version with a new ID; use that new ID for subsequent runs.
+The command prints the `agent_name` and `bench_id`, then waits for the runtime image to build. Keep
+the benchmark ID for training.
 
-If image preparation fails or waiting is interrupted, inspect the registered benchmark:
-
-```bash
-uv run --with 'trajectory-sdk>=0.9.14' python - <<'PY'
-from trajectory import Client
-
-client = Client()
-print(client.benchmarks.images.list("YOUR_BENCH_ID").to_json())
-PY
-```
-
-Replace `YOUR_BENCH_ID` with the uploader's ID. A registered benchmark is not necessarily ready
-for execution. The uploader uses `wait_for_benchmark_images()` to request the build and wait
-for readiness; `images.list()` only reads its status.
-
-## 5. Evaluate, train, and monitor progress
-
-Use the benchmark ID from step 4. This command runs baseline evaluation, training, and checkpoint
-evaluation together. For an existing benchmark where you only want to start an evaluation or
-training run, use the cookbook’s [individual SDK calls](../../README.md#3-evaluate-train-and-compare-on-the-trajectory-platform)
-and the monitoring commands below.
+## 2. Train and evaluate
 
 ```bash
 uv run examples/gsm8k/train.py --bench-id YOUR_BENCH_ID --num-steps 3
 ```
 
-The script evaluates a baseline on the 16 held-out tasks, starts three training steps on
-`Qwen/Qwen3.5-4B`, and evaluates the final checkpoint on those same held-out tasks. It prints:
+The script:
 
-- The baseline `eval_run_id` and completed/total rollouts.
-- The `training_run_id`, lifecycle status, and completed/total training steps.
-- The checkpoint evaluation's reward and the change from baseline.
+1. Verifies that the benchmark has train and test splits.
+2. Evaluates the base model on the benchmark's held-out tasks.
+3. Starts a training run and waits for completion.
+4. Resolves and evaluates the final checkpoint on the same held-out tasks.
+5. Prints the baseline reward, final reward, and reward delta.
 
-A printed training ID means the service accepted the request. `pending` with zero completed
-steps means training is waiting; increasing completed steps demonstrate optimizer progress.
-Only `status=succeeded` establishes successful training completion. The script stops with an
-error if evaluation or training fails or is cancelled.
-
-Keep the printed training ID. You can monitor that run from another terminal or after the
-script is interrupted, without submitting it again:
-
-```bash
-uv run --with 'trajectory-sdk>=0.9.14' python - <<'PY'
-from trajectory import Client
-
-client = Client()
-run_id = "YOUR_TRAINING_RUN_ID"
-run = client.training.runs.retrieve(run_id)
-progress = client.training.runs.progress(run_id)
-print(run.status, progress.completed_steps, progress.total_steps)
-print(run.failure)
-PY
-```
-
-Replace `YOUR_TRAINING_RUN_ID` with the printed ID. Open the agent's training page in the
-platform to inspect the run and its trajectories. Interrupting the local script does not
-cancel a run already accepted by the service.
-
-The example defaults to `Qwen/Qwen3.5-4B`. To inspect available training models and their options:
-
-```bash
-uv run --with 'trajectory-sdk>=0.9.14' python - <<'PY'
-from trajectory import Client
-
-for model in Client().training.list_options(bench_id="YOUR_BENCH_ID").models:
-    print(model.base_model_slug, model.options)
-PY
-```
-
-Use `--model` to select a supported alternative whose advertised options support the example's
-settings. A short run verifies the integration; use repeated runs and a sufficiently large
-frozen test set to measure whether training improves the model.
+A single short run is an integration check, not statistical evidence that training improves the
+model. Use repeated runs and a sufficiently large frozen test set for a reliable comparison.
 
 ## Adapt this example
 
-The example has three integration points:
+To integrate another benchmark, preserve its original task data and grader, then replace:
 
-- [`ingest.py`](ingest.py) reads the source data, writes local task files, and maps them to
-  `TaskSpec` objects with explicit train/test splits. Each task's `run_command` selects its file.
-- [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py) calls the model, grades the answer,
-  logs the reward, and completes the trajectory. It uses the same trajectory ID for model
-  calls, reward reporting, and completion. Managed runtimes supply credentials to `Client()`.
-- [`train.py`](train.py) evaluates, trains, monitors progress, and compares the final checkpoint.
+- `_load_rows()` with the benchmark's dataset loader.
+- The staged task JSON files with the inputs and private references needed by one task. Keep
+  private references inaccessible to the model and its tools.
+- The tool definition and `extract_submitted_answer()` with the benchmark's interaction protocol.
+- The equality check with the benchmark's original grader.
 
-The GSM8K harness exposes only a `submit_answer` tool, with no file-reading tool. It grades the
-submitted number against the private reference; text-only answers receive zero reward. When
-adapting a harness with shell or file tools, keep private references outside the model's access.
-Preserve your benchmark's native solving and grading logic, including its handling of errors
-and genuine zero rewards.
-
-Use the cookbook's [runtime packaging guidance](../../README.md#package-a-benchmark-runtime)
-and [Harvey](../harvey_labs.md) or [Inspect](../inspect.md) recipes for existing harnesses.
-The runnable example and public recipes define the SDK integration; benchmark-specific source
-inspection may still be necessary to identify that benchmark's inputs, tools, and grader.
+The runtime calls the provided model endpoint, logs reward, and
+completes the trajectory.

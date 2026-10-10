@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# dependencies = ["trajectory-sdk>=0.9.14"]
 # ///
 """Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
 
@@ -30,12 +30,16 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> tuple[Evaluation, Evaluation, str]:
-    benchmark = client.benchmarks.specs.retrieve(bench_id)
+    benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
     if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
         "train",
         "test",
     }:
         raise ValueError("The benchmark must contain explicit train and test splits")
+
+    train_tasks = sum(task.split == "train" for task in benchmark.tasks)
+    test_tasks = sum(task.split == "test" for task in benchmark.tasks)
+    evaluation_tasks = min(_TEST_TASKS, test_tasks)
 
     baseline = _evaluate_model(
         client,
@@ -43,6 +47,7 @@ def train_and_evaluate(
         model,
         "T Factory baseline",
         poll_seconds,
+        evaluation_tasks,
     )
     created = client.training.create(
         bench_id=bench_id,
@@ -50,7 +55,7 @@ def train_and_evaluate(
         options={
             "disable_thinking": True,
             "num_steps": num_steps,
-            "train_batch_size": 4,
+            "train_batch_size": min(4, train_tasks),
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
             "max_response_chars_per_tool_call": 256,
@@ -69,6 +74,7 @@ def train_and_evaluate(
         model,
         f"T Factory {run_id} step {num_steps}",
         poll_seconds,
+        evaluation_tasks,
         parent_checkpoint_id=checkpoint.checkpoint_id,
     )
     print(f"baseline_reward={baseline.reward:.6f}", flush=True)
@@ -88,6 +94,7 @@ def _evaluate_model(
     model: str,
     display_name: str,
     poll_seconds: float,
+    evaluation_tasks: int,
     parent_checkpoint_id: str | None = None,
 ) -> Evaluation:
     evaluation = client.evals.create(
@@ -97,7 +104,7 @@ def _evaluate_model(
         display_name=display_name,
         options={
             "disable_thinking": True,
-            "evaluation_max_samples": _TEST_TASKS,
+            "evaluation_max_samples": evaluation_tasks,
             "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },
@@ -153,9 +160,7 @@ def _print_task_results(
     }
     final = {
         reward.task_id: reward
-        for reward in client.evals.rewards.list_trajectory_rewards(
-            final_eval_id
-        ).trajectory_rewards
+        for reward in client.evals.rewards.list_trajectory_rewards(final_eval_id).trajectory_rewards
     }
     improved_task_id = max(
         baseline,
