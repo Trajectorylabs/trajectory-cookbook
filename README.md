@@ -3,13 +3,33 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
-To connect your own harness, start with [native integration and runtime packaging](#package-a-benchmark-runtime).
-See [Inspect integration](examples/inspect.md) for its actor-client setup.
-Use [task diagnostics](examples/task_diagnostics.md) to validate one task directly from local
-runtime files—significantly faster than ingesting the whole benchmark and running a full
-evaluation. For an uploaded benchmark, use
-[benchmark diagnostics](examples/task_diagnostics.md#check-an-uploaded-benchmark)
-to quickly validate a few tasks across different runtimes.
+**Start here:** [Run your first task with T Factory](examples/t_factory/README.md).
+See one model response, its reward, and a completed execution. 
+
+## Examples Guide
+
+
+| Example | What you learn |
+| --- | --- |
+| [T Factory: first task](examples/t_factory/README.md) | Simplest example of model response, reward, completion |
+| [GSM8K: full workflow](examples/gsm8k/README.md) | Next: validate one task, evaluate and train a small benchmark, scale to more tasks, and optionally deploy. Uses a real dataset with private answers and tool-based grading. |
+| [T Factory: evaluation and training](examples/t_factory/training.md) | An alternative training walkthrough using the first lesson's toy reward. |
+| [Number guessing](examples/number_guessing/README.md) | A multi-turn environment, efficiency rewards, and same-model context compaction. |
+| [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
+| [Harvey LAB](examples/harvey_labs.md) | An existing multi-turn harness, its native judge, and nested Podman. |
+| [Big Finance Benchmark](examples/big_finance_benchmark.md) | An existing ReAct research agent, web tools, and rubric grading. |
+
+The SDK lifecycle stays the same as the benchmark becomes more complex. Keep the benchmark's
+native solving and grading rules when adapting it.
+
+Supporting Guides:
+
+- [Task Upload Validation](examples/task_diagnostics.md): validate one task or inspect a few uploaded tasks.
+- [Diagnostic artifacts](examples/diagnostic_artifacts.md): keep full reports and logs with a trajectory.
+- [Runtime packaging](#package-a-benchmark-runtime): files, dependencies, secrets, and nested containers.
+
+The sections below are SDK reference material for adapting your own benchmark. Follow the
+[first-task guide](examples/t_factory/README.md) for a short runnable introduction.
 
 ## Setup
 
@@ -43,21 +63,25 @@ for candidate in client.agents.list():
     print(candidate.name, candidate.description)
 ```
 
-For a new use case, create an agent with a descriptive name. For example, for the GSM8K
-quickstart below:
+For a new use case, create an agent with a descriptive name. For example, for the T Factory
+training walkthrough:
 
 ```python
 client.agents.create(
-    name="gsm8k-cookbook",
-    description="GSM8K math evaluation and training",
+    name="t-factory-cookbook",
+    description="Learning task rewards and training with T Factory",
 )
 ```
 
 Use the selected or newly created agent's name wherever `YOUR_AGENT_NAME` appears below.
 
-## Quickstart
+## SDK guidance
 
-This quickstart trains and evaluates Qwen 3.5 4B on a small GSM8K benchmark with 64 training
+The following snippets show individual SDK calls for existing integrations. For runnable,
+step-by-step onboarding, start with [T Factory](examples/t_factory/README.md), then follow the
+[GSM8K workflow](examples/gsm8k/README.md).
+
+This reference trains and evaluates Qwen 3.5 4B on a small GSM8K benchmark with 64 training
 problems and 16 held-out test problems. Start by capturing one math task, then package the same
 task loop and grader as a benchmark for repeatable evaluation and training.
 
@@ -450,40 +474,12 @@ RUN mkdir -p /opt/benchmark \
     && rm /tmp/tasks.tar.gz
 ```
 
-## Examples
+## Complete native integrations
 
-- [Task diagnostics](examples/task_diagnostics.md): upload local runtime files and diagnose one
-  task without an existing benchmark.
-- [Inspect](examples/inspect.md): connect a native Inspect actor while preserving its solver and scorer.
-- [Diagnostic artifacts](examples/diagnostic_artifacts.md): retain full reports alongside trajectory events.
+Read the integration recipe together with its full public implementation when adapting an existing harness:
 
-When adapting an existing benchmark, read the cookbook recipe together with its complete public
-implementation PR:
-
-- [Big Finance Benchmark SDK integration](https://github.com/Trajectorylabs/big-finance-benchmark-public/pull/1)
 - [Harvey LAB SDK integration](https://github.com/Trajectorylabs/harvey-labs/pull/11)
-
-- [GSM8K](examples/gsm8k/README.md): adapt a public exact-match math benchmark for evaluation
-  and training.
-- [Big Finance Benchmark](examples/big_finance_benchmark.md): connect an existing ReAct research
-  benchmark and rubric grader to evaluation-only Trajectory sessions.
-- [Harvey LAB](examples/harvey_labs.md): inject the SDK into an existing multi-turn benchmark
-  while retaining its original harness, judge, and nested Podman sandbox.
-- [T Factory](examples/t_factory/README.md): train, deploy, and query a model rewarded for using
-  words beginning with `T`.
-- [Number guessing](examples/number_guessing/README.md): guess a fake user's number with
-  same-model context compaction every three guesses and an efficiency reward.
-
-## Repository layout
-
-```text
-examples/
-├── big_finance_benchmark.md  # Existing ReAct harness and rubric grader
-├── gsm8k/          # Exact-match math through submit_answer
-├── harvey_labs.md  # Existing harness integration with nested Podman
-├── t_factory/      # Maximize the fraction of words beginning with T
-└── number_guessing/ # Same-model compaction and a two-number training distribution
-```
+- [Big Finance Benchmark SDK integration](https://github.com/Trajectorylabs/big-finance-benchmark-public/pull/1)
 
 ## Beta testing and support
 
