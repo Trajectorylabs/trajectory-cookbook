@@ -37,12 +37,17 @@ def train_and_evaluate(
     }:
         raise ValueError("The benchmark must contain explicit train and test splits")
 
+    train_tasks = sum(task.split == "train" for task in benchmark.tasks)
+    test_tasks = sum(task.split == "test" for task in benchmark.tasks)
+    evaluation_tasks = min(_TEST_TASKS, test_tasks)
+
     baseline = _evaluate_model(
         client,
         bench_id,
         model,
         "GSM8K baseline",
         poll_seconds,
+        evaluation_tasks,
     )
 
     created = client.training.create(
@@ -51,7 +56,7 @@ def train_and_evaluate(
         options={
             "disable_thinking": True,
             "num_steps": num_steps,
-            "train_batch_size": 4,
+            "train_batch_size": min(4, train_tasks),
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
             "max_response_chars_per_tool_call": 128,
@@ -71,6 +76,7 @@ def train_and_evaluate(
             model,
             f"GSM8K {run_id} step {num_steps}",
             poll_seconds,
+            evaluation_tasks,
             parent_checkpoint_id=client.training.checkpoints.retrieve(
                 run_id, num_steps
             ).checkpoint_id,
@@ -88,6 +94,7 @@ def _evaluate_model(
     model: str,
     display_name: str,
     poll_seconds: float,
+    evaluation_tasks: int,
     parent_checkpoint_id: str | None = None,
 ) -> float:
     evaluation = client.evals.create(
@@ -97,7 +104,7 @@ def _evaluate_model(
         display_name=display_name,
         options={
             "disable_thinking": True,
-            "evaluation_max_samples": _TEST_TASKS,
+            "evaluation_max_samples": evaluation_tasks,
             "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },

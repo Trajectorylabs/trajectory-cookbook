@@ -1,5 +1,8 @@
 # T Factory: from one task to a full benchmark
 
+This is an alternative to the [GSM8K full workflow](../gsm8k/README.md) if you want to keep
+using the first lesson's toy reward.
+
 Start with [your first task](README.md). This walkthrough uses the same prompt and grader in a
 managed runtime: validate one task, evaluate and train a small benchmark, then upload the full
 192-task dataset. Run commands from the cookbook repository root with `TRAJECTORY_API_KEY` set.

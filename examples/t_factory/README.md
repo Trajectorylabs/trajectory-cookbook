@@ -44,5 +44,7 @@ recorded (including zero), and `status=completed`. A model-call error fails the 
 This first lesson runs the harness locally and makes one model request; it does not build a
 runtime, register a benchmark, or start training.
 
-**Next:** [Validate, evaluate, and train a small benchmark](training.md), then scale to the full
-T Factory dataset. For other use cases, see the [cookbook learning path](../../README.md#learning-path).
+**Next:** [The full GSM8K workflow](../gsm8k/README.md): validate one task, evaluate and train a
+small benchmark, then scale up. To keep using this toy reward, follow the optional
+[T Factory training walkthrough](training.md). See the [examples guide](../../README.md#examples-guide)
+for other use cases.

@@ -7,11 +7,12 @@ import argparse
 import json
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 import httpx
 from trajectory import BenchmarkSpec, Client, TaskSpec
-from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
+from trajectory.lib import DockerfileBuild, push, start_task_diagnostic, wait_for_benchmark_images
 
 _RUNTIME_SOURCE = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
@@ -46,11 +47,11 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(name: str, agent_name: str, skip_build: bool) -> str:
+def ingest(name: str, agent_name: str, skip_build: bool, small: bool = False) -> str:
     client = Client()
     rows = {
-        "train": _load_rows("train", _TRAIN_TASKS),
-        "test": _load_rows("test", _TEST_TASKS),
+        "train": _load_rows("train", 1 if small else _TRAIN_TASKS),
+        "test": _load_rows("test", 1 if small else _TEST_TASKS),
     }
     with tempfile.TemporaryDirectory(prefix="gsm8k-benchmark-") as directory:
         package_root = Path(directory)
@@ -70,6 +71,49 @@ def ingest(name: str, agent_name: str, skip_build: bool) -> str:
             timeout_seconds=_BUILD_TIMEOUT_SECONDS,
         )
     return result.bench_id
+
+
+def diagnose(agent_name: str) -> None:
+    client = Client()
+    rows = {"train": _load_rows("train", 1)}
+    with tempfile.TemporaryDirectory(prefix="gsm8k-diagnostic-") as directory:
+        package_root = Path(directory)
+        _stage_runtime(rows, package_root)
+        benchmark = build_benchmark(rows, "gsm8k-diagnostic")
+        task = benchmark.tasks[0]
+        task.runtime = benchmark.runtime
+        diagnostic = start_task_diagnostic(
+            client,
+            task,
+            agent_name=agent_name,
+            root=package_root,
+            base_model_slug="Qwen/Qwen3.5-4B",
+            timeout_seconds=_BUILD_TIMEOUT_SECONDS,
+        )
+    diagnostic_id = diagnostic.benchmark_diagnostic_id
+    print(f"diagnostic_id={diagnostic_id}", flush=True)
+    while True:
+        status = client.diagnostics.get_status(diagnostic_id)
+        print(f"diagnostic_status={status.status}", flush=True)
+        if status.status in {"completed", "failed", "cancelled"}:
+            break
+        time.sleep(5)
+
+    result = client.diagnostics.get_diagnostics(diagnostic_id)
+    print(result.to_json(), flush=True)
+    if (
+        result.status != "completed"
+        or result.failure is not None
+        or len(result.tasks) != 1
+        or any(task.status != "completed" or task.failure is not None for task in result.tasks)
+    ):
+        raise RuntimeError(
+            f"Task diagnostic {diagnostic_id} did not pass; inspect the report above"
+        )
+    evaluation = client.evals.runs.retrieve(result.eval_run_id)
+    if evaluation.reward_mean is None:
+        raise RuntimeError(f"Task diagnostic {diagnostic_id} completed without a recorded reward")
+    print(f"diagnostic_reward={evaluation.reward_mean}", flush=True)
 
 
 def _load_rows(split: str, limit: int) -> list[dict]:
@@ -93,11 +137,24 @@ def _stage_runtime(rows_by_split: dict[str, list[dict]], package_root: Path) -> 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
-    parser.add_argument("--name", default="gsm8k-trajectory-sdk")
-    parser.add_argument("--skip-build", action="store_true")
+    parser.add_argument("--name")
+    parser.add_argument(
+        "--small", action="store_true", help="Upload one training task and one held-out test task"
+    )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--skip-build", action="store_true")
+    mode.add_argument(
+        "--diagnose-only",
+        action="store_true",
+        help="Validate one task before uploading a benchmark",
+    )
     args = parser.parse_args()
 
-    ingest(args.name, args.agent_name, args.skip_build)
+    if args.diagnose_only:
+        diagnose(args.agent_name)
+    else:
+        name = args.name or ("gsm8k-small" if args.small else "gsm8k-trajectory-sdk")
+        ingest(name, args.agent_name, args.skip_build, args.small)
     return 0
 
 

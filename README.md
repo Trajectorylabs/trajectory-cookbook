@@ -12,8 +12,8 @@ See one model response, its reward, and a completed execution.
 | Example | What you learn |
 | --- | --- |
 | [T Factory: first task](examples/t_factory/README.md) | Simplest example of model response, reward, completion |
-| [T Factory: evaluation and training](examples/t_factory/training.md) | Suggested iteration flow from ingestion to training and eval |
-| [GSM8K](examples/gsm8k/README.md) | A real dataset, explicit train/test splits, private answers, and tool-based grading. |
+| [GSM8K: full workflow](examples/gsm8k/README.md) | Next: validate one task, evaluate and train a small benchmark, scale to more tasks, and optionally deploy. Uses a real dataset with private answers and tool-based grading. |
+| [T Factory: evaluation and training](examples/t_factory/training.md) | An alternative training walkthrough using the first lesson's toy reward. |
 | [Number guessing](examples/number_guessing/README.md) | A multi-turn environment, efficiency rewards, and same-model context compaction. |
 | [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
 | [Harvey LAB](examples/harvey_labs.md) | An existing multi-turn harness, its native judge, and nested Podman. |
@@ -78,7 +78,8 @@ Use the selected or newly created agent's name wherever `YOUR_AGENT_NAME` appear
 ## SDK guidance
 
 The following snippets show individual SDK calls for existing integrations. For runnable,
-step-by-step onboarding, follow [T Factory](examples/t_factory/README.md).
+step-by-step onboarding, start with [T Factory](examples/t_factory/README.md), then follow the
+[GSM8K workflow](examples/gsm8k/README.md).
 
 This reference trains and evaluates Qwen 3.5 4B on a small GSM8K benchmark with 64 training
 problems and 16 held-out test problems. Start by capturing one math task, then package the same
