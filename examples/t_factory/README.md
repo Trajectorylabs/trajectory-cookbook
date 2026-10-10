@@ -51,7 +51,7 @@ response = client.chat.completions.create(
 answer = response.choices[0].message.content
 reward = t_word_density(answer)
 client.trajectories.log_reward(
-    tid, reward_id="t-word-density", name="reward_t_word_density", value=reward,
+    tid, name="reward_t_word_density", value=reward,
 )
 completed = client.trajectories.complete(tid, termination_reason="ENV_DONE")
 print(f"response={answer}")

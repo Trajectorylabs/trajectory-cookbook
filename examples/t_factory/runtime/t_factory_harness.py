@@ -43,7 +43,6 @@ def main() -> None:
     reward = t_word_density(answer)
     client.trajectories.log_reward(
         trajectory_id,
-        reward_id="t-word-density",
         name="reward_t_word_density",
         value=reward,
     )
