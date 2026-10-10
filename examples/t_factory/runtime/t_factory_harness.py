@@ -1,6 +1,3 @@
-# /// script
-# dependencies = ["trajectory-sdk"]
-# ///
 """Run and grade one T-starting-word task."""
 
 import argparse
@@ -21,7 +18,7 @@ def run_task(client: Client, prompt: str, model: str) -> None:
     trajectory_id = client.trajectories.create().tid
     try:
         response = client.chat.completions.create(
-            model=model,
+            model="t-model",
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
