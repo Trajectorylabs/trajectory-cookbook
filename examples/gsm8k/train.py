@@ -12,7 +12,6 @@ from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
-_TEST_TASKS = 16
 _MAX_ACTIVE_ROLLOUTS = 4
 _MAX_OUTPUT_TOKENS = 2_048
 
@@ -30,16 +29,12 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> RewardComparison:
-    benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
+    benchmark = client.benchmarks.specs.retrieve(bench_id)
     if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
         "train",
         "test",
     }:
         raise ValueError("The benchmark must contain explicit train and test splits")
-
-    train_tasks = sum(task.split == "train" for task in benchmark.tasks)
-    test_tasks = sum(task.split == "test" for task in benchmark.tasks)
-    evaluation_tasks = min(_TEST_TASKS, test_tasks)
 
     baseline = _evaluate_model(
         client,
@@ -47,7 +42,6 @@ def train_and_evaluate(
         model,
         "GSM8K baseline",
         poll_seconds,
-        evaluation_tasks,
     )
 
     created = client.training.create(
@@ -56,7 +50,7 @@ def train_and_evaluate(
         options={
             "disable_thinking": True,
             "num_steps": num_steps,
-            "train_batch_size": min(4, train_tasks),
+            "train_batch_size": 4,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
             "max_response_chars_per_tool_call": 128,
@@ -76,7 +70,6 @@ def train_and_evaluate(
             model,
             f"GSM8K {run_id} step {num_steps}",
             poll_seconds,
-            evaluation_tasks,
             parent_checkpoint_id=client.training.checkpoints.retrieve(
                 run_id, num_steps
             ).checkpoint_id,
@@ -88,13 +81,37 @@ def train_and_evaluate(
     return comparison
 
 
+def eval_smoketest(
+    client: Client,
+    bench_id: str,
+    model: str = _DEFAULT_MODEL,
+    poll_seconds: float = 30,
+    parent_checkpoint_id: str | None = None,
+) -> float:
+    # Evaluate one held-out task to catch basic execution and grading errors quickly.
+    evaluation = client.evals.create(
+        bench_id=bench_id,
+        base_model_slug=model,
+        parent_checkpoint_id=parent_checkpoint_id,
+        display_name="GSM8K smoketest",
+        options={
+            "disable_thinking": True,
+            "evaluation_max_samples": 1,
+            "evaluation_max_active_rollouts": 1,
+            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+        },
+    )
+    return _wait_for_evaluation(
+        client, evaluation.eval_run_id, "GSM8K smoketest", poll_seconds
+    )
+
+
 def _evaluate_model(
     client: Client,
     bench_id: str,
     model: str,
     display_name: str,
     poll_seconds: float,
-    evaluation_tasks: int,
     parent_checkpoint_id: str | None = None,
 ) -> float:
     evaluation = client.evals.create(
@@ -104,12 +121,18 @@ def _evaluate_model(
         display_name=display_name,
         options={
             "disable_thinking": True,
-            "evaluation_max_samples": evaluation_tasks,
             "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },
     )
-    eval_id = evaluation.eval_run_id
+    return _wait_for_evaluation(
+        client, evaluation.eval_run_id, display_name, poll_seconds
+    )
+
+
+def _wait_for_evaluation(
+    client: Client, eval_id: str, display_name: str, poll_seconds: float
+) -> float:
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
 
     while True:

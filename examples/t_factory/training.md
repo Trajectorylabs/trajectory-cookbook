@@ -1,6 +1,6 @@
 # T Factory: evaluation and training
 
-This optional guide uses T Factory's toy reward for evaluation, training, and deployment.
+This guide uses T Factory's toy reward for evaluation, training, and deployment.
 Start with [your first task](README.md). For the full onboarding walkthrough, follow
 [GSM8K](../gsm8k/README.md).
 

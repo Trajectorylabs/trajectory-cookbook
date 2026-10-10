@@ -22,17 +22,16 @@ def t_word_density(answer: str) -> float:
 
 You need Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/), and an
 organization API key from **Settings → API keys** in the [platform](https://platform.trajectory.ai).
+From the cookbook repository root:
 
 ```bash
-git clone https://github.com/Trajectorylabs/trajectory-cookbook.git
-cd trajectory-cookbook
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
+uv run --with trajectory-sdk python
 ```
 
-Run this from the repository root to call a model, record its reward, and complete the trajectory:
+Run this Python snippet to call a model, record its reward, and complete the trajectory:
 
-```bash
-uv run --with trajectory-sdk python - <<'PYCODE'
+```python
 from trajectory import Client
 from examples.t_factory.runtime.t_factory_harness import t_word_density
 
@@ -59,14 +58,14 @@ print(f"response={answer}")
 print(f"trajectory_id={tid}")
 print(f"reward={reward:.6f}")
 print(f"status={completed.status}")
-PYCODE
 ```
 
 The command prints the response, trajectory ID, reward, and completion status.
 Success means a reward is recorded (including zero) and `status=completed`.
 
-**Next:** follow the [GSM8K walkthrough](../gsm8k/README.md) to validate, evaluate, and train a
-benchmark. The existing [T Factory training and results](training.md) are an optional alternative.
+**Next:** follow the [T Factory training guide](training.md) to evaluate, train, and inspect
+results with this reward. The [GSM8K walkthrough](../gsm8k/README.md) covers the full workflow
+with a real math benchmark.
 
 The runtime and grader are in
 [`t_factory_harness.py`](runtime/t_factory_harness.py).

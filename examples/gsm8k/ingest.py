@@ -12,7 +12,12 @@ from pathlib import Path
 
 import httpx
 from trajectory import BenchmarkSpec, Client, TaskSpec
-from trajectory.lib import DockerfileBuild, push, start_task_diagnostic, wait_for_benchmark_images
+from trajectory.lib import (
+    DockerfileBuild,
+    push,
+    start_task_diagnostic,
+    wait_for_benchmark_images,
+)
 
 _RUNTIME_SOURCE = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
@@ -47,12 +52,24 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
     )
 
 
-def ingest(name: str, agent_name: str, skip_build: bool, small: bool = False) -> str:
-    client = Client()
+def ingest(name: str, agent_name: str, skip_build: bool) -> str:
     rows = {
-        "train": _load_rows("train", 1 if small else _TRAIN_TASKS),
-        "test": _load_rows("test", 1 if small else _TEST_TASKS),
+        "train": _load_rows("train", _TRAIN_TASKS),
+        "test": _load_rows("test", _TEST_TASKS),
     }
+    return _push_benchmark(rows, name, agent_name, skip_build)
+
+
+def ingest_smoketest(agent_name: str) -> str:
+    # Upload one task per split for the quickest check of basic packaging and build errors.
+    rows = {split: _load_rows(split, 1) for split in ("train", "test")}
+    return _push_benchmark(rows, "gsm8k-smoketest", agent_name, skip_build=False)
+
+
+def _push_benchmark(
+    rows: dict[str, list[dict]], name: str, agent_name: str, skip_build: bool
+) -> str:
+    client = Client()
     with tempfile.TemporaryDirectory(prefix="gsm8k-benchmark-") as directory:
         package_root = Path(directory)
         _stage_runtime(rows, package_root)
@@ -105,14 +122,19 @@ def diagnose(agent_name: str) -> None:
         result.status != "completed"
         or result.failure is not None
         or len(result.tasks) != 1
-        or any(task.status != "completed" or task.failure is not None for task in result.tasks)
+        or any(
+            task.status != "completed" or task.failure is not None
+            for task in result.tasks
+        )
     ):
         raise RuntimeError(
             f"Task diagnostic {diagnostic_id} did not pass; inspect the report above"
         )
     evaluation = client.evals.runs.retrieve(result.eval_run_id)
     if evaluation.reward_mean is None:
-        raise RuntimeError(f"Task diagnostic {diagnostic_id} completed without a recorded reward")
+        raise RuntimeError(
+            f"Task diagnostic {diagnostic_id} completed without a recorded reward"
+        )
     print(f"diagnostic_reward={evaluation.reward_mean}", flush=True)
 
 
@@ -137,10 +159,7 @@ def _stage_runtime(rows_by_split: dict[str, list[dict]], package_root: Path) -> 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
-    parser.add_argument("--name")
-    parser.add_argument(
-        "--small", action="store_true", help="Upload one training task and one held-out test task"
-    )
+    parser.add_argument("--name", default="gsm8k-trajectory-sdk")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--skip-build", action="store_true")
     mode.add_argument(
@@ -153,8 +172,7 @@ def main() -> int:
     if args.diagnose_only:
         diagnose(args.agent_name)
     else:
-        name = args.name or ("gsm8k-small" if args.small else "gsm8k-trajectory-sdk")
-        ingest(name, args.agent_name, args.skip_build, args.small)
+        ingest(args.name, args.agent_name, args.skip_build)
     return 0
 
 

@@ -2,7 +2,7 @@
 
 After [your first task with T Factory](../t_factory/README.md), use this walkthrough to take a
 real benchmark through managed validation, evaluation, training, and checkpoint comparison.
-Start with one training problem and one held-out test problem, then scale to the example's
+Use smoke-test helpers with one training problem and one held-out test problem, then scale to the example's
 64 training and 16 test problems. These 80 problems are a sample of the public
 [GSM8K dataset](https://github.com/openai/grade-school-math), not the entire upstream dataset.
 
@@ -24,17 +24,19 @@ export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 
 Run all remaining commands from the repository root. `uv` installs each script's dependencies.
 Runtime images are built remotely; local Docker is not required. Confirm the organization
-before starting managed runs:
+before starting managed runs. For the Python examples, start a session from the repository root:
 
 ```bash
-uv run --with trajectory-sdk python - <<'PY'
+uv run --with trajectory-sdk --with httpx python
+```
+
+```python
 from trajectory import Client
 
 client = Client()
 print(client.organizations.retrieve_current())
 for agent in client.agents.list():
     print(agent.name, agent.description)
-PY
 ```
 
 The SDK uses `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` for another deployment.
@@ -71,63 +73,99 @@ If it fails, inspect the printed run-wide and per-task failures, fix the reporte
 grading problem, and repeat the diagnostic. Keep its ID to [inspect it later](#inspect-existing-work).
 For a different harness, use the [task upload validation recipe](../task_diagnostics.md).
 
-## 4. Register the smallest training benchmark
+## 4. Check ingestion and evaluation with one task per split
 
-```bash
-uv run examples/gsm8k/ingest.py --agent-name "gsm8k-cookbook" --small
+In your Python session, use the dedicated smoke-test uploader:
+
+```python
+from examples.gsm8k.ingest import ingest_smoketest
+
+bench_id = ingest_smoketest(agent_name="gsm8k-cookbook")
+print(bench_id)
 ```
 
-The default managed training flow needs training and test splits, so this registers **one
-training problem and one different problem from GSM8K's test split** under `gsm8k-small`.
-This is a separate benchmark from the one-task diagnostic. The uploader prints `agent_name`
-and `bench_id`, then waits for the runtime image to be ready. Save that ID and wait for
-successful exit before continuing.
+`ingest_smoketest` is the quickest way to catch basic packaging and image-build errors. It
+registers `gsm8k-smoketest` with one training problem and one different problem from GSM8K's
+test split, then waits for its image to be ready. Save the printed `bench_id`.
 
-This small benchmark lets you train on one task and evaluate on one held-out task before
-uploading the larger example. It checks the integration; one test problem cannot establish
-whether training improves the model generally.
+Now check execution and grading on the held-out task:
 
-## 5. Evaluate a baseline, train, and evaluate the checkpoint
+```python
+from trajectory import Client
+from examples.gsm8k.train import eval_smoketest
 
-Replace `YOUR_SMALL_BENCH_ID` with the ID from step 4:
-
-```bash
-uv run examples/gsm8k/train.py --bench-id YOUR_SMALL_BENCH_ID --num-steps 3
+client = Client()
+bench_id = "YOUR_SMOKETEST_BENCH_ID"
+baseline_reward = eval_smoketest(client, bench_id)
+print(f"baseline_reward={baseline_reward:.6f}")
 ```
 
-The script runs the complete sequence:
+Replace `YOUR_SMOKETEST_BENCH_ID` with the uploader output. `eval_smoketest` evaluates one
+held-out task, prints its evaluation ID and progress, and returns the reward. It stops on
+failure or cancellation; zero is a valid graded answer. This catches basic execution and
+grading errors before a larger run. One test problem cannot measure generalization.
 
-1. Check the registered task list and its explicit train/test splits.
-2. Evaluate the base `Qwen/Qwen3.5-4B` model on the one held-out task and record its mean reward.
-3. Train for three optimizer steps using the one training task.
-4. Wait for successful training, retrieve the final checkpoint, and evaluate it on the same test task.
-5. Print `baseline_reward`, `final_reward`, and `reward_delta` (final minus baseline).
+## 5. Train on one task and evaluate the checkpoint
 
-One training task group can contain multiple model samples according to the model's defaults.
-The script uses one task group per step for this small benchmark. The training task is never
-used as the held-out evaluation task.
+Continue in the same Python session. Use one task group per step for the smoke-test benchmark:
+
+```python
+training = client.training.create(
+    bench_id=bench_id,
+    base_model_slug="Qwen/Qwen3.5-4B",
+    options={
+        "disable_thinking": True,
+        "num_steps": 3,
+        "train_batch_size": 1,
+        "max_output_tokens_per_step": 2048,
+        "max_turns_per_trajectory": 1,
+        "max_response_chars_per_tool_call": 128,
+    },
+)
+run_id = training.training_run_id
+print(f"training_run_id={run_id}")
+```
+
+One task group can contain multiple model samples according to the model's defaults.
+The training task is separate from the held-out evaluation task.
 
 ### Watch actual progress
 
-The command prints the baseline `eval_run_id` and completed/total rollouts, then the
-`training_run_id`, lifecycle status, and `steps=completed/total`.
+```python
+import time
 
-- A printed ID means the request was accepted.
-- `status=pending` and zero completed steps means training is waiting.
-- Increasing completed steps show training progress.
-- `status=succeeded` means training finished successfully; checkpoint evaluation follows.
+while True:
+    run = client.training.runs.retrieve(run_id)
+    progress = client.training.runs.progress(run_id)
+    print(f"status={run.status} steps={progress.completed_steps}/{progress.total_steps}")
+    if run.status in {"succeeded", "failed", "cancelled"}:
+        break
+    time.sleep(30)
 
-Failed or cancelled runs stop the script with an error. Keep the evaluation and training IDs;
-use the platform's agent pages or the [inspection commands](#inspect-existing-work) to follow
-an existing run after an interruption. Reward may stay unchanged or fall in a short run.
+if run.status != "succeeded":
+    raise RuntimeError(f"training ended with status={run.status}: {run.failure}")
+```
 
-For an existing benchmark where you want only evaluation or only training, use the
-[individual SDK calls](../../README.md#3-evaluate-train-and-compare-on-the-trajectory-platform).
-The `train.py` command above always performs baseline evaluation, training, and checkpoint evaluation.
+A printed ID means the request was accepted. `pending` with zero completed steps means
+training is waiting; increasing step counts show progress. Continue only after `succeeded`.
+Keep the evaluation and training IDs to [inspect existing work](#inspect-existing-work).
+
+After successful training, evaluate the checkpoint on the same held-out task:
+
+```python
+checkpoint = client.training.checkpoints.retrieve(run_id, step_index=3)
+final_reward = eval_smoketest(client, bench_id, parent_checkpoint_id=checkpoint.checkpoint_id)
+print(f"baseline_reward={baseline_reward:.6f}")
+print(f"final_reward={final_reward:.6f}")
+print(f"reward_delta={final_reward - baseline_reward:+.6f}")
+```
+
+Reward may stay unchanged or fall in a short run. For an existing benchmark where you want
+only evaluation or only training, use the [individual SDK calls](../../README.md#3-evaluate-train-and-compare-on-the-trajectory-platform).
 
 ## 6. Expand to the 80-task example
 
-After the small run completes, upload the example's **64 training and 16 held-out test problems**:
+After the smoke run completes, upload the example's **64 training and 16 held-out test problems**:
 
 ```bash
 uv run examples/gsm8k/ingest.py --agent-name "gsm8k-cookbook"
@@ -140,12 +178,13 @@ and wait for successful image readiness, then replace `YOUR_BENCH_ID` below:
 uv run examples/gsm8k/train.py --bench-id YOUR_BENCH_ID --num-steps 3
 ```
 
-The script now evaluates all 16 held-out tasks and uses four training task groups per step.
-It prints the same progress and reward comparison as the small run. Increasing `--num-steps`
+This command runs baseline evaluation, training, and checkpoint evaluation. It evaluates all
+16 held-out tasks and uses the normal batch size of four training task groups per step.
+It prints training progress and the baseline/final reward comparison. Increasing `--num-steps`
 lets you run longer; use repeated runs and a sufficiently large frozen test set to assess improvement.
 
 Uploading the same benchmark name under the same agent creates a new version with a new ID.
-Use the ID from the upload you intend to evaluate or train; the small and larger benchmark IDs
+Use the ID from the upload you intend to evaluate or train; the smoke-test and larger benchmark IDs
 are distinct. Both runs start from the base model unless you explicitly use the SDK's
 `parent_checkpoint_id` option to continue from a checkpoint.
 
@@ -156,8 +195,7 @@ its saved ID before submitting another run. Replace the matching placeholder in 
 
 For a diagnostic:
 
-```bash
-uv run --with trajectory-sdk python - <<'PY'
+```python
 from trajectory import Client
 
 client = Client()
@@ -166,23 +204,19 @@ status = client.diagnostics.get_status(diagnostic_id)
 print(status)
 if status.status in {"completed", "failed", "cancelled"}:
     print(client.diagnostics.get_diagnostics(diagnostic_id).to_json())
-PY
 ```
 
 For an image build:
 
-```bash
-uv run --with trajectory-sdk python - <<'PY'
+```python
 from trajectory import Client
 
 print(Client().benchmarks.images.list("YOUR_BENCH_ID").to_json())
-PY
 ```
 
 For training:
 
-```bash
-uv run --with trajectory-sdk python - <<'PY'
+```python
 from trajectory import Client
 
 client = Client()
@@ -191,7 +225,6 @@ run = client.training.runs.retrieve(run_id)
 progress = client.training.runs.progress(run_id)
 print(run.status, progress.completed_steps, progress.total_steps)
 print(run.failure)
-PY
 ```
 
 For other models and supported settings, inspect
@@ -203,8 +236,7 @@ with `--model`; its advertised settings must support the example's training opti
 After training succeeds, replace `YOUR_TRAINING_RUN_ID` with the run you want to deploy.
 Use its actual final step count; the commands above use three steps.
 
-```bash
-uv run --with trajectory-sdk python - <<'PY'
+```python
 from trajectory import Client
 
 client = Client()
@@ -220,7 +252,6 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "What is 17 times 6?"}],
 )
 print(response.choices[0].message.content)
-PY
 ```
 
 Deployment activates the production `gsm8k-trained` model slug. This query demonstrates serving;
