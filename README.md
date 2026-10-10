@@ -4,28 +4,27 @@ Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
 **Start here:** [Run your first task with T Factory](examples/t_factory/README.md).
-See one model response, its reward, and a completed execution. That first lesson stops there.
+See one model response, its reward, and a completed execution. 
 
-## Learning path
+## Examples Guide
 
-Follow the first two lessons in order, then choose the example that matches your use case.
 
-| Order | Example | What you learn | Use it when… |
-| --- | --- | --- | --- |
-| 1 | [T Factory: first task](examples/t_factory/README.md) | One prompt → model response → recorded reward. | You want the smallest working SDK example. |
-| 2 | [T Factory: evaluation and training](examples/t_factory/training.md) | Validate one task; evaluate and train with one task per split; then upload the full benchmark. Optional deployment follows. | You are ready to learn the managed lifecycle and watch training progress. |
-| 3 | [GSM8K](examples/gsm8k/README.md) | A real dataset, explicit train/test splits, private answers, and tool-based grading. | You want to adapt a conventional benchmark. |
-| 4 | [Number guessing](examples/number_guessing/README.md) | A multi-turn environment, efficiency rewards, and same-model context compaction. | Your agent interacts repeatedly and must manage conversation history. |
-| 5a | [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. | You already have an Inspect harness. |
-| 5b | [Harvey LAB](examples/harvey_labs.md) | An existing multi-turn harness, its native judge, and nested Podman. | Your benchmark owns its tools and sandbox lifecycle. |
-| 5c | [Big Finance Benchmark](examples/big_finance_benchmark.md) | An existing ReAct research agent, web tools, and rubric grading. | You need an evaluation-only integration with external services. |
+| Example | What you learn |
+| --- | --- |
+| [T Factory: first task](examples/t_factory/README.md) | Simplest example of model response, reward, completion |
+| [T Factory: evaluation and training](examples/t_factory/training.md) | Suggested iteration flow from ingestion to training and eval |
+| [GSM8K](examples/gsm8k/README.md) | A real dataset, explicit train/test splits, private answers, and tool-based grading. |
+| [Number guessing](examples/number_guessing/README.md) | A multi-turn environment, efficiency rewards, and same-model context compaction. |
+| [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
+| [Harvey LAB](examples/harvey_labs.md) | An existing multi-turn harness, its native judge, and nested Podman. |
+| [Big Finance Benchmark](examples/big_finance_benchmark.md) | An existing ReAct research agent, web tools, and rubric grading. |
 
 The SDK lifecycle stays the same as the benchmark becomes more complex. Keep the benchmark's
 native solving and grading rules when adapting it.
 
-Supporting recipes:
+Supporting Guides:
 
-- [Task diagnostics](examples/task_diagnostics.md): validate one task or inspect a few uploaded tasks.
+- [Task Upload Validation](examples/task_diagnostics.md): validate one task or inspect a few uploaded tasks.
 - [Diagnostic artifacts](examples/diagnostic_artifacts.md): keep full reports and logs with a trajectory.
 - [Runtime packaging](#package-a-benchmark-runtime): files, dependencies, secrets, and nested containers.
 
@@ -76,7 +75,7 @@ client.agents.create(
 
 Use the selected or newly created agent's name wherever `YOUR_AGENT_NAME` appears below.
 
-## SDK workflow reference
+## SDK guidance
 
 The following snippets show individual SDK calls for existing integrations. For runnable,
 step-by-step onboarding, follow [T Factory](examples/t_factory/README.md).
