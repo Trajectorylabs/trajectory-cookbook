@@ -400,11 +400,12 @@ Use `TaskSpec.runtime` to override the image for tasks with different dependenci
 build contexts, for example `runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile")`.
 Include common harness code in each context or supply it through a base image.
 
-The SDK uploads files under each Dockerfile's directory, filtered by `.dockerignore` at the
-benchmark root; it does not select files by reading `COPY` statements. A root Dockerfile
+The SDK packages each Dockerfile's directory into a compressed build-context archive,
+filtered by `.dockerignore` at the benchmark root; it does not select files by reading `COPY`
+statements. A root Dockerfile
 therefore includes the checkout unless files are excluded. Include the files needed to build
-and run that runtime, including files referenced by package metadata. Shared file paths upload
-once per submission; selecting a task does not automatically exclude other tasks' files.
+and run that runtime, including files referenced by package metadata. Tasks sharing a runtime
+context share its upload; selecting a task does not automatically exclude other tasks' files.
 
 If the harness starts separate task containers or remote sandboxes, make its inputs available
 there at the expected paths. Files in the harness image are not automatically available in
@@ -462,10 +463,14 @@ available version information and note that later runs may use different service
 
 ### Keep build contexts within service limits
 
-Each runtime build context can contain at most 4,096 uploaded files and 3 GiB. Scope the
-context to the files it needs. For many small files, you can archive them and extract them
-during the image build. Exclude the unpacked copy from uploads. The archive still counts
-toward the byte limit; task-specific runtimes can use smaller contexts.
+Each runtime build context can contain at most 65,536 files, 81,920 entries including
+directories, and 3 GiB of uncompressed file data. The SDK compresses the context for upload;
+compression does not remove these limits. Scope each context to the files it needs.
+
+Managed Modal builds reject symbolic and hard links in the build context. If your source
+needs links, preserve it inside a regular archive and extract it during the image build, or
+use a prebuilt image. Exclude the unpacked copy from the build context. An archive supplied
+as a file counts toward the context's file and byte limits.
 
 Use `COPY` followed by `RUN tar`; managed builds do not support local archive extraction
 with `ADD`:
