@@ -89,6 +89,16 @@ Publish the image in a public registry. Private registry access is outside this 
 Your local or CI credentials authorize building and publishing the image; Trajectory needs no
 registry credentials to pull it.
 
+### Existing runtime: reuse it within your organization
+
+```python
+from trajectory.lib import RuntimeRef
+
+runtime = RuntimeRef("rt_YOUR_RUNTIME")
+```
+
+Use a ready runtime ID from the receiving organization. This skips a fresh build or image import.
+
 ### Authenticate each operation
 
 Set `TRAJECTORY_API_KEY` for the organization receiving the benchmark. `Client()` uses that key
