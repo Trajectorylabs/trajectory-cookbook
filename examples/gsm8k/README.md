@@ -1,7 +1,4 @@
-# GSM8K: adapt a real dataset
-
-After [your first task](../t_factory/README.md) and the [evaluation and training walkthrough](../t_factory/training.md),
-use this example to learn dataset loading, explicit train/test splits, private answers, and tool-based grading.
+# GSM8K
 
 This example adapts the public
 [GSM8K dataset](https://github.com/openai/grade-school-math) to the Trajectory SDK. It demonstrates
