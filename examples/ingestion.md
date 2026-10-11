@@ -8,8 +8,8 @@ For your first project, follow [T Factory](t_factory/README.md), then the
 [GSM8K workflow](gsm8k/README.md). This reference covers ingestion and recovery for your own benchmark.
 
 > Availability: `list_inputs()` and `retrieve_build_logs()` require the upcoming inspection
-> API/SDK release. Automatic context packaging and resumable uploads are separate changes;
-> their released-client verification is also pending. The existing submission and image-status
+> API/SDK release. Automatic context packaging is a separate change whose released-client
+> verification is also pending. The existing submission and image-status
 > methods remain usable without them.
 
 ## 1. Submit your source and keep the operation ID
@@ -60,8 +60,6 @@ before starting Python to use a larger volume; temporary archives are removed on
 
 Save the idempotency key before submission and keep the local inputs through finalization.
 Retry unchanged input with the same key. Changed source, tasks or settings require a new key.
-With resumable uploads available, an interrupted large object resumes from the acknowledged
-offset; an expired session restarts only that unfinished object.
 
 `start_push()` returns after upload and acceptance. Registration and builds continue on the server.
 The progress display reports client preparation and transfer, not runtime readiness. A client timeout
@@ -134,11 +132,13 @@ credentials printed by build code may remain visible to authorized users in your
 | --- | --- |
 | Interrupted upload; inputs unchanged | Repeat the submission with its saved key. |
 | Invalid source, Dockerfile, dependencies or task settings | Correct the cause and submit the intended task set with a new key. |
-| Transient image-build failure; stored source unchanged | After ingestion settles, call `client.benchmarks.images.build(bench_id)`, then inspect `images.list(bench_id)`. |
+| Transient image-build failure; stored source unchanged | After ingestion settles, call `wait_for_benchmark_images(client, bench_id)` from `trajectory.lib` to request builds and wait for them. |
 
-`images.build()` considers the benchmark's eligible runtimes, not a selected task. Ready runtimes
+The helper calls `images.build()` for the benchmark's eligible runtimes, not a selected task. Ready runtimes
 and identified in-flight builds are skipped. Diagnose shared failures once; healthy tasks need not
 wait for unrelated repairs. Keep original failures and recovered outcomes separate.
+The wait helper raises `BenchmarkImageBuildError` if builds fail; inspect its `partial_result`
+for each task's outcome. A timeout leaves server work running.
 
 For corrected source, reuse the agent and benchmark name, and save the new operation and benchmark
 IDs. A new version contains only the submitted tasks: a subset does not inherit the rest of the old
@@ -148,17 +148,34 @@ version. Preserve the original denominator when reporting readiness.
 
 ```python
 from trajectory.lib import get_operation
+from trajectory.lib.benchmark_operations import BenchmarkOperationError
 
-status = get_operation(client, operation_id).refresh()
-bench_id = status.bench_id
+try:
+    result = get_operation(client, operation_id).result()
+except BenchmarkOperationError as error:
+    result = error.partial_result
+    for failure in result.failures():
+        print(failure)
+
+if result.status.registered_tasks == 0:
+    raise RuntimeError("No registered tasks; inspect the input failures before continuing")
+bench_id = result.status.bench_id
 images = client.benchmarks.images.list(bench_id)
 for image in images.images:
     print(image.task_id, image.build_status, image.provider_ref, image.failure_message)
+ready_task_ids = [image.task_id for image in images.images if image.build_status == "ready"]
+print("Ready tasks:", ready_task_ids)
 ```
 
+`result()` waits for this submission's registration and requested builds. Its default 30-minute
+timeout leaves server work running; reconnect with the saved operation ID to continue waiting.
+Separately requested build retries use the wait helper in step 4.
+
 Match these results to the original input inventory, retaining unregistered tasks and failures.
-Continue with the [task-diagnostic walkthrough](task_diagnostics.md) to check startup, imports,
-credentials and grading with the submitted `run_command`.
+Use ready task IDs for targeted evaluation; failed tasks need not block them. The
+[task-diagnostic walkthrough](task_diagnostics.md) checks startup, imports, credentials and grading.
+Its benchmark-wide diagnostic samples tasks automatically, so use it after the benchmark's
+registered runtimes are ready; it does not filter out failed builds.
 
 ## Managed context limits
 
