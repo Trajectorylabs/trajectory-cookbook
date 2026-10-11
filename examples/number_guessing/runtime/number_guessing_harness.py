@@ -108,7 +108,6 @@ def main() -> None:
         result = run_game(client, tid, secret, args.model)
         client.trajectories.log_reward(
             tid,
-            reward_id="guess-efficiency",
             name="reward_guess_efficiency",
             value=result["reward"],
         )

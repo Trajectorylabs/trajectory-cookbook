@@ -50,7 +50,7 @@ try:
     if not math.isfinite(reward):
         raise ValueError("Inspect did not produce a finite score")
     client.trajectories.log_reward(
-        tid, reward_id="accuracy", name="reward_accuracy", value=reward,
+        tid, name="reward_accuracy", value=reward,
     )
 except Exception:
     try:
