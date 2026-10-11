@@ -20,8 +20,8 @@ import base64
 import gzip
 import hashlib
 from pathlib import Path
+from urllib.request import Request, urlopen
 
-import httpx
 from trajectory import Client
 
 client = Client()
@@ -32,8 +32,9 @@ upload = client.trajectories.artifacts.create_upload(
     size_bytes=len(content),
     md5=base64.b64encode(hashlib.md5(content).digest()).decode(),
 )
-response = httpx.put(upload.upload_url, content=content, headers=upload.headers, timeout=120)
-response.raise_for_status()
+request = Request(upload.upload_url, data=content, headers=upload.headers, method="PUT")
+with urlopen(request, timeout=120) as response:
+    response.read()
 artifact = client.trajectories.artifacts.complete_upload(tid, upload.artifact_id)
 client.trajectories.log_event(
     tid,
@@ -45,3 +46,7 @@ client.trajectories.log_event(
 
 Finish the upload before completing the trajectory. To read the file later, call
 `client.artifacts.retrieve(artifact.artifact_id)` and download its `download_url`.
+
+For score explanations, optional labeled evidence and the customer UI/SDK feedback loop, see
+[evaluation inspection and repair](evaluation_inspection.md). Its additional inspection
+interfaces require the matching release described there.

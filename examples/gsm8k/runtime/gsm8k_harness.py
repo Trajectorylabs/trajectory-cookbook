@@ -90,7 +90,6 @@ def main() -> None:
 
     client.trajectories.log_reward(
         trajectory_id,
-        reward_id="gsm8k-accuracy",
         name="reward_accuracy",
         value=reward,
     )
