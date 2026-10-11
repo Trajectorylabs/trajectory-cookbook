@@ -54,6 +54,9 @@ The context is `my-benchmark/runtime/`, filtered by `.dockerignore` at the bench
 SDK always includes the selected Dockerfile; it does not infer required files from `COPY`.
 With automatic packaging available, it uploads each selected context as an archive without
 changing the Dockerfile or requiring you to create archives. Different contexts remain separate.
+Archives stay in local temporary storage until submission finishes. Allow free space for all
+selected contexts plus archive overhead, without assuming compression savings. Set `TMPDIR`
+before starting Python to use a larger volume; temporary archives are removed on exit or failure.
 
 Save the idempotency key before submission and keep the local inputs through finalization.
 Retry unchanged input with the same key. Changed source, tasks or settings require a new key.
