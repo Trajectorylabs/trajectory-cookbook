@@ -68,8 +68,9 @@ The URL preserves that choice when you share the page or return to it.
 A missing trajectory does not hide the attempt's recorded failure. Build errors belong to
 the ingestion/runtime operation; execution errors belong to the attempt. A simple
 `log_reward` integration may have no sandbox or separate grader execution.
-The declared task input is shown separately from the actual model conversation; inspect both
-when checking that the prompt reached the model correctly.
+The current integration's declared task input is shown separately from the recorded model
+conversation. Inspect both, but retain the submitted source version when checking historical
+attempts: current input does not prove what an older attempt received.
 
 For an attempt with a trajectory, an onboarding agent can inspect the same records:
 
