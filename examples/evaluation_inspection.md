@@ -75,6 +75,9 @@ attempts: current input does not prove what an older attempt received.
 For an attempt with a trajectory, an onboarding agent can inspect the same records:
 
 ```python
+for task in client.benchmarks.tasks.list(run.bench_id, task_id="YOUR_TASK_ID"):
+    print("Current declared input:", task.input_messages)
+
 trajectory_id = "traj_YOUR_SELECTED_ATTEMPT"
 for step in client.trajectories.steps.list(trajectory_id):
     print(step.model_dump())
