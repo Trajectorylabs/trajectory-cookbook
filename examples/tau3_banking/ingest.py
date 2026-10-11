@@ -7,6 +7,7 @@ import argparse
 from pathlib import Path
 
 from runtime.tau3_banking.protocol import (
+    EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
     MAX_ERRORS,
     MAX_STEPS,
     RETRIEVAL_CONFIG,
@@ -56,6 +57,7 @@ def build_benchmark(name: str) -> BenchmarkSpec:
                     "user_and_judge_reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
                     "max_steps": MAX_STEPS,
                     "max_errors": MAX_ERRORS,
+                    "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
                 },
             )
             for index, task_id in enumerate(TASK_IDS)

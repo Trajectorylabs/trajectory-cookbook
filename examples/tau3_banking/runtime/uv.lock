@@ -1287,12 +1287,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "tau2", extra = ["knowledge"] },
+    { name = "tenacity" },
     { name = "trajectory-sdk" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "tau2", extras = ["knowledge"], git = "https://github.com/sierra-research/tau2-bench?rev=fc0055dc4e0a316c3f83133267fbd6faaa770992" },
+    { name = "tenacity", specifier = "==9.1.4" },
     { name = "trajectory-sdk", specifier = "==0.9.16" },
 ]
 

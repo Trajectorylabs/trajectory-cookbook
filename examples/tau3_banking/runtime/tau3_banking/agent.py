@@ -5,6 +5,7 @@ import sys
 from tau3_banking.policy_provider import register_policy
 from tau3_banking.protocol import (
     DOMAIN,
+    EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
     MAX_ERRORS,
     MAX_RETRIES,
     MAX_STEPS,
@@ -18,6 +19,7 @@ from tau3_banking.protocol import (
     load_task,
     verify_source,
 )
+from tau3_banking.user_simulator import USER_SIMULATOR, register_user_simulator
 from trajectory import Client
 
 
@@ -48,6 +50,7 @@ def run_task(client: Client, task_id: str) -> str:
     task = load_task(task_id)
     trajectory_id = client.trajectories.create().tid
     provider = register_policy(client, trajectory_id)
+    register_user_simulator()
     config = TextRunConfig(
         domain=DOMAIN,
         agent="llm_agent",
@@ -60,7 +63,7 @@ def run_task(client: Client, task_id: str) -> str:
             "max_tokens": 131072,
             "num_retries": MAX_RETRIES,
         },
-        user="user_simulator",
+        user=USER_SIMULATOR,
         llm_user=USER_AND_JUDGE_MODEL,
         llm_args_user={
             "reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
@@ -101,14 +104,13 @@ def run_task(client: Client, task_id: str) -> str:
             "max_errors": MAX_ERRORS,
             "seed": SEED,
             "policy_calls": provider.calls,
+            "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
             "upstream_termination_reason": result.termination_reason.value,
         },
     )
     completed = client.trajectories.complete(
         trajectory_id,
-        termination_reason=_termination_reason(
-            result.termination_reason, provider.truncated
-        ),
+        termination_reason=_termination_reason(result.termination_reason, provider.truncated),
     )
     if completed.status != "completed":
         raise RuntimeError(f"Trajectory completion returned {completed.status}")
