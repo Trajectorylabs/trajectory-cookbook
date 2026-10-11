@@ -27,6 +27,7 @@ client = Client()
 run_id = "evr_YOUR_RUN"
 run = client.evals.runs.retrieve(run_id)
 print(run.bench_id, run.options)
+print("Recorded worker configuration:", run.execution_configuration)
 
 selection = client.evals.runs.list_selected_tasks(run_id, limit=100)
 print("Selected population:", selection.supported, selection.total_tasks)
@@ -45,7 +46,8 @@ Selected tasks preserve work that has not started. Attempts retain retries and f
 including failures before a trajectory exists. Keep an unfiltered inventory keyed by
 `sample_id`; filtering is for investigation. `supported=False` means complete historical
 coverage is unavailable, not that no work happened. Requested options are not proof of the
-settings used by a worker.
+settings used by a worker. `execution_configuration` exposes retained model, context and
+concurrency settings when available; null means they were not retained.
 
 Iteration reads subsequent pages. If new attempts invalidate a live traversal, automatic
 iteration raises `RuntimeError`: discard the partial list and restart. Explicit page consumers
