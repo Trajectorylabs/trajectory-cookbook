@@ -3,6 +3,9 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
+Runnable examples and runtime images pin `trajectory-sdk==0.9.16`.
+The [public Tau 3 Banking recipe](examples/tau3_banking/banking.md) preserves the upstream evaluator.
+
 **Start here:** [Run your first task with T Factory](examples/t_factory/README.md).
 See one model response, its reward, and a completed execution. 
 
@@ -36,7 +39,7 @@ The sections below are SDK reference material for adapting your own benchmark. F
 Install the latest SDK and authenticate:
 
 ```bash
-pip install --upgrade trajectory-sdk
+pip install trajectory-sdk==0.9.16
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -133,7 +136,6 @@ uploading them before completing the trajectory.
 reward = float(check_answer(model_answer, expected_answer))
 client.trajectories.log_reward(
     tid,
-    reward_id="correctness",
     name="reward_accuracy",
     value=reward,
 )
@@ -148,7 +150,7 @@ client = Client()
 tid = client.trajectories.create().tid
 response = client.chat.completions.create(model="openai/gpt-5.4-mini", messages=[{"role": "user", "content": "What is 6 × 7?"}], x_trajectory_id=tid)
 reward = float(response.choices[0].message.content.strip() == "42")
-client.trajectories.log_reward(tid, reward_id="correctness", name="reward_accuracy", value=reward)
+client.trajectories.log_reward(tid, name="reward_accuracy", value=reward)
 client.trajectories.complete(tid)
 print(client.trajectories.retrieve(tid, include_steps=True))
 ```

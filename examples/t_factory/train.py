@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# dependencies = ["trajectory-sdk==0.9.16"]
 # ///
 """Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
 

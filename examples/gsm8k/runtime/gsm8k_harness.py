@@ -90,11 +90,12 @@ def main() -> None:
 
     client.trajectories.log_reward(
         trajectory_id,
-        reward_id="gsm8k-accuracy",
         name="reward_accuracy",
         value=reward,
     )
-    completed = client.trajectories.complete(trajectory_id)
+    completed = client.trajectories.complete(
+        trajectory_id, termination_reason="ENV_DONE"
+    )
     if completed.status != "completed":
         raise RuntimeError(f"trajectory completion failed: {completed}")
 
