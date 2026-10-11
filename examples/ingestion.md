@@ -106,19 +106,27 @@ A shared `runtime_id` identifies tasks affected by the same build failure.
 ## 3. Read the failed build before retrying
 
 ```python
-logs = client.benchmarks.ingestion.retrieve_build_logs(
-    operation_id, runtime_id="rt_YOUR_RUNTIME",
-)
-print(logs.observed_at, logs.provider_ref, logs.available)
-if logs.available:
-    print(logs.excerpt)
+complete = False
+with client.benchmarks.ingestion.retrieve_build_logs(
+    operation_id, runtime_id="rt_YOUR_RUNTIME", all_layers=True,
+) as logs:
+    for chunk in logs:
+        print(chunk.message, end="")
+        complete = chunk.complete
+if not complete:
+    raise RuntimeError("Build-log read was interrupted; retry the read")
 ```
 
-This reads the original attempt without rebuilding it. Provider output can arrive late, so a later
-read may contain the final error. `available=True` means text arrived, not that logs are complete;
-`available=False` can mean missing history or a provider timeout. The excerpt is limited to 6,000
-characters. Registered secrets are masked; other credentials printed by build code may remain
-visible to authorized users in your organization.
+Failure listings retain a short error summary. For detail, this read streams Modal's native build
+logs for the operation's recorded image, including after a retry creates another image. It does
+not rebuild. The default is the last build layer; use `layers=3` for the last three or
+`all_layers=True` for all available layers. Output is not clipped to an entry or character limit.
+
+`complete=True` means the provider finished returning the selected layers, not that the build
+succeeded or that Modal retains every historical log. Empty output can change on a later read;
+provider-read failures raise an SDK error. A build without a recorded image returns HTTP 409;
+providers without layer-log support return HTTP 501. Registered secrets are masked; other
+credentials printed by build code may remain visible to authorized users in your organization.
 
 ## 4. Repair the cause and retry affected work
 
