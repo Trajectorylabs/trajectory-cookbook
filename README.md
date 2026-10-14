@@ -219,8 +219,10 @@ agent_name=YOUR_AGENT_NAME
 bench_id=bm_<32-hex>
 ```
 
-If your benchmark needs an organization secret, register it after ingestion. For example,
-register a local OpenAI API key without putting its value in source:
+If your benchmark needs an organization secret, check which secrets are already stored
+for the organization selected by `TRAJECTORY_API_KEY`. List them before trying to upload a
+credential or concluding it is missing. Reuse an existing secret by name; upload only a
+missing one after ingestion and before running tasks:
 
 ```python
 import os
@@ -228,14 +230,19 @@ import os
 from trajectory import Client
 
 client = Client()
-client.secrets.create(
-    name="OPENAI_API_KEY",
-    value=os.environ["OPENAI_API_KEY"],
-)
+existing_secrets = {secret.name for secret in client.secrets.list()}
+if "OPENAI_API_KEY" not in existing_secrets:
+    client.secrets.create(
+        name="OPENAI_API_KEY",
+        value=os.environ["OPENAI_API_KEY"],
+    )
 ```
 
-`SecretRef` is a named pointer, not the secret value itself. In a `TaskSpec`,
-`SecretRef(secret_ref="OPENAI_API_KEY")` injects this organization secret at runtime.
+`client.secrets.list()` returns names and metadata, not secret values. An existing secret
+can be used even when its value is unavailable locally. If a required secret is absent,
+upload its value before running the benchmark. `SecretRef` is a named pointer, not the
+secret value itself. In a `TaskSpec`, `SecretRef(secret_ref="OPENAI_API_KEY")` injects
+this organization secret at runtime.
 
 Managed task runtimes receive `TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL` automatically;
 use `Client()` inside the harness. Do not put `TRAJECTORY_*` names in `env_vars`, including
