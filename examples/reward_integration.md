@@ -27,8 +27,43 @@ Keep this mapping in the adapter and document it next to the task configuration.
 may use different grading schemas. Do not assume that one task's output field applies
 to the whole benchmark.
 
-For example, an adapter for a grader documented to emit `accuracy` could validate its
-selected value like this:
+## Put the adapter in your task harness
+
+In the [main README](../README.md#log-reward-to-the-trajectory), `check_answer(...)`
+returns a scalar that goes directly into `log_reward`. If your existing grader instead
+returns a report such as `{"accuracy": 0.75, "latency_seconds": 12.0}`, add score selection
+between grading and `log_reward` in your runtime harness, after the model finishes the task.
+This code runs inside the submitted runtime, not in the script that uploads the benchmark.
+
+The following shows the same task flow as the README. Here, `grade_answer` stands for your
+benchmark's existing grader; replace the example import with its actual module and function.
+`prompt` and `expected_answer` come from your task loader. For a multi-turn task, keep your
+existing model/tool loop in place of the single model call below.
+
+```python
+from trajectory import Client
+from your_benchmark.grading import grade_answer
+
+
+def run_task(prompt: str, expected_answer: str) -> None:
+    client = Client()
+    tid = client.trajectories.create().tid
+    response = client.chat.completions.create(
+        model="openai/gpt-5.4-mini",
+        messages=[{"role": "user", "content": prompt}],
+        x_trajectory_id=tid,
+    )
+    model_answer = response.choices[0].message.content
+    scores = grade_answer(model_answer, expected_answer)
+    score = select_score(scores, "accuracy")
+    client.trajectories.log_reward(tid, name="accuracy", value=score, weight=1.0)
+    client.trajectories.complete(tid)
+```
+
+Define `select_score` in the same harness module before calling `run_task`. It validates the
+field selected for this grader; `"accuracy"` is this example's mapping, not an SDK requirement.
+The task flow above shows the successful path; keep your harness's error reporting around
+it as described in [Keep a zero score distinct from a missing grade](#keep-a-zero-score-distinct-from-a-missing-grade).
 
 ```python
 import math
@@ -48,8 +83,6 @@ def select_score(scores: dict[str, object], score_key: str) -> float:
         raise ValueError(f"Score field {score_key!r} must be finite")
     return score
 
-
-score = select_score({"accuracy": 0.75, "latency_seconds": 12.0}, "accuracy")
 ```
 
 This example expects numeric JSON scores. If the native grader uses booleans, strings, or
