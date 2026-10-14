@@ -3,7 +3,7 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
-Runnable examples and runtime images pin `trajectory-sdk==0.9.16`.
+Runnable examples and runtime images pin `trajectory-sdk==0.9.17`.
 The [public Tau 3 Banking recipe](examples/tau3_banking/banking.md) preserves the upstream evaluator.
 
 **Start here:** [Run your first task with T Factory](examples/t_factory/README.md).
@@ -39,7 +39,7 @@ The sections below are SDK reference material for adapting your own benchmark. F
 Install the latest SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.9.16
+pip install trajectory-sdk==0.9.17
 export TRAJECTORY_API_KEY="..."
 ```
 
