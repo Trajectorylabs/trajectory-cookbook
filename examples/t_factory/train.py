@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.16"]
+# dependencies = ["trajectory-sdk==0.9.17"]
 # ///
 """Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
 
@@ -30,7 +30,8 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> tuple[Evaluation, Evaluation, str]:
-    benchmark = client.benchmarks.specs.retrieve(bench_id)
+    # Task expansion is explicit because spec detail no longer includes tasks by default.
+    benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
     if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
         "train",
         "test",
@@ -147,15 +148,12 @@ def _print_task_results(
 ) -> None:
     baseline = {
         reward.task_id: reward
-        for reward in client.evals.rewards.list_trajectory_rewards(
-            baseline_eval_id
-        ).trajectory_rewards
+        # Iterating the page fetches every following page, so all rewards are compared.
+        for reward in client.evals.rewards.list_trajectory_rewards(baseline_eval_id)
     }
     final = {
         reward.task_id: reward
-        for reward in client.evals.rewards.list_trajectory_rewards(
-            final_eval_id
-        ).trajectory_rewards
+        for reward in client.evals.rewards.list_trajectory_rewards(final_eval_id)
     }
     improved_task_id = max(
         baseline,

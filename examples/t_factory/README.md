@@ -26,7 +26,7 @@ From the cookbook repository root:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk==0.9.16 python
+uv run --with trajectory-sdk==0.9.17 python
 ```
 
 Run this Python snippet to call a model, record its reward, and complete the trajectory:

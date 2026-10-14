@@ -16,7 +16,7 @@ Use your API key from the first lesson. Start Python from the cookbook repositor
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk==0.9.16 --with httpx python
+uv run --with trajectory-sdk==0.9.17 --with httpx python
 ```
 
 ```python
@@ -37,7 +37,7 @@ Use an explicitly selected agent, reuse one whose purpose fits, or create one fo
 For a new GSM8K project:
 
 ```bash
-uv run --with trajectory-sdk==0.9.16 python -c \
+uv run --with trajectory-sdk==0.9.17 python -c \
   'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 

@@ -5,7 +5,7 @@ This example packages Sierra's public 97-task Banking benchmark from Tau 2 commi
 user simulator prompts/model, evaluator, and task digest checks are preserved. Task IDs are sorted into
 80 training and 17 held-out test tasks.
 
-The runtime locks `trajectory-sdk==0.9.16` and calls the SDK for policy inference, reward
+The runtime locks `trajectory-sdk==0.9.17` and calls the SDK for policy inference, reward
 publication, protocol events, and completion. It invokes the virtual environment's Python
 by absolute path and declares `TAU2_DATA_DIR` in the task environment. Neither depends on
 the sandbox launcher restoring Docker's PATH or working directory.

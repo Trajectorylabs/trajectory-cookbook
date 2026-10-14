@@ -135,7 +135,7 @@ bound therefore affects subsequent guesses and the final reward.
 [Choose or create an agent](../../README.md#choose-or-create-an-agent). For a new agent:
 
 ```bash
-uv run --with trajectory-sdk==0.9.16 python -c \
+uv run --with trajectory-sdk==0.9.17 python -c \
   'from trajectory import Client; Client().agents.create(name="number-guessing-cookbook")'
 ```
 
