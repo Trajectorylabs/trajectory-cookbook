@@ -104,6 +104,7 @@ def run_task(client: Client, task_id: str) -> str:
                 "max_errors": MAX_ERRORS,
                 "seed": SEED,
                 "policy_calls": provider.calls,
+                "reasoning_leaks": provider.reasoning_leaks,
                 "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
                 "upstream_termination_reason": result.termination_reason.value,
             },

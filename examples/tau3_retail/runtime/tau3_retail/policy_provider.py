@@ -14,6 +14,7 @@ class TrajectoryPolicy(CustomLLM):
         self.client = client
         self.trajectory_id = trajectory_id
         self.calls = 0
+        self.reasoning_leaks = 0
         self.truncated = False
 
     def completion(
@@ -35,6 +36,7 @@ class TrajectoryPolicy(CustomLLM):
             extra_body=params,
         )
         self.calls += 1
+        self.reasoning_leaks += "</think>" in (response.choices[0].message.content or "")
         self.truncated |= response.choices[0].finish_reason == "length"
         return ModelResponse(**response.model_dump(mode="json"))
 

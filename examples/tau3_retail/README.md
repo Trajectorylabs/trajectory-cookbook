@@ -119,19 +119,32 @@ checkpoint on the same tasks, and prints `baseline_reward`, `final_reward`, and
 | Option | Value | Reason |
 | --- | --- | --- |
 | `disable_thinking` | `True` | Reasoning on every one of 13–28 turns multiplies context and cost. |
-| `max_output_tokens_per_step` | `4096` | Matches the agent's `max_tokens` in `protocol.py`. |
+| `max_output_tokens_per_step` | `2048` | Covers the 4B's normal replies (99.5th percentile ~5,500 characters) and stops runaway ones. Matches `max_tokens` in `protocol.py`. |
 | `max_turns_per_trajectory` | `100` | Counts agent and environment turns; retail uses up to ~80. |
 | `train_batch_size` | `8` | 8 tasks × 8 samples per step; about two passes over 74 tasks in 20 steps. |
-| `lr_warmup_steps` | `2` | The model default of 15 would spend most of a 20-step run warming up. |
+| `learning_rate` | `3e-5` | The model default of `1e-4` caused reasoning leaks; see below. |
 
-The model's other defaults apply, including GSPO with 8 samples per task and a learning rate
-of `1e-4`. Retail tool responses stay under 3,400 characters in upstream transcripts, within
-the 16,384-character training limit, so training and evaluation see the same conversations.
+The model's other defaults apply, including GSPO with 8 samples per task and 15 warmup steps.
+Retail tool responses stay under 3,400 characters in upstream transcripts, within the
+16,384-character training limit, so training and evaluation see the same conversations.
 Discover the options and their bounds with
 `client.training.list_options(bench_id=..., base_model_slug="Qwen/Qwen3.5-4B")`.
 
 Forty test tasks give a noisy estimate, and the simulated customer adds variance between runs.
 Treat a small `reward_delta` from one short run as inconclusive.
+
+### Watch for reasoning leaks
+
+Upstream's reward checks the final database, not how the agent talks. In a run at learning
+rate `1e-4` with 2 warmup steps, Qwen 3.5 4B began writing its reasoning into customer
+replies despite `disable_thinking`: stray `</think>` tags, self-talk, and repeated sentences.
+Leaky conversations that still reached the right database state earned full reward, so
+training reinforced them. Leaks went from 0% of sampled rollouts at steps 0–2 to 88% at
+steps 13–15, average reply length grew from ~500 to ~7,200 characters, and the training
+solve rate on the same tasks fell from 0.64 to 0.54.
+
+Each trajectory's `tau3_retail_protocol` event records `reasoning_leaks`, the number of agent
+replies containing `</think>`. Check it in early checkpoints' rollouts before training longer.
 
 ## Inspect existing work
 
@@ -148,7 +161,8 @@ print(run.status, client.training.runs.progress("YOUR_TRAINING_RUN_ID"), run.fai
 ```
 
 Each trajectory carries a `tau3_retail_protocol` event with the source commit and digest, the
-customer and judge model, the upstream termination reason, and the number of policy calls.
+customer and judge model, the upstream termination reason, the number of policy calls, and
+the number of reasoning leaks.
 The reward's explanation holds upstream's full `reward_info`, including the database check.
 
 ## Known upstream task issues

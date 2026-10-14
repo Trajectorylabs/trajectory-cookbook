@@ -15,7 +15,7 @@ _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 # Retail conversations take up to ~80 agent, user, and tool messages; leave headroom.
 _ROLLOUT_OPTIONS = {
     "disable_thinking": True,
-    "max_output_tokens_per_step": 4096,
+    "max_output_tokens_per_step": 2048,
     "max_turns_per_trajectory": 100,
 }
 
@@ -74,8 +74,7 @@ def start_training(
             **_ROLLOUT_OPTIONS,
             "num_steps": num_steps,
             "train_batch_size": 8,
-            # The model default warms up over 15 steps, most of a 20-step run.
-            "lr_warmup_steps": 2,
+            "learning_rate": 3e-5,
         },
     )
     print(f"training_run_id={created.training_run_id}", flush=True)

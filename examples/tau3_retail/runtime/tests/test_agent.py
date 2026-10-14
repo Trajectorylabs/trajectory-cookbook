@@ -74,7 +74,7 @@ def test_task_publishes_upstream_reward_and_completes(monkeypatch):
     chat = [entry for entry in requests if entry[0] == "/v1/chat/completions"]
     assert len(chat) == 1
     assert chat[0][1]["X-Trajectory-Id"] == "tid_test"
-    assert chat[0][2]["max_tokens"] == 4096
+    assert chat[0][2]["max_tokens"] == 2048
     assert any(m["role"] == "system" and "retail" in m["content"] for m in chat[0][2]["messages"])
 
     reward = next(body for path, _, body in requests if path.endswith("/rewards"))
@@ -83,6 +83,7 @@ def test_task_publishes_upstream_reward_and_completes(monkeypatch):
     event = next(body for path, _, body in requests if path.endswith("/events"))
     assert event["payload"]["task_id"] == TASK_ID
     assert event["payload"]["upstream_termination_reason"] == "user_stop"
+    assert event["payload"]["reasoning_leaks"] == 0
     assert requests[-1][2] == {"termination_reason": "ENV_DONE"}
 
 
