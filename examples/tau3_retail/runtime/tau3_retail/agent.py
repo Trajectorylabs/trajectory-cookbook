@@ -83,10 +83,12 @@ def run_task(client: Client, task_id: str) -> str:
         if result.reward_info is None:
             raise RuntimeError("The upstream Tau 3 evaluator returned no reward")
 
+        # Upstream grades only the database, so leaked reasoning would otherwise be rewarded.
+        upstream_reward = result.reward_info.reward
         client.trajectories.log_reward(
             trajectory_id,
             name="reward_accuracy",
-            value=result.reward_info.reward,
+            value=0.0 if provider.reasoning_leaks else upstream_reward,
             explanation=result.reward_info.model_dump_json(),
         )
         client.trajectories.log_event(
@@ -105,6 +107,7 @@ def run_task(client: Client, task_id: str) -> str:
                 "seed": SEED,
                 "policy_calls": provider.calls,
                 "reasoning_leaks": provider.reasoning_leaks,
+                "upstream_reward": upstream_reward,
                 "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
                 "upstream_termination_reason": result.termination_reason.value,
             },

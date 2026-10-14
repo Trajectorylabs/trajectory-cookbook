@@ -5,6 +5,7 @@ import os
 
 import httpx2
 import pytest
+import tau2.runner.batch
 from tau2.data_model.message import AssistantMessage
 from tau3_retail import agent
 from trajectory import Client
@@ -34,7 +35,14 @@ def _chat_completion(content: str) -> dict:
     }
 
 
-def test_task_publishes_upstream_reward_and_completes(monkeypatch):
+@pytest.mark.parametrize(
+    ("reply", "leaks", "expected"),
+    [
+        ("Could you share your order ID?", 0, 1.0),
+        ("I should ask for the order.</think>\n\nCould you share your order ID?", 1, 0.0),
+    ],
+)
+def test_task_publishes_gated_reward_and_completes(monkeypatch, reply, leaks, expected):
     requests = []
 
     def respond(request):
@@ -44,7 +52,7 @@ def test_task_publishes_upstream_reward_and_completes(monkeypatch):
         if path == "/api/v1/trajectories":
             return httpx2.Response(200, json={"tid": "tid_test"})
         if path == "/v1/chat/completions":
-            return httpx2.Response(200, json=_chat_completion("Could you share your order ID?"))
+            return httpx2.Response(200, json=_chat_completion(reply))
         if path.endswith(("/rewards", "/events")):
             return httpx2.Response(
                 200, json={"ok": True, "trajectory_id": "tid_test", "status": "active"}
@@ -60,6 +68,15 @@ def test_task_publishes_upstream_reward_and_completes(monkeypatch):
         ]
     )
     monkeypatch.setattr("tau2.user.user_simulator.generate", lambda **_: next(user_turns))
+
+    run_single_task = tau2.runner.batch.run_single_task
+
+    def solved(*args, **kwargs):
+        result = run_single_task(*args, **kwargs)
+        result.reward_info.reward = 1.0
+        return result
+
+    monkeypatch.setattr("tau2.runner.batch.run_single_task", solved)
 
     with Client(
         api_key="test",
@@ -79,11 +96,12 @@ def test_task_publishes_upstream_reward_and_completes(monkeypatch):
 
     reward = next(body for path, _, body in requests if path.endswith("/rewards"))
     assert reward["name"] == "reward_accuracy"
-    assert reward["value"] == 0.0
+    assert reward["value"] == expected
     event = next(body for path, _, body in requests if path.endswith("/events"))
     assert event["payload"]["task_id"] == TASK_ID
     assert event["payload"]["upstream_termination_reason"] == "user_stop"
-    assert event["payload"]["reasoning_leaks"] == 0
+    assert event["payload"]["reasoning_leaks"] == leaks
+    assert event["payload"]["upstream_reward"] == 1.0
     assert requests[-1][2] == {"termination_reason": "ENV_DONE"}
 
 

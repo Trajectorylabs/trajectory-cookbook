@@ -74,7 +74,8 @@ def start_training(
             **_ROLLOUT_OPTIONS,
             "num_steps": num_steps,
             "train_batch_size": 8,
-            "learning_rate": 3e-5,
+            "learning_rate": 5e-5,
+            "lr_warmup_steps": 3,
         },
     )
     print(f"training_run_id={created.training_run_id}", flush=True)
