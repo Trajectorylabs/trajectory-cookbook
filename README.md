@@ -238,11 +238,10 @@ if "OPENAI_API_KEY" not in existing_secrets:
     )
 ```
 
-`client.secrets.list()` returns names and metadata, not secret values. An existing secret
-can be used even when its value is unavailable locally. If a required secret is absent,
-upload its value before running the benchmark. `SecretRef` is a named pointer, not the
-secret value itself. In a `TaskSpec`, `SecretRef(secret_ref="OPENAI_API_KEY")` injects
-this organization secret at runtime.
+`client.secrets.list()` returns names and metadata, not secret values themselves.
+If a required secret is absent, upload its value before running the benchmark. 
+In a `TaskSpec`, `SecretRef(secret_ref="OPENAI_API_KEY")` injects this 
+organization secret at runtime.
 
 Managed task runtimes receive `TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL` automatically;
 use `Client()` inside the harness. Do not put `TRAJECTORY_*` names in `env_vars`, including
