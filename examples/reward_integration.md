@@ -1,13 +1,13 @@
 # Connect an existing grader to Trajectory
 
-A successful grader command or runtime image build does
-not prove that the submitted harness can read and publish that grade.
-
 The adapter is the part of your harness that reads the grader's output and calls the SDK.
 A grader may return a scalar, a JSON object, or several metrics. The adapter reads the
-grader's output and forwards the selected score to `log_reward(value=...)`. If the adapter
-reports a missing `reward` key, check whether the grader uses a different score field and
-map that field explicitly to `log_reward(value=...)`.
+grader's output and forwards the selected score to `log_reward(value=...)`. 
+
+A successful grader command or runtime image build can sometimes hide that the submitted harness
+failed to read and publish the real grade. If the adapter reports a missing `reward` key, 
+check whether the grader uses a different score field and map that field explicitly 
+to `log_reward(value=...)`.
 
 ## Choose the score explicitly
 
@@ -36,9 +36,7 @@ between grading and `log_reward` in your runtime harness, after the model finish
 This code runs inside the submitted runtime, not in the script that uploads the benchmark.
 
 The following shows the same task flow as the README. Here, `grade_answer` stands for your
-benchmark's existing grader; replace the example import with its actual module and function.
-`prompt` and `expected_answer` come from your task loader. For a multi-turn task, keep your
-existing model/tool loop in place of the single model call below.
+benchmark's existing grader.
 
 ```python
 from trajectory import Client
@@ -95,7 +93,8 @@ the trajectory after reward publication succeeds.
 Trajectory combines reward components using a weighted sum. If you publish a total and
 its sub-scores with nonzero weights, you can count the same performance twice.
 Use weight `0` for additional numeric components that should be visible only for diagnosis.
-If you intentionally combine several objectives, define their weights explicitly. An all-zero-weight set does not provide a training signal.
+If you intentionally combine several objectives, define their weights explicitly. 
+An all-zero-weight set does not provide a training signal.
 
 ## Keep a zero score distinct from a missing grade
 
