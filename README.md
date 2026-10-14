@@ -142,6 +142,10 @@ client.trajectories.log_reward(
 client.trajectories.complete(tid)
 ```
 
+When adapting an existing grader, follow [the reward integration guide](examples/reward_integration.md)
+to select its score explicitly, preserve diagnostic metrics, and verify publication through
+the submitted runtime.
+
 #### Run your benchmark and see the result
 
 ```python
