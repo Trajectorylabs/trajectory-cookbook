@@ -69,9 +69,3 @@ with a real math benchmark.
 
 The runtime and grader are in
 [`t_factory_harness.py`](runtime/t_factory_harness.py).
-
-## Adapt the grader for your own benchmark
-
-Before replacing the T-word grader, read [Connect an existing grader to Trajectory](../reward_integration.md).
-It covers source score selection, component weights, valid zero scores versus missing grades,
-and diagnostics that verify the stored reward before evaluation or training.

@@ -257,10 +257,6 @@ the checkpoint evaluation in step 5 uses the benchmark's `submit_answer` tool an
 
 ## Adapt this workflow to your benchmark
 
-Read [Connect an existing grader to Trajectory](../reward_integration.md) before adapting
-reward publication. Verify the source score mapping and stored reward through the submitted
-runtime before starting evaluation or training.
-
 The integration has three parts:
 
 - [`ingest.py`](ingest.py): load source rows, stage task files, and create `TaskSpec` objects with
