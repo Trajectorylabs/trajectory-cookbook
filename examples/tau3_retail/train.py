@@ -7,7 +7,7 @@ import argparse
 import time
 from dataclasses import dataclass
 
-from trajectory import Client
+from trajectory import Client, RateLimitError
 from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
@@ -122,14 +122,21 @@ def evaluate(
     parent_checkpoint_id: str | None = None,
     options: dict | None = None,
 ) -> float:
-    evaluation = client.evals.create(
-        agent_name=agent_name,
-        benchmark_name=bench_name,
-        base_model_slug=model,
-        parent_checkpoint_id=parent_checkpoint_id,
-        display_name=display_name,
-        options={**_ROLLOUT_OPTIONS, **(options or {})},
-    )
+    while True:
+        try:
+            evaluation = client.evals.create(
+                agent_name=agent_name,
+                benchmark_name=bench_name,
+                base_model_slug=model,
+                parent_checkpoint_id=parent_checkpoint_id,
+                display_name=display_name,
+                options={**_ROLLOUT_OPTIONS, **(options or {})},
+            )
+            break
+        except RateLimitError as error:
+            # The organization-wide limit on active evaluations can outlast client retries.
+            print(f"evaluation={display_name} waiting: {error.message}", flush=True)
+            time.sleep(poll_seconds)
     return _wait_for_evaluation(client, evaluation.eval_run_id, display_name, poll_seconds)
 
 
