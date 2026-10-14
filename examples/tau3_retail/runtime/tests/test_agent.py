@@ -105,6 +105,56 @@ def test_task_publishes_gated_reward_and_completes(monkeypatch, reply, leaks, ex
     assert requests[-1][2] == {"termination_reason": "ENV_DONE"}
 
 
+def test_malformed_tool_call_is_graded_as_failure(monkeypatch):
+    requests = []
+    completion = _chat_completion("")
+    completion["choices"][0]["finish_reason"] = "tool_calls"
+    completion["choices"][0]["message"] = {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_test",
+                "type": "function",
+                "function": {"name": "calculate", "arguments": '{"expression": "2 - 1"'},
+            }
+        ],
+    }
+
+    def respond(request):
+        requests.append((request.url.path, json.loads(request.content or b"{}")))
+        path = request.url.path
+        if path == "/api/v1/trajectories":
+            return httpx2.Response(200, json={"tid": "tid_test"})
+        if path == "/v1/chat/completions":
+            return httpx2.Response(200, json=completion)
+        if path.endswith(("/rewards", "/events")):
+            return httpx2.Response(
+                200, json={"ok": True, "trajectory_id": "tid_test", "status": "active"}
+            )
+        if path.endswith("/complete"):
+            return httpx2.Response(200, json={"trajectory_id": "tid_test", "status": "completed"})
+        raise AssertionError(path)
+
+    monkeypatch.setattr(
+        "tau2.user.user_simulator.generate",
+        lambda **_: AssistantMessage(role="assistant", content="I need help with my order."),
+    )
+    with Client(
+        api_key="test",
+        base_url="https://example.com",
+        http_client=httpx2.Client(transport=httpx2.MockTransport(respond)),
+    ) as client:
+        assert agent.run_task(client, TASK_ID) == "tid_test"
+
+    reward = next(body for path, body in requests if path.endswith("/rewards"))
+    assert reward["value"] == 0.0
+    event = next(body for path, body in requests if path.endswith("/events"))
+    assert event["payload"]["malformed_tool_calls"] == 1
+    assert event["payload"]["upstream_termination_reason"] == "malformed_tool_call"
+    assert requests[-1][1] == {"termination_reason": "ERROR"}
+
+
 def test_runner_exception_completes_trajectory_as_error(monkeypatch):
     requests = []
 

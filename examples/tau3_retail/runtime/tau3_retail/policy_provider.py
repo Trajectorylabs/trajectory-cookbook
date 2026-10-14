@@ -1,5 +1,6 @@
 """LiteLLM provider that routes the Tau agent through a Trajectory SDK session."""
 
+import json
 from typing import Any
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ class TrajectoryPolicy(CustomLLM):
         self.trajectory_id = trajectory_id
         self.calls = 0
         self.reasoning_leaks = 0
+        self.malformed_tool_calls = 0
         self.truncated = False
 
     def completion(
@@ -36,7 +38,13 @@ class TrajectoryPolicy(CustomLLM):
             extra_body=params,
         )
         self.calls += 1
-        self.reasoning_leaks += "</think>" in (response.choices[0].message.content or "")
+        message = response.choices[0].message
+        self.reasoning_leaks += "</think>" in (message.content or "")
+        for tool_call in message.tool_calls or []:
+            try:
+                json.loads(tool_call.function.arguments)
+            except json.JSONDecodeError:
+                self.malformed_tool_calls += 1
         self.truncated |= response.choices[0].finish_reason == "length"
         return ModelResponse(**response.model_dump(mode="json"))
 

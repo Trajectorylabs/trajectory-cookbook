@@ -13,8 +13,11 @@ customer is part of the benchmark rather than a convenience.
 
 The runtime preserves the upstream task bytes, policy, database, user simulator prompts,
 and evaluator. Reward is upstream's, `1.0` only when the final database matches the expected
-state and the task's natural-language assertions pass, with one gate: a conversation in which
-any agent reply contains `</think>` scores `0.0` (see [reasoning leaks](#watch-for-reasoning-leaks)).
+state and the task's natural-language assertions pass, otherwise `0.0`. Two agent failures also
+score `0.0`: a reply containing `</think>` (see [reasoning leaks](#watch-for-reasoning-leaks)),
+and tool-call arguments that are not valid JSON. Upstream raises on the latter, which would
+crash the task; a single crashed rollout fails a whole evaluation, and training drops crashed
+rollouts instead of penalizing them.
 
 | | Tau 3 Banking | Tau 3 Retail |
 | --- | --- | --- |
@@ -170,7 +173,7 @@ print(run.status, client.training.runs.progress("YOUR_TRAINING_RUN_ID"), run.fai
 
 Each trajectory carries a `tau3_retail_protocol` event with the source commit and digest, the
 customer and judge model, the upstream termination reason, the number of policy calls, and
-the number of reasoning leaks, and the ungated upstream reward.
+the number of reasoning leaks and malformed tool calls, and the ungated upstream reward.
 The reward's explanation holds upstream's full `reward_info`, including the database check.
 
 ## Known upstream task issues

@@ -1,5 +1,6 @@
 """Run one exact public Tau 3 Retail task through the Trajectory SDK."""
 
+import json
 import sys
 
 from tau3_retail.policy_provider import register_policy
@@ -74,22 +75,35 @@ def run_task(client: Client, task_id: str) -> str:
             max_errors=MAX_ERRORS,
             seed=SEED,
         )
-        result = run_single_task(
-            config,
-            task,
-            seed=SEED,
-            evaluation_type=EvaluationType.ALL,
-        )
-        if result.reward_info is None:
+        try:
+            result = run_single_task(
+                config,
+                task,
+                seed=SEED,
+                evaluation_type=EvaluationType.ALL,
+            )
+        except json.JSONDecodeError:
+            # Upstream raises on unparseable tool-call arguments; grade them as the agent's failure.
+            if not provider.malformed_tool_calls:
+                raise
+            result = None
+        if result is None:
+            upstream_reward = 0.0
+            explanation = "The agent sent tool-call arguments that are not valid JSON"
+            upstream_termination = "malformed_tool_call"
+        elif result.reward_info is None:
             raise RuntimeError("The upstream Tau 3 evaluator returned no reward")
+        else:
+            upstream_reward = result.reward_info.reward
+            explanation = result.reward_info.model_dump_json()
+            upstream_termination = result.termination_reason.value
 
         # Upstream grades only the database, so leaked reasoning would otherwise be rewarded.
-        upstream_reward = result.reward_info.reward
         client.trajectories.log_reward(
             trajectory_id,
             name="reward_accuracy",
             value=0.0 if provider.reasoning_leaks else upstream_reward,
-            explanation=result.reward_info.model_dump_json(),
+            explanation=explanation,
         )
         client.trajectories.log_event(
             trajectory_id,
@@ -108,8 +122,9 @@ def run_task(client: Client, task_id: str) -> str:
                 "policy_calls": provider.calls,
                 "reasoning_leaks": provider.reasoning_leaks,
                 "upstream_reward": upstream_reward,
+                "malformed_tool_calls": provider.malformed_tool_calls,
                 "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
-                "upstream_termination_reason": result.termination_reason.value,
+                "upstream_termination_reason": upstream_termination,
             },
         )
     except Exception:
@@ -117,7 +132,9 @@ def run_task(client: Client, task_id: str) -> str:
         raise
     completed = client.trajectories.complete(
         trajectory_id,
-        termination_reason=termination_reason(result.termination_reason, provider.truncated),
+        termination_reason="ERROR"
+        if result is None
+        else termination_reason(result.termination_reason, provider.truncated),
     )
     if completed.status != "completed":
         raise RuntimeError(f"Trajectory completion returned {completed.status}")
