@@ -133,8 +133,10 @@ Retail tool responses stay under 3,400 characters in upstream transcripts, withi
 Discover the options and their bounds with
 `client.training.list_options(bench_id=..., base_model_slug="Qwen/Qwen3.5-4B")`.
 
-Forty test tasks give a noisy estimate, and the simulated customer adds variance between runs.
-Treat a small `reward_delta` from one short run as inconclusive.
+Both evaluations run each of the 40 test tasks 4 times (`evaluation_samples_per_task`). With
+one sample per task, two evaluations of nearly the same model differed by `0.15`: 12 tasks
+flipped to failing and 6 to passing. Treat a small `reward_delta` from one short run as
+inconclusive.
 
 ### Watch for reasoning leaks
 

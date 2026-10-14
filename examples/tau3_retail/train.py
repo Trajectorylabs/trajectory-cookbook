@@ -18,6 +18,8 @@ _ROLLOUT_OPTIONS = {
     "max_output_tokens_per_step": 2048,
     "max_turns_per_trajectory": 100,
 }
+# One sample per test task swings the mean by several points between identical runs.
+_EVAL_OPTIONS = {"evaluation_samples_per_task": 4}
 
 
 @dataclass(frozen=True)
@@ -35,7 +37,13 @@ def train_and_evaluate(
     poll_seconds: float,
 ) -> RewardComparison:
     baseline = evaluate(
-        client, agent_name, bench_name, model, "Tau 3 Retail baseline", poll_seconds
+        client,
+        agent_name,
+        bench_name,
+        model,
+        "Tau 3 Retail baseline",
+        poll_seconds,
+        options=_EVAL_OPTIONS,
     )
     run_id = start_training(client, agent_name, bench_name, model, num_steps)
     run = wait_for_training(client, run_id, poll_seconds)
@@ -54,6 +62,7 @@ def train_and_evaluate(
             parent_checkpoint_id=client.training.checkpoints.retrieve(
                 run_id, num_steps
             ).checkpoint_id,
+            options=_EVAL_OPTIONS,
         ),
     )
     print(f"baseline_reward={comparison.baseline:.6f}", flush=True)
