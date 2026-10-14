@@ -4,9 +4,10 @@ A successful grader command or runtime image build does
 not prove that the submitted harness can read and publish that grade.
 
 The adapter is the part of your harness that reads the grader's output and calls the SDK.
-A grader may return a scalar, a JSON object, or several metrics. The adapter will need to explicitly read
-the grader's output to forward to log_reward. Be wary of errors from the harness where the exact key
-`reward` is not found -- this is usually a sign of a malformed adapter. 
+A grader may return a scalar, a JSON object, or several metrics. The adapter reads the
+grader's output and forwards the selected score to `log_reward(value=...)`. If the adapter
+reports a missing `reward` key, check whether the grader uses a different score field and
+map that field explicitly to `log_reward(value=...)`.
 
 ## Choose the score explicitly
 
@@ -14,15 +15,16 @@ Inspect the grader implementation and a real output from the benchmark. Record:
 
 - Where the result comes from: a file, an API response, or a return value etc.
   If several files exist, check which one the reader actually consumes.
-- Which field or documented formula represents task performance. A task can produce files containing
-  accuracy, latency, cost, etc and there needs to be an explicit choice made of how this translates
-  to reward
-- The score's range, units, direction, and aggregation. Be intentional in designing partial credit.
-  Document any normalization or conversion of a lower-is-better metric.
+- Which field or documented formula represents task performance. A task can produce files
+  containing accuracy, latency, and cost; explicitly choose which metric or formula
+  determines reward.
+- The score's range, units, direction, and aggregation. Preserve the grader's partial-credit
+  semantics and document any transformation, including normalization or conversion of a
+  lower-is-better metric.
 - How the grader distinguishes a valid failed answer from a grading or execution error.
 
 Keep this mapping in the adapter and document it next to the task configuration. Tasks
-may use different grading schemas. Do not assume that one task's output field applies 
+may use different grading schemas. Do not assume that one task's output field applies
 to the whole benchmark.
 
 For example, an adapter for a grader documented to emit `accuracy` could validate its
@@ -54,11 +56,13 @@ This example expects numeric JSON scores. If the native grader uses booleans, st
 nested results, explicitly parse its documented format first. Validate any documented range
 as well. Do not silently clamp values, guess a field, or substitute zero for a missing value.
 
+Publish the selected score using the same trajectory ID as the model calls, then complete
+the trajectory after reward publication succeeds.
+
 Trajectory combines reward components using a weighted sum. If you publish a total and
-its sub-scores with nonzero weights, you can count the same performance twice. 
-use weight `0` for additional numeric components that
-should be visible only for diagnosis. If you intentionally combine several objectives,
-define their weights explicitly. An all-zero-weight set does not provide a training signal.
+its sub-scores with nonzero weights, you can count the same performance twice.
+Use weight `0` for additional numeric components that should be visible only for diagnosis.
+If you intentionally combine several objectives, define their weights explicitly. An all-zero-weight set does not provide a training signal.
 
 ## Keep a zero score distinct from a missing grade
 
