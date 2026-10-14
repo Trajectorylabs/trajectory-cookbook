@@ -220,9 +220,8 @@ bench_id=bm_<32-hex>
 ```
 
 If your benchmark needs an organization secret, check which secrets are already stored
-for the organization selected by `TRAJECTORY_API_KEY`. List them before trying to upload a
-credential or concluding it is missing. Reuse an existing secret by name; upload only a
-missing one after ingestion and before running tasks:
+for the organization. List them to determine which missing secrets need to be uploaded 
+before running tasks:
 
 ```python
 import os
