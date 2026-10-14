@@ -142,6 +142,9 @@ client.trajectories.log_reward(
 client.trajectories.complete(tid)
 ```
 
+Explicitly map the grader’s documented score field to `log_reward(value=...)`; do not assume
+its output contains a key named `reward`.
+
 When adapting an existing grader, follow [the reward integration guide](examples/reward_integration.md)
 to select its score explicitly, preserve diagnostic metrics, and verify publication through
 the submitted runtime.
