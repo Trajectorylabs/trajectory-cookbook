@@ -103,17 +103,9 @@ as well. Do not silently clamp values, guess a field, or substitute zero for a m
 Publish the selected score using the same trajectory ID as the model calls, then complete
 the trajectory after reward publication succeeds.
 
-Trajectory combines reward components using a weighted sum. For an existing benchmark,
-preserve its original formula: you can publish the computed total with weight `1`, or its
-components with the original weights when their weighted sum reproduces that total.
-Publishing both the total and its sub-scores with nonzero weights counts performance twice.
-For example, a benchmark may average partial scores across criteria, while another requires
-every criterion to pass. Preserve whichever rule the original benchmark uses.
-For a new production reward, define component weights explicitly around the desired outcomes.
-An all-zero-weight set does not provide a training signal. Publish auxiliary reward components
-only alongside a valid primary reward; use events or artifacts for diagnostics when grading
-fails or the primary reward is still pending, as described in
-[Report native results](../README.md#report-native-results).
+Rewards are a weighted sum. Preserve the benchmark's formula by publishing either its total
+with weight `1` or its weighted components, without counting both. For failed or pending
+grading, keep diagnostics in [events or artifacts](../README.md#report-native-results).
 
 ## Keep a zero score distinct from a missing grade
 
