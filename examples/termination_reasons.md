@@ -6,7 +6,7 @@ default, `ENV_DONE`, means the attempt finished normally.
 
 ## Choose the reason
 
-Send the first one that applies:
+Use the first reason in this list that matches:
 
 1. `ERROR`: there is no valid grade. Model requests failed after retries, or the environment
    or grader failed. Do not log a reward, even if the grader returned one.
