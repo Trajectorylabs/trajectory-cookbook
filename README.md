@@ -18,6 +18,8 @@ See one model response, its reward, and a completed execution.
 | [GSM8K: full workflow](examples/gsm8k/README.md) | Next: validate one task, evaluate and train a small benchmark, scale to more tasks, and optionally deploy. Uses a real dataset with private answers and tool-based grading. |
 | [T Factory: evaluation and training](examples/t_factory/training.md) | An alternative training walkthrough using the first lesson's toy reward. |
 | [Number guessing](examples/number_guessing/README.md) | A multi-turn environment, efficiency rewards, and same-model context compaction. |
+| [Tau 3 Retail](examples/tau3_retail/README.md) | Train Qwen 3.5 4B on multi-turn customer service with a simulated customer and upstream grading. |
+| [Tau 3 Banking](examples/tau3_banking/banking.md) | Package a pinned public benchmark with retrieval, its user simulator, and its original evaluator. |
 | [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
 | [Harvey LAB](examples/harvey_labs.md) | An existing multi-turn harness, its native judge, and nested Podman. |
 | [Big Finance Benchmark](examples/big_finance_benchmark.md) | An existing ReAct research agent, web tools, and rubric grading. |

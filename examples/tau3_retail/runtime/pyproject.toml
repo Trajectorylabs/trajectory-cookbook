@@ -1,0 +1,11 @@
+[project]
+name = "tau3-retail-sdk-runtime"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "tau2 @ git+https://github.com/sierra-research/tau2-bench@fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "trajectory-sdk==0.9.16",
+]
+
+[tool.uv]
+package = false
