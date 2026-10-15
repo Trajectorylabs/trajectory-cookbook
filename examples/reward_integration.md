@@ -19,10 +19,6 @@ what the original benchmark would report for the same output.
 Tip: if you want to keep additional numeric signals visible without affecting that score,
 consider logging them as named reward components with weight `0`.
 
-This score-equivalence requirement applies to adapting existing benchmarks. For a production
-use case where you are designing a new reward, carefully choose the outcomes you care about
-and define the components, scales, and weights around those objectives.
-
 For an existing benchmark, inspect its grader, evaluation reader, reporting code, and a real
 output. Record:
 
