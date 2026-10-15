@@ -180,19 +180,3 @@ The reward's explanation holds upstream's full `reward_info`, including the data
 
 Upstream ships reports in `data/tau2/domains/retail/task_issues/` for tasks `4` and `7` (train)
 and `5` (test). This example keeps them so the split matches upstream and published results.
-
-## Run the offline tests
-
-```bash
-uv run --no-project --with trajectory-sdk==0.9.16 --with pytest \
-  python -m pytest examples/tau3_retail/test_tau3_retail.py
-
-cd examples/tau3_retail/runtime
-uv sync --frozen
-git clone --filter=blob:none https://github.com/sierra-research/tau2-bench /tmp/tau2-bench
-git -C /tmp/tau2-bench checkout fc0055dc4e0a316c3f83133267fbd6faaa770992
-TAU2_DATA_DIR=/tmp/tau2-bench/data uv run --with pytest python -m pytest tests
-```
-
-The runtime tests run one real retail task through upstream's orchestrator and evaluator with a
-scripted customer and a mocked Trajectory API. Without `TAU2_DATA_DIR`, the data checks skip.
