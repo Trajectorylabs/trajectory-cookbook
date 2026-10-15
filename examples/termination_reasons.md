@@ -14,13 +14,14 @@ default, `ENV_DONE`, means the attempt finished normally.
 - `TRUNCATION`: the model ran out of room. Its final reply was cut off at its output-token
   limit, or the conversation no longer fit its context.
 - `MISSING_SUBMIT`: the task needs a submission and the agent stopped without one.
+- `MAX_STEPS`: your harness stopped the agent at its own turn or step limit.
 
-Training uses `ENV_DONE` rollouts with their logged reward. `ERROR`, `TIMEOUT` and
-`MISSING_SUBMIT` rollouts are not trained on, and `ERROR` counts toward the run's failure
-limit. `TRUNCATION` is trained on only when the run sets `train_on_truncation`, with positive
-rewards counted as 0. The platform sets `LIMIT_REACHED` and `MAX_STEPS` when a run's token,
-context or turn limit stops the model, and `STALE`, `CANCELLED` and `SANDBOX_*` on its own.
-`GOLDEN_PATCH` is reserved.
+Training uses `ENV_DONE` rollouts with their logged reward. `MAX_STEPS` rollouts are trained on
+with positive rewards counted as 0. `ERROR`, `TIMEOUT` and `MISSING_SUBMIT` rollouts are not
+trained on, and `ERROR` counts toward the run's failure limit. `TRUNCATION` is trained on only
+when the run sets `train_on_truncation`, with positive rewards counted as 0. The platform sets
+`LIMIT_REACHED` and `MAX_STEPS` itself when a run's token, context or turn limit stops the
+model, and `STALE`, `CANCELLED` and `SANDBOX_*` on its own. `GOLDEN_PATCH` is reserved.
 
 ## Detect a cut-off final reply
 
