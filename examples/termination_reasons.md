@@ -23,6 +23,9 @@ when the run sets `train_on_truncation`, with positive rewards counted as 0. The
 `LIMIT_REACHED` and `MAX_STEPS` itself when a run's token, context or turn limit stops the
 model, and `STALE`, `CANCELLED` and `SANDBOX_*` on its own. `GOLDEN_PATCH` is reserved.
 
+In evaluation, `LIMIT_REACHED`, `MAX_STEPS` and `TRUNCATION` count positive rewards as 0, and
+`ERROR` counts as a failed attempt. Other reasons are scored with the logged or automatic grade.
+
 ## Detect a cut-off final reply
 
 Most agent loops stop at the first reply without a tool call, including a reply cut off
