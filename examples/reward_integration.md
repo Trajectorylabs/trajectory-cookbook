@@ -11,21 +11,37 @@ to `log_reward(value=...)`.
 
 ## Choose the score explicitly
 
-Inspect the grader implementation and a real output from the benchmark. Record:
+When adapting an existing benchmark, preserve the primary score used by its original
+evaluation entrypoint and reporting path. Trace how that score is computed and publish it
+as the sole reward component with weight `1`. Retain other numeric signals as explicitly
+named reward components with weight `0`, including rubric breakdowns and partial-credit
+fractions that do not determine the original primary score. Do not substitute a richer
+training signal or average auxiliary scores into the benchmark reward.
+
+This score-equivalence requirement applies to adapting existing benchmarks. For a production
+use case where you are designing a new reward, carefully choose the outcomes you care about
+and define the components, scales, and weights around those objectives.
+
+For an existing benchmark, inspect its grader, evaluation reader, reporting code, and a real
+output. Record:
 
 - Where the result comes from: a file, an API response, or a return value etc.
   If several files exist, check which one the reader actually consumes.
-- Which field or documented formula represents task performance. A task can produce files
-  containing accuracy, latency, and cost; explicitly choose which metric or formula
-  determines reward.
-- The score's range, units, direction, and aggregation. Preserve the grader's partial-credit
-  semantics and document any transformation, including normalization or conversion of a
-  lower-is-better metric.
+- Which field or formula produces the original benchmark's primary reported score, with
+  source references showing where it is computed and consumed.
+- The score's range, units, direction, thresholds, and aggregation. Preserve partial credit
+  only when it contributes to that primary score; do not impose binary scoring on benchmarks
+  whose primary score is continuous. Preserve the original score conversion without adding
+  normalization, rounding, or thresholds.
 - How the grader distinguishes a valid failed answer from a grading or execution error.
 
 Keep this mapping in the adapter and document it next to the task configuration. Tasks
 may use different grading schemas. Do not assume that one task's output field applies
 to the whole benchmark.
+
+If documentation and executable evaluation behavior disagree, or multiple scoring modes
+exist without a clear primary metric, report the ambiguity and resolve the intended
+comparison target before completing ingestion. Do not silently choose a scoring mode.
 
 ## Put the adapter in your task harness
 
@@ -90,11 +106,16 @@ as well. Do not silently clamp values, guess a field, or substitute zero for a m
 Publish the selected score using the same trajectory ID as the model calls, then complete
 the trajectory after reward publication succeeds.
 
-Trajectory combines reward components using a weighted sum. If you publish a total and
-its sub-scores with nonzero weights, you can count the same performance twice.
-Use weight `0` for additional numeric components that should be visible only for diagnosis.
-If you intentionally combine several objectives, define their weights explicitly. 
-An all-zero-weight set does not provide a training signal.
+Trajectory combines reward components using a weighted sum. For an existing benchmark,
+publish its primary score with weight `1` and all auxiliary numeric scores with weight `0`.
+For example, if the benchmark requires every criterion to pass, meeting 5 of 10 criteria
+must publish primary reward `0` with weight `1`; the fraction `0.5` has weight `0`.
+Publishing both the total and its sub-scores with nonzero weights changes the objective.
+For a new production reward, define component weights explicitly around the desired outcomes.
+An all-zero-weight set does not provide a training signal. Publish auxiliary reward components
+only alongside a valid primary reward; use events or artifacts for diagnostics when grading
+fails or the primary reward is still pending, as described in
+[Report native results](../README.md#report-native-results).
 
 ## Keep a zero score distinct from a missing grade
 
@@ -115,8 +136,12 @@ See [Report native results](../README.md#report-native-results) and
 
 ## Validate the complete submitted path
 
-1. Exercise the adapter with a known passing result, a genuine zero, and partial credit if
-   supported. Also check that missing fields and malformed results fail visibly. Inject an
+1. For an existing benchmark, compare the original evaluation path and the adapter on the
+   same saved outputs, including failing, partially correct, and fully correct cases where
+   applicable. Require exact equality of the primary scores and verify that auxiliary
+   components have weight `0` and do not change the total. A partially correct answer must
+   still score zero when the original benchmark requires full correctness.
+2. Check that missing fields and malformed results fail visibly. Inject an execution
    failure with a successful grader: the trajectory must end as `ERROR` with no published
    reward, while a valid incorrect answer must retain its native zero.
 3. Run a [task diagnostic](gsm8k/README.md#3-validate-one-task) using the packaged
