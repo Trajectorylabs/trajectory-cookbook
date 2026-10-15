@@ -43,7 +43,6 @@ def train_and_evaluate(
         model,
         "Tau 3 Retail baseline",
         poll_seconds,
-        options=_EVAL_OPTIONS,
     )
     run_id = start_training(client, agent_name, bench_name, model, num_steps)
     run = wait_for_training(client, run_id, poll_seconds)
@@ -62,7 +61,6 @@ def train_and_evaluate(
             parent_checkpoint_id=client.training.checkpoints.retrieve(
                 run_id, num_steps
             ).checkpoint_id,
-            options=_EVAL_OPTIONS,
         ),
     )
     print(f"baseline_reward={comparison.baseline:.6f}", flush=True)
@@ -91,27 +89,6 @@ def start_training(
     return created.training_run_id
 
 
-def eval_smoketest(
-    client: Client,
-    agent_name: str,
-    bench_name: str,
-    model: str = _DEFAULT_MODEL,
-    poll_seconds: float = 30,
-    parent_checkpoint_id: str | None = None,
-) -> float:
-    # Evaluate one held-out task to catch user-simulator and grading errors quickly.
-    return evaluate(
-        client,
-        agent_name,
-        bench_name,
-        model,
-        "Tau 3 Retail smoketest",
-        poll_seconds,
-        parent_checkpoint_id=parent_checkpoint_id,
-        options={"evaluation_max_samples": 1, "evaluation_max_active_rollouts": 1},
-    )
-
-
 def evaluate(
     client: Client,
     agent_name: str,
@@ -120,7 +97,6 @@ def evaluate(
     display_name: str,
     poll_seconds: float,
     parent_checkpoint_id: str | None = None,
-    options: dict | None = None,
 ) -> float:
     while True:
         try:
@@ -130,7 +106,7 @@ def evaluate(
                 base_model_slug=model,
                 parent_checkpoint_id=parent_checkpoint_id,
                 display_name=display_name,
-                options={**_ROLLOUT_OPTIONS, **(options or {})},
+                options={**_ROLLOUT_OPTIONS, **_EVAL_OPTIONS},
             )
             break
         except RateLimitError as error:
@@ -185,26 +161,16 @@ def main() -> int:
     parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--num-steps", type=int, default=20)
     parser.add_argument("--poll-seconds", type=float, default=30)
-    parser.add_argument(
-        "--smoketest", action="store_true", help="evaluate one held-out task and exit"
-    )
     args = parser.parse_args()
 
-    client = Client(max_retries=20)
-    if args.smoketest:
-        reward = eval_smoketest(
-            client, args.agent_name, args.bench_name, args.model, args.poll_seconds
-        )
-        print(f"smoketest_reward={reward:.6f}", flush=True)
-    else:
-        train_and_evaluate(
-            client,
-            args.agent_name,
-            args.bench_name,
-            args.model,
-            args.num_steps,
-            args.poll_seconds,
-        )
+    train_and_evaluate(
+        Client(max_retries=20),
+        args.agent_name,
+        args.bench_name,
+        args.model,
+        args.num_steps,
+        args.poll_seconds,
+    )
     return 0
 
 

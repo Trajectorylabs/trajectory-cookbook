@@ -3,7 +3,7 @@
 This example packages Sierra's public Tau 3 Retail tasks from τ²-bench commit
 `fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1) and trains `Qwen/Qwen3.5-4B` on them.
 It follows the [GSM8K workflow](../gsm8k/README.md) with a multi-turn benchmark: validate one
-task, smoke-test, upload, measure a baseline, train, and evaluate the checkpoint.
+task, upload, measure a baseline, train, and evaluate the checkpoint.
 
 The agent plays a retail customer-service representative. It follows a written policy and
 uses 17 tools to look up users, orders, and products, then cancels, modifies, returns, or
@@ -34,15 +34,10 @@ the median and 28 at most, and the model passes 66% of tasks. Expect a 4B model 
   and a `run_command` that runs that single task.
 - [`runtime/tau3_retail/agent.py`](runtime/tau3_retail/agent.py) runs the task through
   upstream's `run_single_task`, routes the agent's model calls through the Trajectory session,
-  logs upstream's reward (zeroed on leaked reasoning) and a protocol event, and completes the
-  trajectory. If the runner
-  raises, it completes the trajectory with `ERROR` before re-raising.
-- [`runtime/tau3_retail/protocol.py`](runtime/tau3_retail/protocol.py) pins the source commit,
-  the official split, and a SHA-256 over `tasks.json`, `split_tasks.json`, `db.json`, and
-  `policy.md`. The image build and every task refuse to run if any of these drift.
-- [`runtime/tau3_retail/user_simulator.py`](runtime/tau3_retail/user_simulator.py) retries
-  simulated-customer responses with neither text nor tool calls, at most three times, without
-  advancing conversation state. It does not fabricate customer messages.
+  logs the reward and a protocol event, and completes the trajectory. If the runner raises, it
+  completes the trajectory with `ERROR` before re-raising.
+- [`runtime/tau3_retail/protocol.py`](runtime/tau3_retail/protocol.py) holds the official split
+  and the run settings. The runtime's `uv.lock` and Dockerfile pin the upstream commit.
 - [`train.py`](train.py) evaluates, trains, monitors progress, and compares the checkpoint.
 
 The agent's calls go to the model being evaluated or trained. The simulated customer and the
@@ -90,18 +85,7 @@ benchmark. It prints the diagnostic ID, status, task report, and reward. Zero is
 outcome; a failure here points to packaging, model routing, the simulated customer, or grading.
 See [task diagnostics](../task_diagnostics.md) to inspect a result again.
 
-## 3. Smoke-test one held-out task
-
-```bash
-uv run examples/tau3_retail/ingest.py --agent-name tau3-retail-cookbook --smoketest
-uv run examples/tau3_retail/train.py --agent-name tau3-retail-cookbook \
-  --bench-name tau3-retail-smoketest --smoketest
-```
-
-The first command uploads `tau3-retail-smoketest` with one train and one test task and waits for
-its image. The second evaluates the test task and prints `smoketest_reward`.
-
-## 4. Upload the benchmark
+## 3. Upload the benchmark
 
 ```bash
 uv run examples/tau3_retail/ingest.py --agent-name tau3-retail-cookbook
@@ -110,7 +94,7 @@ uv run examples/tau3_retail/ingest.py --agent-name tau3-retail-cookbook
 This uploads all 114 tasks as `tau3-retail-trajectory-sdk`, waits for the image, and runs a
 benchmark diagnostic on up to 10 tasks.
 
-## 5. Train and compare
+## 4. Train and compare
 
 ```bash
 uv run examples/tau3_retail/train.py --agent-name tau3-retail-cookbook \
@@ -171,9 +155,9 @@ run = client.training.runs.retrieve("YOUR_TRAINING_RUN_ID")
 print(run.status, client.training.runs.progress("YOUR_TRAINING_RUN_ID"), run.failure)
 ```
 
-Each trajectory carries a `tau3_retail_protocol` event with the source commit and digest, the
-customer and judge model, the upstream termination reason, the number of policy calls, and
-the number of reasoning leaks and malformed tool calls, and the ungated upstream reward.
+Each trajectory carries a `tau3_retail_protocol` event with the task ID, the number of policy
+calls, reasoning leaks, and malformed tool calls, the ungated upstream reward, and the upstream
+termination reason.
 The reward's explanation holds upstream's full `reward_info`, including the database check.
 
 ## Known upstream task issues

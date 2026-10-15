@@ -8,15 +8,12 @@ import time
 from pathlib import Path
 
 from runtime.tau3_retail.protocol import (
-    EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
     MAX_ERRORS,
     MAX_STEPS,
     SOURCE_COMMIT,
     SOURCE_REPOSITORY,
-    SOURCE_SHA256,
     SOURCE_TAG,
     TASK_IDS,
-    TEST_IDS,
     TRAIN_IDS,
     USER_AND_JUDGE_MODEL,
     USER_AND_JUDGE_REASONING_EFFORT,
@@ -59,18 +56,16 @@ def task_spec(task_id: str, runtime: RuntimeSpec | None = None) -> TaskSpec:
             "source_repository": SOURCE_REPOSITORY,
             "source_tag": SOURCE_TAG,
             "source_commit": SOURCE_COMMIT,
-            "source_sha256": SOURCE_SHA256,
             "user_and_judge_model": USER_AND_JUDGE_MODEL,
             "user_and_judge_reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
             "max_steps": MAX_STEPS,
             "max_errors": MAX_ERRORS,
-            "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
         },
         tags=["tau3", "tau3-retail"],
     )
 
 
-def build_benchmark(name: str, task_ids: tuple[str, ...] = TASK_IDS) -> BenchmarkSpec:
+def build_benchmark(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
         family="tau3-retail",
@@ -78,19 +73,12 @@ def build_benchmark(name: str, task_ids: tuple[str, ...] = TASK_IDS) -> Benchmar
             "Pinned public Tau 3 Retail tasks, simulated user, and original upstream evaluator."
         ),
         runtime=DockerfileBuild("runtime/Dockerfile"),
-        tasks=[task_spec(task_id) for task_id in task_ids],
+        tasks=[task_spec(task_id) for task_id in TASK_IDS],
     )
 
 
 def ingest(name: str, agent_name: str) -> str:
     return _push_benchmark(build_benchmark(name), agent_name)
-
-
-def ingest_smoketest(agent_name: str) -> str:
-    # One task per split is the quickest check of ingestion, the user simulator, and grading.
-    return _push_benchmark(
-        build_benchmark("tau3-retail-smoketest", (TRAIN_IDS[0], TEST_IDS[0])), agent_name
-    )
 
 
 def task_diagnose(agent_name: str, task_id: str = TRAIN_IDS[0]) -> None:
@@ -161,22 +149,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="tau3-retail-trajectory-sdk")
-    step = parser.add_mutually_exclusive_group()
-    step.add_argument(
+    parser.add_argument(
         "--task-diagnostic",
         action="store_true",
         help="run one training task without uploading a benchmark",
     )
-    step.add_argument(
-        "--smoketest",
-        action="store_true",
-        help="upload tau3-retail-smoketest with one train and one test task",
-    )
     args = parser.parse_args()
     if args.task_diagnostic:
         task_diagnose(args.agent_name)
-    elif args.smoketest:
-        ingest_smoketest(args.agent_name)
     else:
         benchmark_diagnostic(ingest(args.name, args.agent_name))
 

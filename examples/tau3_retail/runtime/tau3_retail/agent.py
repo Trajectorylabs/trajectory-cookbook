@@ -7,20 +7,15 @@ from tau3_retail.policy_provider import register_policy
 from tau3_retail.protocol import (
     AGENT_MAX_TOKENS,
     DOMAIN,
-    EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
     MAX_ERRORS,
     MAX_RETRIES,
     MAX_STEPS,
     SEED,
-    SOURCE_COMMIT,
-    SOURCE_SHA256,
     USER_AND_JUDGE_MODEL,
     USER_AND_JUDGE_REASONING_EFFORT,
     configure_nl_assertion_judge,
     load_task,
-    verify_source,
 )
-from tau3_retail.user_simulator import USER_SIMULATOR, register_user_simulator
 from trajectory import Client
 
 
@@ -46,13 +41,11 @@ def run_task(client: Client, task_id: str) -> str:
     from tau2.evaluator.evaluator import EvaluationType  # noqa: PLC0415
     from tau2.runner.batch import run_single_task  # noqa: PLC0415
 
-    verify_source()
     configure_nl_assertion_judge()
     task = load_task(task_id)
     trajectory_id = client.trajectories.create().tid
     try:
         provider = register_policy(client, trajectory_id)
-        register_user_simulator()
         config = TextRunConfig(
             domain=DOMAIN,
             agent="llm_agent",
@@ -65,7 +58,7 @@ def run_task(client: Client, task_id: str) -> str:
                 "max_tokens": AGENT_MAX_TOKENS,
                 "num_retries": MAX_RETRIES,
             },
-            user=USER_SIMULATOR,
+            user="user_simulator",
             llm_user=USER_AND_JUDGE_MODEL,
             llm_args_user={
                 "reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
@@ -111,19 +104,10 @@ def run_task(client: Client, task_id: str) -> str:
             name="tau3_retail_protocol",
             payload={
                 "task_id": task_id,
-                "source_commit": SOURCE_COMMIT,
-                "source_sha256": SOURCE_SHA256,
-                "user_and_judge_model": USER_AND_JUDGE_MODEL,
-                "user_and_judge_reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
-                "agent_max_tokens": AGENT_MAX_TOKENS,
-                "max_steps": MAX_STEPS,
-                "max_errors": MAX_ERRORS,
-                "seed": SEED,
                 "policy_calls": provider.calls,
                 "reasoning_leaks": provider.reasoning_leaks,
-                "upstream_reward": upstream_reward,
                 "malformed_tool_calls": provider.malformed_tool_calls,
-                "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
+                "upstream_reward": upstream_reward,
                 "upstream_termination_reason": upstream_termination,
             },
         )

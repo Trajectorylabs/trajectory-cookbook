@@ -21,5 +21,4 @@ ENV PATH="/opt/tau3-retail/.venv/bin:$PATH" \
   PYTHONUNBUFFERED=1 \
   TAU2_DATA_DIR=/opt/tau2-source/data
 COPY tau3_retail /opt/tau3-retail/tau3_retail
-RUN python -c "from tau3_retail.protocol import verify_source; verify_source()"
 CMD ["sleep", "infinity"]
