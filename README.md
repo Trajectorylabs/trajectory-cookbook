@@ -362,10 +362,17 @@ retryable failures from failures that should stop the task.
 
 ### Report native results
 
-Call `client.trajectories.log_reward(...)` with the grader's score, including zero, then
-`client.trajectories.complete(...)` with the same trajectory ID. Use the benchmark's score
-conversion and weighting. Report execution or grading errors as failures rather than
-substituting a zero reward.
+Check for unresolved execution errors before publishing a reward. **Successful grading does
+not justify `ENV_DONE`.** If `client.chat.completions.create(...)` fails on every retry and
+prevents the core task from completing, call
+`client.trajectories.complete(tid, termination_reason="ERROR")`, even if the grader succeeds.
+That grade is not a valid measure of model performance: do not publish it with `log_reward`
+or use it for training. Keep any resulting grade only as diagnostic event or artifact data.
+
+For valid executions, call `client.trajectories.log_reward(...)` with the grader's score,
+including a genuine zero, then `client.trajectories.complete(...)` with the same trajectory
+ID. Use the benchmark's score conversion and weighting. A recovered retry does not invalidate
+an otherwise valid execution. Report grading errors as failures rather than substituting zero.
 
 Set `termination_reason` from the outcome of the task's execution and grading. Use `ENV_DONE`
 when that operation completes normally, including when a solver reaches its own stopping
