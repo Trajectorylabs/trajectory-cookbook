@@ -110,7 +110,8 @@ report `termination_reason="ERROR"`. Otherwise, we could end up training on infr
 failures rather than model performance. For Harbor (and other similar existing benchmarks),
 check `exception_info` even when `verifier_result` contains a score.
 Retain any grade only in diagnostic events or artifacts. 
-See [Report native results](../README.md#report-native-results).
+See [Report native results](../README.md#report-native-results) and
+[Ending a trajectory](termination_reasons.md) for every termination reason.
 
 ## Validate the complete submitted path
 

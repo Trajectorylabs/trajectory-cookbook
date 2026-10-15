@@ -29,6 +29,7 @@ Supporting Guides:
 
 - [Task Upload Validation](examples/task_diagnostics.md): validate one task or inspect a few uploaded tasks.
 - [Diagnostic artifacts](examples/diagnostic_artifacts.md): keep full reports and logs with a trajectory.
+- [Ending a trajectory](examples/termination_reasons.md): choose the termination reason and see how each one is scored.
 - [Runtime packaging](#package-a-benchmark-runtime): files, dependencies, secrets, and nested containers.
 
 The sections below are SDK reference material for adapting your own benchmark. Follow the
@@ -374,13 +375,11 @@ including a genuine zero, then `client.trajectories.complete(...)` with the same
 ID. Use the benchmark's score conversion and weighting. A recovered retry does not invalidate
 an otherwise valid execution. Report grading errors as failures rather than substituting zero.
 
-Set `termination_reason` from the outcome of the task's execution and grading. Use `ENV_DONE`
-when that operation completes normally, including when a solver reaches its own stopping
-condition and the benchmark grades the result. Use the corresponding failure or limit reason
-when the trajectory itself stops early. `MAX_STEPS`, `LIMIT_REACHED` and `TRUNCATION` cap
-positive evaluation rewards at zero, even if a raw reward was logged. Platform-enforced
-limits still apply. Report exception paths with the failure reason before re-raising the
-original exception; process exit alone does not complete the trajectory.
+Set `termination_reason` from how the attempt actually ended: `ENV_DONE` only when it finished
+normally, otherwise `ERROR`, `TIMEOUT`, `TRUNCATION` or `MISSING_SUBMIT`. The platform does not
+infer the reason from the model's replies. [Ending a trajectory](examples/termination_reasons.md)
+lists every reason, how to choose one, and how each affects training and evaluation. Report
+exception paths with the failure reason before re-raising the original exception.
 
 Reward components are summed with their weights, which default to 1. Record diagnostic scores
 that are not part of the benchmark's reward with `client.trajectories.log_event(..., payload=...)`.
