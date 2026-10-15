@@ -1,10 +1,9 @@
 # Ending a trajectory
 
 Every rollout ends with `client.trajectories.complete(tid, termination_reason=...)`. The
-reason tells training and evaluation whether the attempt can be scored. The platform records
-the reason your harness sends; it does not infer it from the model's replies, so the harness
-has to check how the attempt actually ended. `termination_reason` defaults to `ENV_DONE`, which
-means the attempt finished normally.
+reason decides whether training and evaluation can score the attempt. The platform records
+the reason your harness sends and does not infer it from the model's replies, so the harness
+has to check how the attempt ended. The default, `ENV_DONE`, means it finished normally.
 
 ## Choose the reason
 
@@ -33,11 +32,11 @@ failure reason before re-raising an exception; a process that exits without call
 | `ENV_DONE` | Your harness | Trained on with the logged reward | Scored with the logged or automatic grade |
 | `ERROR` | Your harness, or the platform when a rollout fails | Not trained on; counts toward the run's failure limit | Counted as failed |
 | `TIMEOUT` | Your harness, or the platform when execution exceeds its limit | Not trained on | Scored with any logged or automatic grade, otherwise failed |
-| `TRUNCATION` | Your harness | Not trained on unless the run sets `train_on_truncation`; a positive reward counts as 0 | Positive reward counts as 0 |
+| `TRUNCATION` | Your harness | Not trained on unless the run sets `train_on_truncation`, which trains it with a positive reward counted as 0 | Positive reward counts as 0 |
 | `MISSING_SUBMIT` | Your harness | Not trained on | Scored with any logged or automatic grade, otherwise failed |
 | `LIMIT_REACHED` | The platform, when a run's token or context limit stops the model | Trained on; a positive reward counts as 0 | Positive reward counts as 0 |
 | `MAX_STEPS` | The platform, when a run's turn limit is reached | Trained on; a positive reward counts as 0 | Positive reward counts as 0 |
-| `STALE` | The platform, when training no longer needs the rollout | Not trained on | Not normally applicable |
+| `STALE` | The platform, when training no longer needs the rollout | Not trained on | — |
 | `GOLDEN_PATCH` | Reserved; do not send | Not trained on | — |
 
 A completed rollout with no reward is counted as failed unless the run sets
@@ -80,8 +79,8 @@ Later model requests return an empty reply with `finish_reason: "stop"` and
 you see it. The platform keeps its own reason (`LIMIT_REACHED` or `MAX_STEPS`) even if you then
 call `complete()`.
 
-Model request errors carry a `Trajectory-Should-Retry` header; retry only when it is `true`.
-The Trajectory client already retries connection failures, timeouts, 408, 429 and 5xx twice.
+The Trajectory client retries connection failures, timeouts, 408, 429 and 5xx twice. If you
+retry on top of that, retry only when the response's `Trajectory-Should-Retry` header is `true`.
 These are the errors to handle:
 
 | Status | Meaning | Action |
@@ -91,4 +90,5 @@ These are the errors to handle:
 | 400 | Invalid request | Fix the request; send `ERROR` if the attempt cannot continue |
 | 402, 403 | Insufficient credits or no access to the model | Stop; send `ERROR` |
 | 409 `trajectory_busy` | Another request is in flight on this trajectory | Wait for it; do not send concurrent requests |
-| 502, 503 | The model service is unavailable | Retried automatically; send `ERROR` if retries run out |
+| 502 `provider_unavailable` | The model provider failed the request | Do not retry; send `ERROR` |
+| 503 | The model service is temporarily unavailable | Retried automatically; send `ERROR` if retries run out |
