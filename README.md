@@ -380,9 +380,10 @@ infer the reason from the model's replies. [Ending a trajectory](examples/termin
 lists every reason, how to choose one, and how each affects training and evaluation. Report
 exception paths with the failure reason before re-raising the original exception.
 
-Reward components are summed with their weights, which default to 1. Consider weight `0`
-for additional scores you want to display without affecting the reward. See the
-[reward integration guide](examples/reward_integration.md) for diagnostic reporting details.
+The reward is the weighted average of its components; weights default to 1. Consider weight
+`0` for additional scores you want to display without affecting the reward. See the
+[reward integration guide](examples/reward_integration.md#log-several-reward-components-and-grader-output)
+for logging several components and the grader's output.
 Use events for summaries and [artifacts](examples/diagnostic_artifacts.md) for full reports.
 Finish recording them before completing the trajectory and cleaning up the environment.
 
