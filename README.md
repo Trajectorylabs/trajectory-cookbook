@@ -367,9 +367,7 @@ not justify `ENV_DONE`.** If `client.chat.completions.create(...)` fails on ever
 prevents the core task from completing, call
 `client.trajectories.complete(tid, termination_reason="ERROR")`, even if the grader succeeds.
 That grade is not a valid measure of model performance: do not publish it with `log_reward`
-or use it for training. Preserve the execution error through the runner and adapter; a
-caught exception or successful grader must not erase it. Keep any resulting grade only as
-diagnostic event or artifact data.
+or use it for training. Keep any resulting grade only as diagnostic event or artifact data.
 
 For valid executions, call `client.trajectories.log_reward(...)` with the grader's score,
 including a genuine zero, then `client.trajectories.complete(...)` with the same trajectory
