@@ -12,7 +12,8 @@ Use the first reason in this list that matches:
    or grader failed. Do not log a reward, even if the grader returned one.
 2. `TIMEOUT`: your harness stopped the agent at its own time limit, such as Harbor's
    `AgentTimeoutError`.
-3. `TRUNCATION`: the model's final reply was cut off at its output-token limit.
+3. `TRUNCATION`: the model ran out of room. Its final reply was cut off at its output-token
+   limit, or the conversation no longer fit its context.
 4. `MISSING_SUBMIT`: the task needs a submission and the agent stopped without one.
 5. `ENV_DONE`: anything else, including a graded wrong answer.
 
