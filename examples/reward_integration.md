@@ -12,11 +12,12 @@ to `log_reward(value=...)`.
 ## Choose the score explicitly
 
 When adapting an existing benchmark, preserve the primary score used by its original
-evaluation entrypoint and reporting path. Trace how that score is computed and publish it
-as the sole reward component with weight `1`. Retain other numeric signals as explicitly
-named reward components with weight `0`, including rubric breakdowns and partial-credit
-fractions that do not determine the original primary score. Do not substitute a richer
-training signal or average auxiliary scores into the benchmark reward.
+evaluation entrypoint and reporting path. Trace and preserve its scoring formula, including
+any partial scores, component weights, and aggregation. The published aggregate should match
+what the original benchmark would report for the same output.
+
+Tip: if you want to keep additional numeric signals visible without affecting that score,
+consider logging them as named reward components with weight `0`.
 
 This score-equivalence requirement applies to adapting existing benchmarks. For a production
 use case where you are designing a new reward, carefully choose the outcomes you care about
@@ -107,10 +108,11 @@ Publish the selected score using the same trajectory ID as the model calls, then
 the trajectory after reward publication succeeds.
 
 Trajectory combines reward components using a weighted sum. For an existing benchmark,
-publish its primary score with weight `1` and all auxiliary numeric scores with weight `0`.
-For example, if the benchmark requires every criterion to pass, meeting 5 of 10 criteria
-must publish primary reward `0` with weight `1`; the fraction `0.5` has weight `0`.
-Publishing both the total and its sub-scores with nonzero weights changes the objective.
+preserve its original formula: you can publish the computed total with weight `1`, or its
+components with the original weights when their weighted sum reproduces that total.
+Publishing both the total and its sub-scores with nonzero weights counts performance twice.
+For example, a benchmark may average partial scores across criteria, while another requires
+every criterion to pass. Preserve whichever rule the original benchmark uses.
 For a new production reward, define component weights explicitly around the desired outcomes.
 An all-zero-weight set does not provide a training signal. Publish auxiliary reward components
 only alongside a valid primary reward; use events or artifacts for diagnostics when grading
@@ -138,8 +140,8 @@ See [Report native results](../README.md#report-native-results) and
 
 1. For an existing benchmark, compare the original evaluation path and the adapter on the
    same saved outputs, including failing, partially correct, and fully correct cases where
-   applicable. Require exact equality of the primary scores and verify that auxiliary
-   components have weight `0` and do not change the total. A partially correct answer must
+   applicable. Require exact equality between the published aggregate and the original
+   benchmark score, including any partial-score weighting. A partially correct answer must
    still score zero when the original benchmark requires full correctness.
 2. Check that missing fields and malformed results fail visibly. Inject an execution
    failure with a successful grader: the trajectory must end as `ERROR` with no published

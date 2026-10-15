@@ -150,10 +150,10 @@ When adapting an existing grader, follow [the reward integration guide](examples
 to select its score explicitly, preserve diagnostic metrics, and verify publication through
 the submitted runtime.
 
-For an existing benchmark, publish its original primary reported score with weight `1`
-and retain auxiliary numeric scores with weight `0`. Preserve the original scoring semantics,
-including whether partial credit counts. For a production use case where you are designing
-a new reward, carefully choose components and weights around the outcomes you care about.
+For an existing benchmark, preserve its original scoring formula, including partial scores,
+component weights, and aggregation. Consider weight `0` for additional numeric signals you
+want to keep visible without changing that score. For a production use case where you are
+designing a new reward, carefully choose components and weights around the outcomes you care about.
 
 #### Run your benchmark and see the result
 
@@ -377,8 +377,8 @@ or use it for training. Keep any resulting grade only as diagnostic event or art
 
 For valid executions, call `client.trajectories.log_reward(...)` with the grader's score,
 including a genuine zero, then `client.trajectories.complete(...)` with the same trajectory
-ID. When adapting an existing benchmark, preserve its original primary score and conversion,
-publish it with weight `1`, and give all auxiliary numeric scores weight `0`.
+ID. When adapting an existing benchmark, preserve its original scoring formula and conversion,
+including any partial scores, component weights, and aggregation.
 A recovered retry does not invalidate an otherwise valid execution. Report grading errors
 as failures rather than substituting zero.
 
@@ -389,8 +389,9 @@ lists every reason, how to choose one, and how each affects training and evaluat
 exception paths with the failure reason before re-raising the original exception.
 
 Reward components are summed with their weights, which default to 1. Alongside a valid primary
-benchmark reward, retain auxiliary numeric scores as named `log_reward` components with explicit
-`weight=0`. When grading fails or the primary reward is still pending, record diagnostics with
+benchmark reward, consider keeping additional numeric signals visible as named `log_reward`
+components with `weight=0`, so they do not affect the aggregate. When grading fails or the
+primary reward is still pending, record diagnostics with
 `client.trajectories.log_event(..., payload=...)` or artifacts instead. Events store JSON data
 without changing the reward. Even with `weight=0`, `log_reward` creates a reward record and can
 prevent the default automatic grader from running. A missing optional grader output need not
