@@ -34,8 +34,7 @@ the median and 28 at most, and the model passes 66% of tasks. Expect a 4B model 
   and a `run_command` that runs that single task.
 - [`runtime/tau3_retail/agent.py`](runtime/tau3_retail/agent.py) runs the task through
   upstream's `run_single_task`, routes the agent's model calls through the Trajectory session,
-  logs the reward and a protocol event, and completes the trajectory. If the runner raises, it
-  completes the trajectory with `ERROR` before re-raising.
+  logs the reward and a protocol event, and completes the trajectory.
 - [`runtime/tau3_retail/protocol.py`](runtime/tau3_retail/protocol.py) holds the official split
   and the run settings. The runtime's `uv.lock` and Dockerfile pin the upstream commit.
 - [`train.py`](train.py) evaluates, trains, monitors progress, and compares the checkpoint.
