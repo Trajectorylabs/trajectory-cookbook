@@ -111,14 +111,11 @@ Even a zero-weight reward record can prevent the default automatic grader from r
 
 ## Log several reward components and grader output
 
-Each `log_reward` call adds a named component, and the trajectory's logged reward is the
-weighted average of its components. A component with weight `0` is recorded without counting
-toward the reward. `log_event` records a named JSON object on the trajectory without affecting
-the reward, so a grader's full result can sit next to the scores it produced.
+Each `log_reward` call adds a named component; weight `0` records one without counting it.
+`log_event` records a JSON object on the trajectory without affecting the reward.
 
-In this example, `grade_rubric` stands for a rubric grader that returns how many required
-criteria the answer met and the verdict for each criterion. The reward is the pass/fail score;
-the fraction of criteria met is recorded alongside it:
+Here `grade_rubric` returns how many required criteria were met and a verdict per criterion.
+The reward is pass/fail, and the fraction met is recorded with weight `0`:
 
 ```python
 from trajectory import Client
@@ -155,9 +152,7 @@ def run_task(prompt: str, rubric: list[dict]) -> None:
     client.trajectories.complete(tid)
 ```
 
-Record events before completing the trajectory. Reuse an `event_id` only to retry the same
-write; an existing ID is not updated. Read the events back with `list_events`, which returns
-the newest first:
+Log events before `complete`. `list_events` reads them back, newest first:
 
 ```python
 for event in client.trajectories.list_events(tid):
