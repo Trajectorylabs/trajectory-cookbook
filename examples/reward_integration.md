@@ -17,7 +17,8 @@ any partial scores, component weights, and aggregation. The published aggregate 
 what the original benchmark would report for the same output.
 
 Tip: if you want to keep additional numeric signals visible without affecting that score,
-consider logging them as named reward components with weight `0`.
+consider logging them as named reward components with weight `0`; see
+[Log several reward components and grader output](#log-several-reward-components-and-grader-output).
 
 For an existing benchmark, inspect its grader, evaluation reader, reporting code, and a real
 output. Record:
@@ -103,10 +104,63 @@ as well. Do not silently clamp values, guess a field, or substitute zero for a m
 Publish the selected score using the same trajectory ID as the model calls, then complete
 the trajectory after reward publication succeeds.
 
-Rewards are a weighted sum. Preserve the benchmark's formula by publishing either its total
-with weight `1` or its weighted components, without counting both. For failed or pending
-grading, keep diagnostics in [events or artifacts](../README.md#report-native-results).
+The reward is the weighted average of its components. Preserve the benchmark's formula by
+publishing either its total with weight `1` or its weighted components, without counting both.
+For failed or pending grading, keep diagnostics in [events or artifacts](../README.md#report-native-results).
 Even a zero-weight reward record can prevent the default automatic grader from running.
+
+## Log several reward components and grader output
+
+Each `log_reward` call adds a named component; weight `0` records one without counting it.
+`log_event` records a JSON object on the trajectory without affecting the reward.
+
+Here `grade_rubric` returns how many required criteria were met and a verdict per criterion.
+The reward is pass/fail, and the fraction met is recorded with weight `0`:
+
+```python
+from trajectory import Client
+from your_benchmark.grading import grade_rubric
+
+
+def run_task(prompt: str, rubric: list[dict]) -> None:
+    client = Client()
+    tid = client.trajectories.create().tid
+    response = client.chat.completions.create(
+        model="openai/gpt-5.4-mini",
+        messages=[{"role": "user", "content": prompt}],
+        x_trajectory_id=tid,
+    )
+    model_answer = response.choices[0].message.content
+    result = grade_rubric(model_answer, rubric)
+    met, total = result["n_required_met"], result["n_required"]
+
+    client.trajectories.log_reward(
+        tid,
+        name="pass",
+        value=float(met == total),
+        weight=1.0,
+        explanation=f"{met}/{total} required criteria met",
+    )
+    client.trajectories.log_reward(
+        tid,
+        name="criteria_met",
+        value=met / total,
+        weight=0.0,
+        explanation=f"{met}/{total} required criteria met",
+    )
+    client.trajectories.log_event(tid, event_id="rubric", name="rubric", payload=result)
+    client.trajectories.complete(tid)
+```
+
+Log events before `complete`. `list_events` reads them back, newest first:
+
+```python
+for event in client.trajectories.list_events(tid):
+    print(event.event_id, event.event)
+```
+
+In the trajectory's trace view, each component appears under **Reward** and each event under
+**Events**.
 
 ## Keep a zero score distinct from a missing grade
 
