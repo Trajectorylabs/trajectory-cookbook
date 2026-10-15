@@ -104,10 +104,20 @@ incorrect answer. Report `termination_reason="ERROR"` when the attempt cannot pr
 publish a valid grade, preserve the underlying exception, and do not mark it successful or
 give it a zero reward.
 
+An unresolved execution error takes precedence over a completed grader. If chat completion
+fails after all retries and the core task cannot complete, report `termination_reason="ERROR"`
+and do not publish the grader's score as a reward. Such a score would train on infrastructure
+failure rather than model performance. Check the harness's execution error before importing
+its grade; for Harbor, check `exception_info` even when `verifier_result` contains a score.
+Preserve the error through the runner and adapter. Retain any grade only in diagnostic events
+or artifacts. See [Report native results](../README.md#report-native-results).
+
 ## Validate the complete submitted path
 
 1. Exercise the adapter with a known passing result, a genuine zero, and partial credit if
-   supported. Also check that missing fields and malformed results fail visibly.
+   supported. Also check that missing fields and malformed results fail visibly. Inject an
+   exhausted inference failure with a successful grader: the trajectory must end as `ERROR`
+   with no published reward, while a valid incorrect answer must retain its native zero.
 2. Run a [task diagnostic](gsm8k/README.md#3-validate-one-task) using the packaged
    runtime, task command, grader, adapter, and SDK publication path. Running the upstream
    grader alone skips the integration boundary you need to validate.
