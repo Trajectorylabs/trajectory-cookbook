@@ -1,165 +1,31 @@
-# Tau 3 Retail: train a small model on customer-service tasks
+# Tau 3 Retail
 
-This example packages Sierra's public Tau 3 Retail tasks from τ²-bench commit
-`fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1) and trains `Qwen/Qwen3.5-4B` on them.
-It follows the [GSM8K workflow](../gsm8k/README.md) with a multi-turn benchmark: validate one
-task, upload, measure a baseline, train, and evaluate the checkpoint.
+This example packages Sierra's public 114-task Retail benchmark from Tau 2 commit
+`fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1) with upstream's official 74 train / 40 test
+split, and trains `Qwen/Qwen3.5-4B` on it. The agent is a customer-service representative with
+17 tools; upstream's simulated customer drives each conversation from private instructions, and
+upstream's evaluator grades the final database and the task's natural-language assertions.
 
-The agent plays a retail customer-service representative. It follows a written policy and
-uses 17 tools to look up users, orders, and products, then cancels, modifies, returns, or
-exchanges orders. A simulated customer drives each conversation from private instructions. The
-policy requires explicit customer confirmation before any database change, so the simulated
-customer is part of the benchmark rather than a convenience.
+Two agent failures also score `0.0`. A reply containing `</think>`: `disable_thinking` does not
+stop the model from emitting the tag, and in an ungated run at learning rate `1e-4` training
+rewarded leaky replies until 88% of rollouts leaked. And tool-call arguments that are not valid
+JSON: upstream raises on them, and one crashed rollout fails a whole evaluation. Each
+trajectory's `tau3_retail_protocol` event records both counts and the ungated upstream reward.
 
-The runtime preserves the upstream task bytes, policy, database, user simulator prompts,
-and evaluator. Reward is upstream's, `1.0` only when the final database matches the expected
-state and the task's natural-language assertions pass, otherwise `0.0`. Two agent failures also
-score `0.0`: a reply containing `</think>` (see [reasoning leaks](#watch-for-reasoning-leaks)),
-and tool-call arguments that are not valid JSON. Upstream raises on the latter, which would
-crash the task; a single crashed rollout fails a whole evaluation, and training drops crashed
-rollouts instead of penalizing them.
+Choose an agent using the [Cookbook guidance](../../README.md#choose-or-create-an-agent).
+Register the organization secret `OPENAI_API_KEY` for the simulated customer and judge
+(`gpt-5.4-mini-2026-03-17`); its value is never included in the image or upload.
 
-| | Tau 3 Banking | Tau 3 Retail |
-| --- | --- | --- |
-| Tasks | 97, sorted into 80 train / 17 test | 114, upstream's official 74 train / 40 test |
-| Retrieval | `bm25_grep` over 698 documents | None; policy and tools only |
-| Reward basis | Database (87), actions (9), judged assertion (1) | Database plus judged assertions; 40 tasks define assertions |
-
-In upstream's published `gpt-4.1-mini` retail transcripts, conversations take 13 agent turns at
-the median and 28 at most, and the model passes 66% of tasks. Expect a 4B model to start lower.
-
-## How the pieces fit
-
-- [`ingest.py`](ingest.py) creates one `TaskSpec` per upstream task ID with its official split
-  and a `run_command` that runs that single task.
-- [`runtime/tau3_retail/agent.py`](runtime/tau3_retail/agent.py) runs the task through
-  upstream's `run_single_task`, routes the agent's model calls through the Trajectory session,
-  logs the reward and a protocol event, and completes the trajectory.
-- [`runtime/tau3_retail/protocol.py`](runtime/tau3_retail/protocol.py) holds the official split
-  and the run settings. The runtime's `uv.lock` and Dockerfile pin the upstream commit.
-- [`train.py`](train.py) evaluates, trains, monitors progress, and compares the checkpoint.
-
-The agent's calls go to the model being evaluated or trained. The simulated customer and the
-assertion judge use `gpt-5.4-mini-2026-03-17` through a separate LiteLLM client and the
-organization's `OPENAI_API_KEY` secret, so those calls never reach the trained model. Each
-rollout makes roughly one customer call per agent turn, so a training step of 8 tasks × 8
-samples makes several hundred OpenAI calls in addition to training compute.
-
-## 1. Set up
-
-Start from the cookbook root with your API key:
-
-```bash
-export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-```
-
-[Choose or create an agent](../../README.md#choose-or-create-an-agent). For a new one:
-
-```bash
-uv run --with trajectory-sdk==0.9.16 python -c \
-  'from trajectory import Client; Client().agents.create(name="tau3-retail-cookbook", description="Tau 3 Retail customer-service evaluation and training")'
-```
-
-The simulated customer and judge need the organization secret `OPENAI_API_KEY`. Check whether
-it already exists before uploading a value:
-
-```python
-import os
-
-from trajectory import Client
-
-client = Client()
-if "OPENAI_API_KEY" not in {secret.name for secret in client.secrets.list()}:
-    client.secrets.create(name="OPENAI_API_KEY", value=os.environ["OPENAI_API_KEY"])
-```
-
-## 2. Validate one task
-
-```bash
-uv run examples/tau3_retail/ingest.py --agent-name tau3-retail-cookbook --task-diagnostic
-```
-
-This builds the runtime and runs training task `0` on `Qwen/Qwen3.5-4B` without uploading a
-benchmark. It prints the diagnostic ID, status, task report, and reward. Zero is a valid graded
-outcome; a failure here points to packaging, model routing, the simulated customer, or grading.
-See [task diagnostics](../task_diagnostics.md) to inspect a result again.
-
-## 3. Upload the benchmark
-
-```bash
-uv run examples/tau3_retail/ingest.py --agent-name tau3-retail-cookbook
-```
-
-This uploads all 114 tasks as `tau3-retail-trajectory-sdk`, waits for the image, and runs a
-benchmark diagnostic on up to 10 tasks.
-
-## 4. Train and compare
-
-```bash
-uv run examples/tau3_retail/train.py --agent-name tau3-retail-cookbook \
+```sh
+uv run examples/tau3_retail/ingest.py --agent-name YOUR_AGENT_NAME --task-diagnostic
+uv run examples/tau3_retail/ingest.py --agent-name YOUR_AGENT_NAME
+uv run examples/tau3_retail/train.py --agent-name YOUR_AGENT_NAME \
   --bench-name tau3-retail-trajectory-sdk --num-steps 20
 ```
 
-The script evaluates the base model on the 40 test tasks, trains, evaluates the final
-checkpoint on the same tasks, and prints `baseline_reward`, `final_reward`, and
-`reward_delta`. Evaluation and training share these rollout options:
-
-| Option | Value | Reason |
-| --- | --- | --- |
-| `disable_thinking` | `True` | Reasoning on every one of 13–28 turns multiplies context and cost. |
-| `max_output_tokens_per_step` | `2048` | Covers the 4B's normal replies (99.5th percentile ~5,500 characters) and stops runaway ones. Matches `max_tokens` in `protocol.py`. |
-| `max_turns_per_trajectory` | `100` | Counts agent and environment turns; retail uses up to ~80. |
-| `train_batch_size` | `8` | 8 tasks × 8 samples per step; about two passes over 74 tasks in 20 steps. |
-| `learning_rate` | `5e-5` | Half the model default; `1e-4` drifted into reasoning leaks, see below. |
-| `lr_warmup_steps` | `3` | The default of 15 keeps a 20-step run in warmup; at `3e-5` it did not learn. |
-
-The model's other defaults apply, including GSPO with 8 samples per task.
-Retail tool responses stay under 3,400 characters in upstream transcripts, within the
-16,384-character training limit, so training and evaluation see the same conversations.
-Discover the options and their bounds with
-`client.training.list_options(bench_id=..., base_model_slug="Qwen/Qwen3.5-4B")`.
-
-Both evaluations run each of the 40 test tasks 4 times (`evaluation_samples_per_task`). With
-one sample per task, two evaluations of nearly the same model differed by `0.15`: 12 tasks
-flipped to failing and 6 to passing. Treat a small `reward_delta` from one short run as
-inconclusive.
-
-### Watch for reasoning leaks
-
-`disable_thinking` pre-fills an empty `<think></think>` block; it does not stop the model from
-emitting `</think>` itself. Upstream's reward checks the final database, not how the agent
-talks. In an ungated run at learning rate `1e-4` with 2 warmup steps, Qwen 3.5 4B learned to
-end a draft reply with `</think>` and start again, repeating sentences. Leaky conversations
-that still reached the right database state earned full reward, so training reinforced them.
-Leaks went from 0% of sampled rollouts at steps 0–2 to 88% at steps 13–15, average reply
-length grew from ~500 to ~7,200 characters, and the training solve rate on the same tasks fell
-from 0.64 to 0.54.
-
-The runtime therefore scores any conversation with a leaked `</think>` as `0.0`. The base
-model leaked in none of 40 baseline conversations, so the gate does not change its score.
-Each trajectory's `tau3_retail_protocol` event records `reasoning_leaks`, the number of agent
-replies containing `</think>`, and `upstream_reward`, the ungated score.
-
-## Inspect existing work
-
-Interrupting a command does not cancel accepted work. Use the printed IDs:
-
-```python
-from trajectory import Client
-
-client = Client()
-print(client.diagnostics.get_status("YOUR_DIAGNOSTIC_ID"))
-print(client.evals.runs.retrieve("YOUR_EVAL_RUN_ID").reward_mean)
-run = client.training.runs.retrieve("YOUR_TRAINING_RUN_ID")
-print(run.status, client.training.runs.progress("YOUR_TRAINING_RUN_ID"), run.failure)
-```
-
-Each trajectory carries a `tau3_retail_protocol` event with the task ID, the number of policy
-calls, reasoning leaks, and malformed tool calls, the ungated upstream reward, and the upstream
-termination reason.
-The reward's explanation holds upstream's full `reward_info`, including the database check.
-
-## Known upstream task issues
-
-Upstream ships reports in `data/tau2/domains/retail/task_issues/` for tasks `4` and `7` (train)
-and `5` (test). This example keeps them so the split matches upstream and published results.
+The first command runs one task without uploading. The second uploads all 114 tasks and runs a
+benchmark diagnostic. The third evaluates the base model, trains, and evaluates the checkpoint,
+running each test task 4 times; with one sample, two evaluations of nearly the same model
+differed by `0.15`. It uses a 2,048-token output cap and learning rate `5e-5` with 3 warmup
+steps; the model default of 15 warmup steps leaves a 20-step run barely trained. In a 20-step
+run, the test reward went from `0.60` to about `0.66`.
