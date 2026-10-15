@@ -1,94 +1,48 @@
 # Ending a trajectory
 
-Every rollout ends with `client.trajectories.complete(tid, termination_reason=...)`. The
-reason decides whether training and evaluation can score the attempt. The platform records
-the reason your harness sends and does not infer it from the model's replies, so the harness
-has to check how the attempt ended. The default, `ENV_DONE`, means it finished normally.
+Log the reward, then call `client.trajectories.complete(tid, termination_reason=...)`. The
+platform records the reason you send; it does not infer it from the model's replies. The
+default, `ENV_DONE`, means the attempt finished normally.
 
 ## Choose the reason
 
-Check these in order and send the first that applies:
+Send the first one that applies:
 
-1. The attempt could not produce a valid grade: a model request kept failing after retries,
-   the environment or grader broke, or the result is missing or malformed. Send `ERROR`, and
-   do not log a reward for it, even if the grader returned one.
-2. Your harness stopped the agent at its own time limit, for example Harbor's
-   `AgentTimeoutError`. Send `TIMEOUT`.
-3. The model's final reply was cut off at its output-token limit, so the agent stopped without
-   finishing its turn. Send `TRUNCATION`. See [Detect a cut-off final reply](#detect-a-cut-off-final-reply).
-4. The task requires an explicit submission and the agent stopped without one. Send
-   `MISSING_SUBMIT`.
-5. Otherwise send `ENV_DONE`, including when the agent reached its own stopping condition and
-   the benchmark graded a wrong answer. A genuine zero is a valid reward.
+1. `ERROR`: there is no valid grade. Model requests failed after retries, or the environment
+   or grader failed. Do not log a reward, even if the grader returned one.
+2. `TIMEOUT`: your harness stopped the agent at its own time limit, such as Harbor's
+   `AgentTimeoutError`.
+3. `TRUNCATION`: the model's final reply was cut off at its output-token limit.
+4. `MISSING_SUBMIT`: the task needs a submission and the agent stopped without one.
+5. `ENV_DONE`: anything else, including a graded wrong answer.
 
-Log the reward with `client.trajectories.log_reward(...)` before completing. Report the
-failure reason before re-raising an exception; a process that exits without calling
-`complete()` is recorded as `ERROR`.
-
-## What each reason does
-
-| Reason | Who sends it | Training | Evaluation |
-| --- | --- | --- | --- |
-| `ENV_DONE` | Your harness | Trained on with the logged reward | Scored with the logged or automatic grade |
-| `ERROR` | Your harness, or the platform when a rollout fails | Not trained on; counts toward the run's failure limit | Counted as failed |
-| `TIMEOUT` | Your harness, or the platform when execution exceeds its limit | Not trained on | Scored with any logged or automatic grade, otherwise failed |
-| `TRUNCATION` | Your harness | Not trained on unless the run sets `train_on_truncation`, which trains it with a positive reward counted as 0 | Positive reward counts as 0 |
-| `MISSING_SUBMIT` | Your harness | Not trained on | Scored with any logged or automatic grade, otherwise failed |
-| `LIMIT_REACHED` | The platform, when a run's token or context limit stops the model | Trained on; a positive reward counts as 0 | Positive reward counts as 0 |
-| `MAX_STEPS` | The platform, when a run's turn limit is reached | Trained on; a positive reward counts as 0 | Positive reward counts as 0 |
-| `STALE` | The platform, when training no longer needs the rollout | Not trained on | — |
-| `GOLDEN_PATCH` | Reserved; do not send | Not trained on | — |
-
-A completed rollout with no reward is counted as failed unless the run sets
-`train_on_ungraded`; `TRUNCATION`, `LIMIT_REACHED` and `MAX_STEPS` count a missing reward as 0.
-Training stops with `rollout_failure_limit_exceeded` only when every recent rollout failed.
-Zero rewards and capped rollouts do not count as failures.
-
-The platform also ends rollouts as `CANCELLED` (run cancelled or cleaned up) and
-`SANDBOX_LOST`, `SANDBOX_CRASH` or `SANDBOX_TIMEOUT` (the environment failed). Your harness
-cannot send these.
+Training uses `ENV_DONE` rollouts with their logged reward. `ERROR`, `TIMEOUT` and
+`MISSING_SUBMIT` rollouts are not trained on, and `ERROR` counts toward the run's failure
+limit. `TRUNCATION` is trained on only when the run sets `train_on_truncation`, with positive
+rewards counted as 0. The platform sets `LIMIT_REACHED` and `MAX_STEPS` when a run's token,
+context or turn limit stops the model, and `STALE`, `CANCELLED` and `SANDBOX_*` on its own.
+`GOLDEN_PATCH` is reserved.
 
 ## Detect a cut-off final reply
 
-Most agent loops stop when a reply contains no tool call, including a reply that hit its
-output-token limit mid-thought. The harness then grades unfinished work. Check the final reply
-before completing:
+Most agent loops stop at the first reply without a tool call, including a reply cut off
+mid-thought, and then grade unfinished work. Check the final reply before completing:
 
 ```python
 import json
 
-steps = list(client.trajectories.steps.list(tid))
-final = steps[-1].messages[-1] if steps and steps[-1].messages else None
-cut_off = (
-    final is not None
-    and final.role == "assistant"
-    and final.finish_reason in ("length", "max_tokens")
-    and not json.loads(final.tool_calls or "[]")
-)
+num_steps = client.trajectories.retrieve(tid).num_steps
+page = client.trajectories.steps.list(tid, start_step_index=num_steps - 1, limit=1)
+reply = page.items[0].messages[-1]
+cut_off = reply.finish_reason in ("length", "max_tokens") and not json.loads(reply.tool_calls or "[]")
 client.trajectories.complete(tid, termination_reason="TRUNCATION" if cut_off else "ENV_DONE")
 ```
 
-If your harness reads the model's responses directly, use their `finish_reason` instead of
-listing steps. A cut-off reply in the middle of a trajectory is fine when the agent continued.
+If your harness reads the model's responses directly, check their `finish_reason` instead.
 
-## Platform limits and model request errors
+## When the platform ends the trajectory
 
-When a run's turn, token or context limit is reached, the platform ends the trajectory itself.
-Later model requests return an empty reply with `finish_reason: "stop"` and
-`metadata.trajectory_termination_reason: "trajectory_cancelled"`. Stop calling the model when
-you see it. The platform keeps its own reason (`LIMIT_REACHED` or `MAX_STEPS`) even if you then
-call `complete()`.
-
-The Trajectory client retries connection failures, timeouts, 408, 429 and 5xx twice. If you
-retry on top of that, retry only when the response's `Trajectory-Should-Retry` header is `true`.
-These are the errors to handle:
-
-| Status | Meaning | Action |
-| --- | --- | --- |
-| 413 `request_too_large` | The request body is over the size limit | Do not retry; send `ERROR` |
-| 400 `context_length_exceeded` | The conversation no longer fits the model's context | Do not retry; send `ERROR` |
-| 400 | Invalid request | Fix the request; send `ERROR` if the attempt cannot continue |
-| 402, 403 | Insufficient credits or no access to the model | Stop; send `ERROR` |
-| 409 `trajectory_busy` | Another request is in flight on this trajectory | Wait for it; do not send concurrent requests |
-| 502 `provider_unavailable` | The model provider failed the request | Do not retry; send `ERROR` |
-| 503 | The model service is temporarily unavailable | Retried automatically; send `ERROR` if retries run out |
+After a run's turn, token or context limit is reached, model requests return an empty reply
+with `metadata.trajectory_termination_reason: "trajectory_cancelled"`. Stop calling the
+model. The platform keeps `LIMIT_REACHED` or `MAX_STEPS` even if you then call `complete()`.
+For model request errors and retries, see [Connect the actor](../README.md#connect-the-actor).
