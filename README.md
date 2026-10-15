@@ -146,9 +146,8 @@ client.trajectories.complete(tid)
 Explicitly map the grader’s documented score field to `log_reward(value=...)`; do not assume
 its output contains a key named `reward`.
 
-When adapting an existing grader, follow [the reward integration guide](examples/reward_integration.md)
-to select its score explicitly, preserve diagnostic metrics, and verify publication through
-the submitted runtime.
+Preserve the benchmark's scoring formula. See the [reward integration guide](examples/reward_integration.md)
+for score mapping, diagnostic signals, and validation.
 
 #### Run your benchmark and see the result
 
@@ -381,12 +380,9 @@ infer the reason from the model's replies. [Ending a trajectory](examples/termin
 lists every reason, how to choose one, and how each affects training and evaluation. Report
 exception paths with the failure reason before re-raising the original exception.
 
-Reward components are summed with their weights, which default to 1. Record diagnostic scores
-that are not part of the benchmark's reward with `client.trajectories.log_event(..., payload=...)`.
-Events store JSON data without changing the reward. Even with `weight=0`, `log_reward` creates
-a reward record and can prevent the default automatic grader from running. A missing optional
-grader output need not invalidate a score; preserve the benchmark's handling of required and
-optional outputs.
+Reward components are summed with their weights, which default to 1. Consider weight `0`
+for additional scores you want to display without affecting the reward. See the
+[reward integration guide](examples/reward_integration.md) for diagnostic reporting details.
 Use events for summaries and [artifacts](examples/diagnostic_artifacts.md) for full reports.
 Finish recording them before completing the trajectory and cleaning up the environment.
 
