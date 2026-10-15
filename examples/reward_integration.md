@@ -106,6 +106,7 @@ the trajectory after reward publication succeeds.
 Rewards are a weighted sum. Preserve the benchmark's formula by publishing either its total
 with weight `1` or its weighted components, without counting both. For failed or pending
 grading, keep diagnostics in [events or artifacts](../README.md#report-native-results).
+Even a zero-weight reward record can prevent the default automatic grader from running.
 
 ## Keep a zero score distinct from a missing grade
 

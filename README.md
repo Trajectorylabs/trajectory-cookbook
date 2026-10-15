@@ -146,14 +146,8 @@ client.trajectories.complete(tid)
 Explicitly map the grader’s documented score field to `log_reward(value=...)`; do not assume
 its output contains a key named `reward`.
 
-When adapting an existing grader, follow [the reward integration guide](examples/reward_integration.md)
-to select its score explicitly, preserve diagnostic metrics, and verify publication through
-the submitted runtime.
-
-For an existing benchmark, preserve its original scoring formula, including partial scores,
-component weights, and aggregation. Consider weight `0` for additional numeric signals you
-want to keep visible without changing that score. For a production use case where you are
-designing a new reward, carefully choose components and weights around the outcomes you care about.
+Preserve the benchmark's scoring formula. See the [reward integration guide](examples/reward_integration.md)
+for score mapping, diagnostic signals, and validation.
 
 #### Run your benchmark and see the result
 
@@ -377,10 +371,8 @@ or use it for training. Keep any resulting grade only as diagnostic event or art
 
 For valid executions, call `client.trajectories.log_reward(...)` with the grader's score,
 including a genuine zero, then `client.trajectories.complete(...)` with the same trajectory
-ID. When adapting an existing benchmark, preserve its original scoring formula and conversion,
-including any partial scores, component weights, and aggregation.
-A recovered retry does not invalidate an otherwise valid execution. Report grading errors
-as failures rather than substituting zero.
+ID. Use the benchmark's score conversion and weighting. A recovered retry does not invalidate
+an otherwise valid execution. Report grading errors as failures rather than substituting zero.
 
 Set `termination_reason` from how the attempt actually ended: `ENV_DONE` only when it finished
 normally, otherwise `ERROR`, `TIMEOUT`, `TRUNCATION` or `MISSING_SUBMIT`. The platform does not
@@ -388,14 +380,9 @@ infer the reason from the model's replies. [Ending a trajectory](examples/termin
 lists every reason, how to choose one, and how each affects training and evaluation. Report
 exception paths with the failure reason before re-raising the original exception.
 
-Reward components are summed with their weights, which default to 1. Alongside a valid primary
-benchmark reward, consider keeping additional numeric signals visible as named `log_reward`
-components with `weight=0`, so they do not affect the aggregate. When grading fails or the
-primary reward is still pending, record diagnostics with
-`client.trajectories.log_event(..., payload=...)` or artifacts instead. Events store JSON data
-without changing the reward. Even with `weight=0`, `log_reward` creates a reward record and can
-prevent the default automatic grader from running. A missing optional grader output need not
-invalidate a score; preserve the benchmark's handling of required and optional outputs.
+Reward components are summed with their weights, which default to 1. Consider weight `0`
+for additional scores you want to display without affecting the reward. See the
+[reward integration guide](examples/reward_integration.md) for diagnostic reporting details.
 Use events for summaries and [artifacts](examples/diagnostic_artifacts.md) for full reports.
 Finish recording them before completing the trajectory and cleaning up the environment.
 
