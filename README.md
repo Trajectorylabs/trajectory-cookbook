@@ -6,7 +6,7 @@ Examples for evaluating and training models with the
 For coding agents, use the [Trajectory skill](skills/trajectory/SKILL.md) alongside your
 benchmark's source. It covers integration, validation, evaluation, training, and diagnosis.
 Copy `skills/trajectory/` into `.agents/skills/` in your benchmark repository for Codex, or
-`.claude/skills/` for Claude Code. Ask your agent to use the `trajectory` skill for your task.
+`.claude/skills/` for Claude Code. Ask your agent to read and use the `trajectory` skill for your task.
 
 Runnable examples and runtime images pin `trajectory-sdk==0.9.20`.
 The [public Tau 3 Banking recipe](examples/tau3_banking/banking.md) preserves the upstream evaluator.
