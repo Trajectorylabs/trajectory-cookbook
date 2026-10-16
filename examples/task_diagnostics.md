@@ -4,10 +4,10 @@ Use `start_task_diagnostic()` to check a task before uploading a full benchmark.
 provide better error visibility and logging to help debug your integration. No existing benchmark
 is needed.
 
-Install the latest SDK and authenticate:
+Install the SDK version used by this example and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.9.17
+pip install trajectory-sdk==0.9.20
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -69,3 +69,10 @@ print(diagnostic.benchmark_diagnostic_id)
 ```
 
 Use the same status polling and result inspection shown above.
+For a one-task check of an existing benchmark, use
+`client.diagnostics.start_task(bench_id="YOUR_BENCH_ID")`. It selects one task; it does not
+accept a task ID.
+
+If you need a task execution timeout or an active-rollout limit, run a one-sample evaluation
+with `execution_timeout_seconds`, `evaluation_max_samples=1`, and
+`evaluation_max_active_rollouts=1` in `options`. The diagnostic helpers do not accept run options.

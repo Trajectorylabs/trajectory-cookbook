@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.17"]
+# dependencies = ["trajectory-sdk==0.9.20"]
 # ///
 """Upload a toy number-guessing benchmark with same-model context compaction."""
 

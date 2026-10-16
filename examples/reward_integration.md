@@ -11,10 +11,11 @@ to `log_reward(value=...)`.
 
 ## Choose the score explicitly
 
-When adapting an existing benchmark, preserve the primary score used by its original
-evaluation entrypoint and reporting path. Trace and preserve its scoring formula, including
-any partial scores, component weights, and aggregation. The published aggregate should match
-what the original benchmark would report for the same output.
+When adapting an existing benchmark, use the primary score from its evaluation reader.
+Trace its formula, including partial scores, weights, and aggregation. Pass the raw score to
+`log_reward` with its declared `min_value` and `max_value`; the defaults are `0` and `1`.
+Trajectory uses `(value - min_value) / (max_value - min_value)` for its effective reward.
+Compare native metrics in their original units when that normalized value differs.
 
 Tip: if you want to keep additional numeric signals visible without affecting that score,
 consider logging them as named reward components with weight `0`; see
@@ -29,8 +30,8 @@ output. Record:
   source references showing where it is computed and consumed.
 - The score's range, units, direction, thresholds, and aggregation. Preserve partial credit
   only when it contributes to that primary score; do not impose binary scoring on benchmarks
-  whose primary score is continuous. Preserve the original score conversion without adding
-  normalization, rounding, or thresholds.
+  whose primary score is continuous. Do not normalize, round, or threshold the raw value
+  before passing it with its bounds.
 - How the grader distinguishes a valid failed answer from a grading or execution error.
 
 Keep this mapping in the adapter and document it next to the task configuration. Tasks
@@ -103,9 +104,12 @@ as well. Do not silently clamp values, guess a field, or substitute zero for a m
 
 Publish the selected score using the same trajectory ID as the model calls, then complete
 the trajectory after reward publication succeeds.
+Reserve time within the task limit for grading and reward publication. An answer that
+arrives too late to grade remains ungraded.
 
-The reward is the weighted average of its components. Preserve the benchmark's formula by
-publishing either its total with weight `1` or its weighted components, without counting both.
+The effective reward is the weighted average of scaled components. Preserve the benchmark's
+formula by publishing either its total with weight `1` or its weighted components, without
+counting both.
 For failed or pending grading, keep diagnostics in [events or artifacts](../README.md#report-native-results).
 Even a zero-weight reward record can prevent the default automatic grader from running.
 
@@ -113,6 +117,8 @@ Even a zero-weight reward record can prevent the default automatic grader from r
 
 Each `log_reward` call adds a named component; weight `0` records one without counting it.
 `log_event` records a JSON object on the trajectory without affecting the reward.
+Retrieve with `include_reward_components=True` to inspect logged components; the SDK may omit
+them from the default trajectory response.
 
 Here `grade_rubric` returns how many required criteria were met and a verdict per criterion.
 The reward is pass/fail, and the fraction met is recorded with weight `0`:
@@ -164,18 +170,15 @@ In the trajectory's trace view, each component appears under **Reward** and each
 
 ## Keep a zero score distinct from a missing grade
 
-A wrong answer can legitimately earn `0.0`: publish it and complete the graded attempt.
-A missing result, invalid score, failed grader, or failed reward import is an error, not an
-incorrect answer. Report `termination_reason="ERROR"` when the attempt cannot produce or
-publish a valid grade, preserve the underlying exception, and do not mark it successful or
-give it a zero reward.
+A wrong answer can legitimately earn `0.0`: publish it with the attempt's actual ending.
+A failed grader, invalid score, or reward publication failure is `ERROR`; preserve the cause
+instead of inventing a zero. If the attempt ends before grading, retain its ending and leave
+the reward unset.
 
-Be careful that a completed grader isn't taken to mean successful completion. 
-If chat completion fails after all retries and the core task cannot complete,
-report `termination_reason="ERROR"`. Otherwise, we could end up training on infrastructure
-failures rather than model performance. For Harbor (and other similar existing benchmarks),
-check `exception_info` even when `verifier_result` contains a score.
-Retain any grade only in diagnostic events or artifacts. 
+Check the harness's execution status even when it has a verifier result. A model call that
+fails after all retries is `ERROR`; keep any incidental grade in diagnostic events or
+artifacts only.
+
 See [Report native results](../README.md#report-native-results) and
 [Ending a trajectory](termination_reasons.md) for every termination reason.
 

@@ -16,7 +16,7 @@ Use your API key from the first lesson. Start Python from the cookbook repositor
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk==0.9.17 --with httpx python
+uv run --with trajectory-sdk==0.9.20 --with httpx python
 ```
 
 ```python
@@ -37,7 +37,7 @@ Use an explicitly selected agent, reuse one whose purpose fits, or create one fo
 For a new GSM8K project:
 
 ```bash
-uv run --with trajectory-sdk==0.9.17 python -c \
+uv run --with trajectory-sdk==0.9.20 python -c \
   'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 
@@ -90,9 +90,10 @@ Use your chosen `agent_name` and `bench_name="gsm8k-smoketest"`.
 split, then waits for the runtime image to be ready. Both ingestion helpers only upload and
 wait; diagnostics are separate calls. Benchmark-wide diagnostics are reserved for step 6.
 
-`eval_smoketest` evaluates one held-out task, prints its evaluation ID and progress, and returns
-the reward. It stops on failure or cancellation; zero is a valid graded answer. This catches basic execution and
-grading errors before a larger run. One test problem cannot measure generalization.
+`eval_smoketest` evaluates one held-out task and prints its evaluation ID, progress and grade
+counts. It returns the reward only when every scheduled attempt has a grade, and stops on
+failure, cancellation or missing grades. A recorded zero is valid. This catches basic
+execution and grading errors; one test problem cannot measure generalization.
 
 ## 5. Train on one task and evaluate the checkpoint
 
@@ -180,15 +181,42 @@ This command runs baseline evaluation, training, and checkpoint evaluation. It e
 It prints training progress and the baseline/final reward comparison. Increasing `--num-steps`
 lets you run longer; use repeated runs and a sufficiently large frozen test set to assess improvement.
 
-Uploading the same benchmark name under the same agent creates a new version. Evaluation and
-training resolve the latest version by `agent_name` and `benchmark_name`, so finish a comparison
-before uploading another version under that name. Both runs start from the base model unless
-you explicitly use the SDK's `parent_checkpoint_id` option to continue from a checkpoint.
+Uploading the same benchmark name under the same agent creates a new version. The comparison
+script prints and pins the baseline's `bench_id` for training and checkpoint evaluation.
+For the manual smoke-test calls above, selecting by agent and benchmark names resolves the
+latest version each time; finish those calls before uploading another version, or pass the
+original `bench_id` instead. Training starts from the base model unless you set
+`parent_checkpoint_id` to continue from a checkpoint.
 
 ## Inspect existing work
 
 Interrupting a local command does not cancel work already accepted by the service. Inspect
 its saved ID before submitting another run. Replace the matching placeholder in each command.
+
+For an evaluation:
+
+```python
+from trajectory import Client
+
+client = Client()
+eval_run_id = "YOUR_EVAL_RUN_ID"
+progress = client.evals.runs.progress(eval_run_id)
+result = client.evals.runs.retrieve(eval_run_id)
+print(result.status, progress.terminal_rollouts, progress.total_rollouts, result.reward_mean)
+if progress.status == "failed":
+    print(progress.failure)
+for trajectory in client.trajectories.list(eval_run_id=eval_run_id):
+    print(trajectory.trajectory_id, trajectory.status, trajectory.reward, trajectory.rollout)
+```
+
+`trajectories.list()` returns an iterable `SyncPage`. Use `list(...)` to count all returned
+trajectories or `.items` for the current page; `len(page)` is not supported.
+
+`completed`, `failed` and `cancelled` are terminal eval states. A completed run can contain
+ungraded attempts; inspect individual trajectories before interpreting its mean as a benchmark
+score. `client.evals.rewards.list_trajectory_rewards(eval_run_id)` returns run rewards, which
+can include a platform zero for a cut-off attempt. Check the trajectory's logged reward before
+calling that a native grade.
 
 For a diagnostic:
 
@@ -229,12 +257,32 @@ print(run.status, progress.completed_steps, progress.total_steps)
 print(run.failure)
 ```
 
+Use `client.training.rewards.list_trainer_rewards(run_id)` for training rewards and
+`client.training.rewards.list_held_out_rewards(run_id)` for held-out rewards. For a partial
+held-out round, inspect its sample counts and `round_completed` before comparing its mean.
+To resume training, pass the chosen `checkpoint_id` as `parent_checkpoint_id` to
+`client.training.create`, with that checkpoint's `base_model_slug`.
+
+In the platform, the agent's **Training** and **Evaluation** sections show these runs.
+For direct links, use the platform's origin and the organization's URL key from an existing
+platform URL; the opaque organization ID is not its URL key.
+
+| Page | Path |
+| --- | --- |
+| Benchmark version | `/<org-key>/agents/<agent-id>/benchmarks/<bench-id>` |
+| Training run | `/<org-key>/models/<training-run-id>` |
+| Eval trajectories | `/<org-key>/evaluate/runs/<eval-run-id>/trajectories` |
+
 ## Optional: deploy and query the trained checkpoint
 
 After training succeeds, replace `YOUR_TRAINING_RUN_ID` with the run you want to deploy.
-Use its actual final step count; the commands above use three steps.
+Use its actual final step count; the commands above use three steps. Deployments require a
+committed checkpoint backed by Tinker training weights. Use a new model slug for this example:
+`role="production"` makes it the active target when deployment finishes.
 
 ```python
+import time
+
 from trajectory import Client
 
 client = Client()
@@ -245,15 +293,57 @@ deployment = client.deployments.create(
     role="production",
 )
 print(deployment.deployment_id)
-response = client.chat.completions.create(
-    model="gsm8k-trained",
-    messages=[{"role": "user", "content": "What is 17 times 6?"}],
-)
-print(response.choices[0].message.content)
+deadline = time.monotonic() + 600
+while True:
+    state = client.deployments.retrieve(deployment.deployment_id)
+    if state.status == "DEPLOYED":
+        break
+    if state.status in {"FAILED", "CANCELLED"}:
+        raise RuntimeError(state.model_dump())
+    if time.monotonic() >= deadline:
+        raise TimeoutError(f"Deployment still {state.status}: {deployment.deployment_id}")
+    time.sleep(5)
+
+if not state.is_active:
+    raise RuntimeError("Deployment is ready but is not the active target for its slug")
+tid = client.trajectories.create().tid
+try:
+    response = client.chat.completions.create(
+        model=state.model_slug,
+        messages=[{"role": "user", "content": "What is 17 times 6?"}],
+        x_trajectory_id=tid,
+    )
+except Exception:
+    client.trajectories.complete(tid, termination_reason="ERROR")
+    raise
+else:
+    choice = response.choices[0]
+    reason = "TRUNCATION" if choice.finish_reason in ("length", "max_tokens") else "ENV_DONE"
+    client.trajectories.complete(tid, termination_reason=reason)
+    print(choice.message.content)
 ```
 
-Deployment activates the production `gsm8k-trained` model slug. This query demonstrates serving;
-the checkpoint evaluation in step 5 uses the benchmark's `submit_answer` tool and grader to measure reward.
+A local polling timeout leaves the deployment running. Retrieve the same deployment ID before
+retrying. To stop pending deployment work, use `POST /api/v1/deploy/<deployment-id>/cancel`
+and wait for `CANCELLED`; a cancellation request alone does not confirm cleanup. To remove a
+served deployment and its endpoint resources, call `client.deployments.delete(deployment_id)`.
+
+For an existing production slug, create a `role="test"` deployment first. Once `DEPLOYED`,
+query that exact deployment at `POST /api/v1/deploy/<deployment-id>/chat/completions`, with
+its model slug, organization key and `X-Trajectory-Id`. Promote it from the platform's
+**Deployment** page when ready; promotion requires a signed-in user. Deployment provisions
+the model endpoint, so no separate model-endpoint creation is needed.
+For reasoning models, `max_tokens` includes reasoning tokens; a cap sized for only the visible
+answer can return no answer. Check the answer and complete its trajectory from `finish_reason`
+as above; a length-capped HTTP response is `TRUNCATION`, not a completed-answer check.
+
+An OpenAI client uses the API origin followed by `/v1` for active-slug inference, or
+`/api/v1/deploy/<deployment-id>` for the exact-deployment check. Pass the trajectory header
+through `extra_headers`. See [inference setup](../../README.md#connect-the-actor) for model
+discovery and credentials, and [production traces](../production_traces.md) for application traffic.
+
+This query demonstrates serving; the checkpoint evaluation in step 5 uses the benchmark's
+`submit_answer` tool and grader to measure reward.
 
 ## Adapt this workflow to your benchmark
 

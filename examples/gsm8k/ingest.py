@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.17", "httpx"]
+# dependencies = ["trajectory-sdk==0.9.20", "httpx"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
@@ -14,10 +14,11 @@ import httpx
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import (
     DockerfileBuild,
-    push,
+    start_push,
     start_task_diagnostic,
-    wait_for_benchmark_images,
 )
+
+from trajectory.lib.benchmark_operations import BenchmarkOperationError
 
 _RUNTIME_SOURCE = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
@@ -71,20 +72,23 @@ def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> 
     with tempfile.TemporaryDirectory(prefix="gsm8k-benchmark-") as directory:
         package_root = Path(directory)
         _stage_runtime(rows, package_root)
-        result = push(
+        operation = start_push(
             client,
             build_benchmark(rows, name),
             agent_name=agent_name,
             root=package_root,
+            build_images=True,
         )
+    print(f"operation_id={operation.id}", flush=True)
     print(f"agent_name={agent_name}", flush=True)
     print(f"bench_name={name}", flush=True)
-    wait_for_benchmark_images(
-        client,
-        result.bench_id,
-        timeout_seconds=_BUILD_TIMEOUT_SECONDS,
-    )
-    return result.bench_id
+    try:
+        result = operation.result(timeout=_BUILD_TIMEOUT_SECONDS)
+    except BenchmarkOperationError as error:
+        for failure in error.failures:
+            print(failure.to_json(), flush=True)
+        raise
+    return result.status.bench_id
 
 
 def task_diagnose(agent_name: str) -> None:

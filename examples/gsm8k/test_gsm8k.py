@@ -85,3 +85,134 @@ def test_task_records_reward_and_completes_with_published_sdk(
     assert requests[2][2]["name"] == "reward_accuracy"
     assert requests[2][2]["value"] == expected_reward
     assert requests[3][2] == {"termination_reason": "ENV_DONE"}
+
+
+@pytest.mark.parametrize(
+    "rewards,total,mean,expected",
+    [
+        ([None, None], 2, 0.0, None),
+        ([0.0], 1, 0.0, 0.0),
+        ([0.0, None], 2, 0.0, None),
+        ([1.0], 2, 1.0, None),
+    ],
+)
+def test_completed_eval_requires_grades_before_training(rewards, total, mean, expected):
+    from types import SimpleNamespace
+
+    spec = importlib.util.spec_from_file_location("gsm8k_train_test", ROOT / "train.py")
+    train = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = train
+    spec.loader.exec_module(train)
+    client = SimpleNamespace(
+        evals=SimpleNamespace(
+            runs=SimpleNamespace(
+                progress=lambda _: SimpleNamespace(
+                    status="completed", terminal_rollouts=total, total_rollouts=total
+                ),
+                retrieve=lambda _: SimpleNamespace(reward_mean=mean),
+            )
+        ),
+        trajectories=SimpleNamespace(
+            list=lambda **_: iter(SimpleNamespace(reward=r) for r in rewards)
+        ),
+    )
+    if expected is None:
+        with pytest.raises(RuntimeError, match="incomplete grades"):
+            train._wait_for_evaluation(client, "eval_fixture", "fixture", 0)
+    else:
+        assert (
+            train._wait_for_evaluation(client, "eval_fixture", "fixture", 0) == expected
+        )
+
+
+def test_comparison_keeps_baseline_version_when_latest_changes(monkeypatch):
+    from types import SimpleNamespace
+
+    spec = importlib.util.spec_from_file_location(
+        "gsm8k_comparison_test", ROOT / "train.py"
+    )
+    train = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = train
+    spec.loader.exec_module(train)
+    eval_calls, training_calls = [], []
+
+    def create_eval(**kwargs):
+        eval_calls.append(kwargs)
+        # A name lookup after the baseline would select a different upload.
+        selected = kwargs.get(
+            "bench_id", "bm_old" if len(eval_calls) == 1 else "bm_new"
+        )
+        return SimpleNamespace(bench_id=selected, eval_run_id=f"eval_{len(eval_calls)}")
+
+    def create_training(**kwargs):
+        training_calls.append(kwargs)
+        return SimpleNamespace(training_run_id="train_1")
+
+    client = SimpleNamespace(
+        evals=SimpleNamespace(create=create_eval),
+        training=SimpleNamespace(
+            create=create_training,
+            checkpoints=SimpleNamespace(
+                retrieve=lambda *_: SimpleNamespace(checkpoint_id="checkpoint_1")
+            ),
+        ),
+    )
+    monkeypatch.setattr(train, "_wait_for_evaluation", lambda *args: 0.5)
+    monkeypatch.setattr(
+        train, "_wait_for_training", lambda *args: SimpleNamespace(status="succeeded")
+    )
+    train.train_and_evaluate(client, "agent", "benchmark", "model", 3, 0)
+    assert training_calls[0]["bench_id"] == eval_calls[1]["bench_id"] == "bm_old"
+    assert "benchmark_name" not in training_calls[0]
+    assert "benchmark_name" not in eval_calls[1]
+    assert eval_calls[0]["options"] == eval_calls[1]["options"]
+    assert eval_calls[1]["parent_checkpoint_id"] == "checkpoint_1"
+
+
+@pytest.mark.parametrize("outcome", ["ready", "build_failed", "timeout"])
+def test_upload_keeps_operation_id_and_reports_build_failure(
+    monkeypatch, capsys, outcome
+):
+    from types import SimpleNamespace
+    from trajectory.lib.benchmark_operations import BenchmarkOperationError
+
+    spec = importlib.util.spec_from_file_location(
+        "gsm8k_ingest_test", ROOT / "ingest.py"
+    )
+    ingest = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ingest)
+    failure = SimpleNamespace(
+        to_json=lambda: '{"message":"Python version unsupported"}'
+    )
+    result = SimpleNamespace(
+        status=SimpleNamespace(
+            operation_id="op_fixture", status="partial_failure", bench_id="bm_fixture"
+        ),
+        failures=lambda: iter([failure]),
+    )
+
+    def wait(**kwargs):
+        if outcome == "build_failed":
+            raise BenchmarkOperationError(result)
+        if outcome == "timeout":
+            raise TimeoutError("server processing continues")
+        return result
+
+    def start(client, manifest, **kwargs):
+        assert kwargs["build_images"] is True
+        assert (kwargs["root"] / "Dockerfile").is_file()
+        return SimpleNamespace(id="op_fixture", result=wait)
+
+    monkeypatch.setattr(ingest, "Client", lambda: object())
+    monkeypatch.setattr(ingest, "start_push", start)
+    rows = {"train": [{"question": "6 * 7?", "answer": "#### 42"}]}
+    if outcome == "ready":
+        assert ingest._push_benchmark(rows, "fixture", "agent") == "bm_fixture"
+    else:
+        error = BenchmarkOperationError if outcome == "build_failed" else TimeoutError
+        with pytest.raises(error):
+            ingest._push_benchmark(rows, "fixture", "agent")
+    output = capsys.readouterr().out
+    assert "operation_id=op_fixture" in output
+    if outcome == "build_failed":
+        assert "Python version unsupported" in output
