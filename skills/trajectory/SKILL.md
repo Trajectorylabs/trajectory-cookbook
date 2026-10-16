@@ -35,12 +35,11 @@ must execute the harness and publish its outcome; registering a task description
 run a grader.
 Before bulk upload, probe the actor's tools with a test-only private file and fake secret,
 including relative paths and `file://` for URL tools; repeat if those tools change. They
-must not reach grader inputs,
-reference answers, oracle solutions, or privileged credentials.
-Before bulk ingestion, test the actual harness with normal, length-capped, and exception
-replies. Verify its native grade and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If the
-runtime cannot run locally, use a managed task diagnostic. Syntax checks and a ready image
-do not establish that the entrypoint can execute.
+must not reach grader inputs, reference answers, oracle solutions, or privileged credentials.
+Before bulk ingestion, test the actual harness with correct, wrong, length-capped, and
+exception replies. Check native grades, reward bounds and weights, and `ENV_DONE`,
+`TRUNCATION`, and `ERROR` endings. If the runtime cannot run locally, use a managed task
+diagnostic. Syntax checks and a ready image do not establish that the entrypoint can execute.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)
   for the customer's project. Use descriptive names and save returned IDs for later calls;
@@ -95,13 +94,13 @@ unrelated benchmark names to bypass failed builds.
 
 ## Evaluate, train, and compare
 
-Start with a small managed evaluation that proves the packaged harness can produce a grade
-before scaling. Inspect its task outcomes before an expensive run.
+Start with one managed task that proves the packaged harness can produce a grade. Check its
+raw component, effective reward, and ending before scheduling more tasks.
 Reduce task count to control validation cost; keep the source's generation settings and
 output limit when checking its native grade. A shorter output cap can prevent grading.
 Do not set `max_total_tokens_per_trajectory` equal to a single reply's cap: reaching it
 can close the trajectory before the harness logs reward.
-When that managed gate needs execution or concurrency caps, use a one-sample eval; diagnostic
+When that gate needs execution or concurrency caps, use a one-sample eval; diagnostic
 helpers do not accept run options.
 Inspect per-task outcomes as well as the aggregate. Build readiness, an accepted run ID, and a
 completed evaluation each establish different facts.
@@ -114,10 +113,11 @@ while attempts reconcile.
 For training, inspect supported options and choose limits for the harness and budget. Check
 which endings and ungraded samples are eligible; do not admit rejected outcomes just to make
 progress appear. Batch size does not cap total samples. `max_training_samples` caps planned
-TRAIN samples, including rejected ones; retries and held-out eval rounds add attempts. A
-training group shares one task, so count distinct tasks separately. Rejected samples can
-exhaust the cap without an update; reduce the batch under a fixed cap or cancel when no
-eligible batch remains. A one-task update does not establish benchmark-wide training.
+TRAIN samples, including rejected ones; retries and held-out eval rounds add attempts.
+Reserve attempts for those rounds and a matched checkpoint eval. A training group shares
+one task, so count distinct tasks separately. Rejected samples can exhaust the cap without
+an update; reduce the batch under a fixed cap or cancel when no eligible batch remains. A
+one-task update does not establish benchmark-wide training.
 Monitor steps, failures, checkpoints, and held-out coverage using the
 [cookbook's run inspection](https://github.com/Trajectorylabs/trajectory-cookbook#3-evaluate-train-and-compare-on-the-trajectory-platform).
 Step-0 checkpoints precede updates. Identical-reward groups can still train under some

@@ -319,9 +319,9 @@ for resource in (client.training, client.evals):
 
 Omit `options`, or pass `{}`, for defaults. Leave computed defaults unset so the server
 can resolve them. Run the benchmark before training so you have a frozen baseline.
-Use a small managed eval with execution and concurrency limits before a larger eval;
+Use a one-task managed eval with execution and concurrency limits before a larger eval;
 [diagnostic helpers](examples/task_diagnostics.md) do not accept run options.
-Reduce task count to control validation cost. Retain the source's generation settings and
+Check its raw grade, effective reward, and ending. Retain the source's generation settings and
 output limit when checking its native grade; a shorter cap can prevent grading and makes
 the score incomparable.
 
