@@ -133,7 +133,17 @@ def _wait_for_evaluation(
         time.sleep(poll_seconds)
 
     trajectories = list(client.trajectories.list(eval_run_id=eval_id))
-    graded = sum(trajectory.reward is not None for trajectory in trajectories)
+    graded = 0
+    for trajectory in trajectories:
+        if trajectory.reward is None:
+            continue
+        detail = client.trajectories.retrieve(
+            trajectory.trajectory_id, include_reward_components=True
+        )
+        graded += any(
+            component.name == "reward_accuracy"
+            for component in detail.reward_components or []
+        )
     print(
         f"evaluation={display_name} attempted={len(trajectories)} "
         f"graded={graded} ungraded={len(trajectories) - graded}",

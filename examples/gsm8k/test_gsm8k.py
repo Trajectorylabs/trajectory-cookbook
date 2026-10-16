@@ -88,15 +88,18 @@ def test_task_records_reward_and_completes_with_published_sdk(
 
 
 @pytest.mark.parametrize(
-    "rewards,total,mean,expected",
+    "rewards,grades,total,mean,expected",
     [
-        ([None, None], 2, 0.0, None),
-        ([0.0], 1, 0.0, 0.0),
-        ([0.0, None], 2, 0.0, None),
-        ([1.0], 2, 1.0, None),
+        ([None, None], [False, False], 2, 0.0, None),
+        ([0.0], [False], 1, 0.0, None),
+        ([0.0], [True], 1, 0.0, 0.0),
+        ([0.0, None], [True, False], 2, 0.0, None),
+        ([1.0], [True], 2, 1.0, None),
     ],
 )
-def test_completed_eval_requires_grades_before_training(rewards, total, mean, expected):
+def test_completed_eval_requires_grades_before_training(
+    rewards, grades, total, mean, expected
+):
     from types import SimpleNamespace
 
     spec = importlib.util.spec_from_file_location("gsm8k_train_test", ROOT / "train.py")
@@ -113,7 +116,15 @@ def test_completed_eval_requires_grades_before_training(rewards, total, mean, ex
             )
         ),
         trajectories=SimpleNamespace(
-            list=lambda **_: iter(SimpleNamespace(reward=r) for r in rewards)
+            list=lambda **_: iter(
+                SimpleNamespace(trajectory_id=str(i), reward=r)
+                for i, r in enumerate(rewards)
+            ),
+            retrieve=lambda tid, **_: SimpleNamespace(
+                reward_components=[SimpleNamespace(name="reward_accuracy")]
+                if grades[int(tid)]
+                else []
+            ),
         ),
     )
     if expected is None:

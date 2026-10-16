@@ -313,8 +313,11 @@ try:
         messages=[{"role": "user", "content": "What is 17 times 6?"}],
         x_trajectory_id=tid,
     )
-except Exception:
-    client.trajectories.complete(tid, termination_reason="ERROR")
+except Exception as error:
+    try:
+        client.trajectories.complete(tid, termination_reason="ERROR")
+    except Exception as cleanup_error:
+        error.add_note(f"Trace completion also failed: {type(cleanup_error).__name__}")
     raise
 else:
     choice = response.choices[0]
