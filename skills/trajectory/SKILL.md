@@ -89,6 +89,8 @@ unrelated benchmark names to bypass failed builds.
 
 Start with one managed task that proves the packaged harness can produce a grade. Check its
 raw component, effective reward, and ending before scheduling more tasks.
+A graded reply cut off before any visible answer verifies the grader, not viable model settings;
+check thinking mode and output room before scaling.
 Reduce task count to control validation cost; keep the source's generation settings and
 output limit when checking its native grade. A shorter output cap can prevent grading.
 Do not set `max_total_tokens_per_trajectory` equal to a single reply's cap: reaching it

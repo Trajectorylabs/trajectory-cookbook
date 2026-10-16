@@ -327,6 +327,8 @@ Use a one-task managed eval with execution and concurrency limits before a large
 Check its raw grade, effective reward, and ending. Retain the source's generation settings and
 output limit when checking its native grade; a shorter cap can prevent grading and makes
 the score incomparable.
+If the smoke reply has no visible answer because it exhausted its cap in reasoning, check the
+model's thinking setting or choose another model before scaling.
 
 ```python
 smoke = client.evals.create(
