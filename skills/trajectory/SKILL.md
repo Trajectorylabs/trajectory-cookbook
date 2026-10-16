@@ -18,6 +18,7 @@ Authentication uses `X-API-Key`. Check the selected organization before creating
 Start with the public [cookbook](https://github.com/Trajectorylabs/trajectory-cookbook).
 Its [GSM8K walkthrough](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md)
 covers the managed lifecycle. Adapt the workflow, not GSM8K's task, model choice, or scoring assumptions.
+Use the cookbook index to read the sections needed for this benchmark.
 Use the installed SDK's signatures and docstrings to check calls and options; record its
 version. Cookbook examples pin a version. If a method or field differs, resolve the mismatch
 before changing the integration. Do not depend on access to a login-gated documentation site.
@@ -29,12 +30,13 @@ Read the customer's entrypoint, task loader, model-call path, grader, and result
 Identify task identity, splits, runtime dependencies, network access, private references,
 and the primary reported score. Preserve sampling settings, output limit, and stop rules
 when comparing scores. The runtime must execute the harness and publish its outcome.
-Before bulk upload, probe the actor's tools with a test-only private file and fake secret,
-including relative paths and `file://` for URL tools; repeat if those tools change. They
-must not reach grader inputs, reference answers, oracle solutions, or privileged credentials.
-Before scheduling many tasks, test the packaged harness with correct, wrong, length-capped,
-and exception replies. Check native grades, reward bounds and weights, and `ENV_DONE`,
-`TRUNCATION`, and `ERROR` endings. If local execution is unavailable, use a managed diagnostic.
+Before the first upload, resolve every Dockerfile `COPY` source against the directory
+containing that Dockerfile; it is the uploaded build context. Inspect the final task specs'
+splits, network mode, and secrets. Test the packaged harness with correct, wrong,
+length-capped, and exception replies; check native grades, reward bounds and weights,
+and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If local execution is unavailable,
+use a managed diagnostic. If actor tools can reach private grader inputs or credentials,
+probe that boundary with test-only files and fake secrets through the actual tools.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)
   for the customer's project. Use descriptive names and save returned IDs for later calls;
@@ -43,9 +45,7 @@ and exception replies. Check native grades, reward bounds and weights, and `ENV_
   for build contexts, dependencies, secrets, nested containers, and actor versus judge routing.
   Preserve the original working directory, required paths, inputs and grading rules.
   If adapting tools, keep the task instructions and exposed tool interface in agreement.
-  The Dockerfile's directory defines its uploaded context. Before the first upload, resolve
-  every `COPY` source against that directory. Check the final task specs' network mode;
-  an omitted `env_resources` means no network. A fixed judge needs its own client and
+  An omitted `env_resources` means no network. A fixed judge needs its own client and
   credentials; the managed actor client routes even differently named models to the actor.
   Keep judge calls off the actor trajectory.
   The injected `TRAJECTORY_API_KEY` is an actor-session key. For auxiliary Trajectory calls,
