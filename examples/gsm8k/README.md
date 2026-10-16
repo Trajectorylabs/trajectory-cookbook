@@ -318,8 +318,15 @@ except Exception:
     raise
 else:
     choice = response.choices[0]
-    reason = "TRUNCATION" if choice.finish_reason in ("length", "max_tokens") else "ENV_DONE"
+    if choice.finish_reason in ("length", "max_tokens"):
+        reason = "TRUNCATION"
+    elif choice.finish_reason == "stop" and choice.message.content:
+        reason = "ENV_DONE"
+    else:
+        reason = "ERROR"
     client.trajectories.complete(tid, termination_reason=reason)
+    if reason != "ENV_DONE":
+        raise RuntimeError(f"Serving check failed: {choice.finish_reason=}")
     print(choice.message.content)
 ```
 

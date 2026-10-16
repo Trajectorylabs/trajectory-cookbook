@@ -113,9 +113,9 @@ Batch size and samples per instance do not cap total planned training samples. W
 use `max_training_samples` for that cap; it includes rejected samples, but retries can add
 rollout attempts. Samples in one training group share a task; count distinct tasks separately.
 A single-task group can prove an optimizer update but not training across the benchmark.
-If validation shows rejected endings, keep the first batch below `max_training_samples`;
-under a fixed cap, reduce `train_batch_size` or `samples_per_instance`. An exact one-batch
-cap can expire without an update.
+If validation shows rejected endings, leave room beyond the requested batches under
+`max_training_samples`. Under a fixed cap, reduce `train_batch_size` or
+`samples_per_instance`. An exact one-batch cap can expire without an update.
 If the cap is exhausted and every terminal sample is excluded by the run's training settings,
 cancel rather than wait for the batch-collection timeout.
 Public run options cap but do not disable training-triggered evaluations. Count tasks times
