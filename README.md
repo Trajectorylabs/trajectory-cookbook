@@ -558,7 +558,8 @@ used by the entrypoint and its subprocesses. Copying the source files alone does
 the runtime's filesystem layout.
 Check the imports, executables and plugins used by the runtime entrypoint during the image
 build. Include data files that dependencies fetch on first use when the task runs without
-network access. Check execution and grading in a small managed run after image readiness;
+network access, and verify the runtime searches the installation path. Check execution and
+grading in a small managed run after image readiness;
 build success alone does not verify model routing, external services or task execution.
 
 For `uv sync --locked`, the package index must match the lockfile. If the build environment

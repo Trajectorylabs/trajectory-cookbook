@@ -36,8 +36,9 @@ run a grader.
 Before bulk upload, probe the actor's tools with a test-only private file and fake secret,
 including relative paths and `file://` for URL tools; repeat if those tools change. They
 must not reach grader inputs, reference answers, oracle solutions, or privileged credentials.
-Before bulk ingestion, test the actual harness with correct, wrong, length-capped, and
-exception replies. Check native grades, reward bounds and weights, and `ENV_DONE`,
+Before scheduling many tasks, test the actual harness in its packaged runtime with correct,
+wrong, length-capped, and exception replies. Check native grades, reward bounds and weights, and
+`ENV_DONE`,
 `TRUNCATION`, and `ERROR` endings. If the runtime cannot run locally, use a managed task
 diagnostic. Syntax checks and a ready image do not establish that the entrypoint can execute.
 
