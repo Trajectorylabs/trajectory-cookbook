@@ -77,6 +77,9 @@ for candidate in client.agents.list():
     print(candidate.name, candidate.description)
 ```
 
+Generated SDK list calls such as `agents.list()` and `trajectories.list()` return iterable
+pages; use `.items` for the current page, not `.data`.
+
 For a new use case, create an agent with a descriptive name. For example, for the T Factory
 training walkthrough:
 

@@ -21,7 +21,8 @@ covers the managed lifecycle. Adapt the workflow, not GSM8K's task, model choice
 Use the cookbook index to read the sections needed for this benchmark.
 Use the installed SDK's signatures and docstrings to check calls and options; record its
 version. Cookbook examples pin a version. If a method or field differs, resolve the mismatch
-before changing the integration. Do not depend on access to a login-gated documentation site.
+before changing the integration. SDK list pages are iterable and expose `.items`, not `.data`.
+Do not depend on access to a login-gated documentation site.
 If a cookbook snapshot is supplied with the customer source, use that version for the run.
 
 ## Integrate and validate
