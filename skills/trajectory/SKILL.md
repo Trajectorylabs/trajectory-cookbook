@@ -33,8 +33,9 @@ and the primary reported score. Record the source's model sampling settings, out
 and stop rules; label any smaller validation setting before comparing scores. The runtime
 must execute the harness and publish its outcome; registering a task description does not
 run a grader.
-Before each upload, probe the actor's tools with a test-only private file and fake secret,
-including relative paths and `file://` for URL tools. They must not reach grader inputs,
+Before bulk upload, probe the actor's tools with a test-only private file and fake secret,
+including relative paths and `file://` for URL tools; repeat if those tools change. They
+must not reach grader inputs,
 reference answers, oracle solutions, or privileged credentials.
 Before bulk ingestion, test the actual harness with normal, length-capped, and exception
 replies. Verify its native grade and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If the
