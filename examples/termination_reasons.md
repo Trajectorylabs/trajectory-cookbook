@@ -38,26 +38,24 @@ limit stops the model, and `STALE`, `CANCELLED` and `SANDBOX_*` on its own. `GOL
 ## Detect a cut-off final reply
 
 An agent loop may treat a reply without a tool call as final, including one cut off
-mid-thought, and then grade unfinished work. Check the final model response before treating
-absence of tool calls as normal completion:
+mid-thought. In the harness's final-answer path, classify the last model response by its
+`finish_reason`, even if it contains tool-call data:
 
 ```python
 choice = response.choices[0]
-cut_off = choice.finish_reason in ("length", "max_tokens") and not choice.message.tool_calls
+cut_off = choice.finish_reason in ("length", "max_tokens")
 client.trajectories.complete(tid, termination_reason="TRUNCATION" if cut_off else "ENV_DONE")
 ```
 
-This checks a final reply, not tool execution or grading errors; those still require their
-own reason. If the harness hides the model response, inspect the last recorded step instead
-(after confirming the trajectory has at least one step):
+Handle tool execution, errors and harness limits separately; do not dispatch a cut-off tool
+call as a completed one. If the harness hides the model response, inspect the last recorded
+step instead (after confirming the trajectory has at least one step):
 
 ```python
-import json
-
 num_steps = client.trajectories.retrieve(tid).num_steps
 page = client.trajectories.steps.list(tid, start_step_index=num_steps - 1, limit=1)
 reply = page.items[0].messages[-1]
-cut_off = reply.finish_reason in ("length", "max_tokens") and not json.loads(reply.tool_calls or "[]")
+cut_off = reply.finish_reason in ("length", "max_tokens")
 client.trajectories.complete(tid, termination_reason="TRUNCATION" if cut_off else "ENV_DONE")
 ```
 
