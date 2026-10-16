@@ -249,19 +249,18 @@ for failure in operation.pages("failure"):
     print(failure)
 ```
 
-Failures identify the stage, runtime or task, and message; a runtime build failure can include
-a redacted provider-error excerpt. Full provider logs are not guaranteed. Inspect these
-failure records before concluding that only the image's `failed` status is available.
-`result()` timing out does not cancel the operation; use
-`client.benchmarks.ingestion.cancel(operation.id)` to request cancellation, then inspect its state.
+Failures identify the stage, runtime or task, and message; build failures may include a
+redacted provider-error excerpt, though full logs are not guaranteed. A local `result()`
+timeout leaves the operation running. To stop it, request
+`client.benchmarks.ingestion.cancel(operation.id)` and verify its state.
 
 To revise the harness or tasks, upload the full desired task set under the same benchmark
 name and agent. This creates a version; earlier versions remain available. Pin `bench_id`
 for comparisons, since selecting by agent and benchmark names uses the latest version.
 
 `push()`, `start_push()` and `start_task_diagnostic()` accept `upload_timeout` (default
-3,600 seconds; `None` disables it). This bounds individual blob-store HTTP operations, not
-the full upload, API requests, image builds or signed-URL lifetime.
+3,600 seconds; `None` disables it) for each blob-store HTTP operation, not the full upload,
+API calls, image build or signed-URL lifetime.
 
 Run the complete uploader with that agent name, then save the benchmark ID:
 
@@ -336,11 +335,9 @@ baseline = client.evals.create(
 baseline_eval_run_id = baseline.eval_run_id
 ```
 
-`execution_timeout_seconds` starts when a task's harness runs, after queueing and sandbox
-startup. A pending eval can therefore outlast that per-task limit without a timeout.
-Neither eval submission time nor trajectory creation time starts the execution clock.
-A failed eval can contain graded tasks without a published mean. Inspect each trajectory's
-reward and rollout status; do not report the partial mean as a benchmark score.
+`execution_timeout_seconds` starts when the harness runs, after queueing and sandbox startup;
+a pending eval can outlast it. A failed eval can contain graded tasks without a published mean.
+Inspect each trajectory's reward and rollout status before reporting a score.
 
 Capped evals of the same benchmark and split can reuse tasks. Track task IDs across runs
 when counting distinct coverage or enforcing an attempt budget.
@@ -366,19 +363,15 @@ training_run_id = training.training_run_id
 Each optimizer step uses four task groups. With eight samples per group, that produces 32
 rollouts per step; samples in a group share one task. Check `samples_per_instance` in the
 model's option defaults.
-`train_batch_size` and `samples_per_instance` set the batch needed for an optimizer step;
-they do not cap the samples planned while collecting it. `max_training_samples` caps planned
-samples, including rejected ones, and must cover the requested batches in whole task groups.
-If validation shows rejected endings, leave headroom by reducing the batch under a fixed
-cap. Retries can create
-extra rollout attempts. Without an eligible batch, the run waits for its collection timeout.
-If the hard cap is exhausted and every terminal sample is excluded by the chosen training
-settings, cancel the run instead of waiting for that timeout.
-Hosted training has no active-rollout concurrency option. Training also launches held-out
-evaluation rounds; public run options cap them but do not disable them.
-`evaluation_max_samples` caps distinct tasks per round; multiply by
-`evaluation_samples_per_task` to budget attempts. Use
-`evaluation_max_active_rollouts` for concurrent evals, and count all rounds separately.
+`train_batch_size` and `samples_per_instance` size an optimizer batch, not the total run.
+`max_training_samples` caps planned TRAIN samples, including rejected ones; it must cover
+requested batches in whole task groups. Reduce the batch under a fixed cap if endings are
+rejected. Retries add attempts, and a run without an eligible batch waits for its collection
+timeout; cancel if the cap is exhausted and no batch can form. Hosted training has no
+active-rollout concurrency option. Training also runs held-out eval rounds; options limit but
+do not disable them. Per round, `evaluation_max_samples` caps distinct tasks, while
+`evaluation_samples_per_task` sets attempts per task. Count every round and use
+`evaluation_max_active_rollouts` for concurrency.
 Use `client.training.rewards.list_held_out_rewards(training_run_id)` for published round
 rewards and their coverage; a round without a published reward is absent. For attempts,
 including pending or cancelled ones, call:
@@ -388,10 +381,9 @@ path = f"/api/v1/train/{training_run_id}/steps/{step}/trajectories"
 held_out = client.get(path, cast_to=dict, options={"params": {"mode": "eval"}})
 ```
 
-These rounds do not appear in standalone eval-run lists. With `Client.get`, put query
-parameters in `options["params"]`; an inline `?mode=eval` in the path is dropped by
-released SDK versions.
-These sample limits are not a dollar cap; check the model's pricing and monitor the run.
+These rounds do not appear in standalone eval-run lists. With `Client.get`, use
+`options["params"]`; released SDK versions can drop an inline `?mode=eval` in the path.
+Sample limits are not a dollar cap; check pricing and spending.
 
 Poll `client.training.runs.retrieve(training_run_id)` until the run terminates.
 In step summaries, `no_signal_groups` means identical rewards within a group. A
@@ -448,27 +440,20 @@ key used for ingestion. Do not copy it into judge or auxiliary-tool credentials.
 through separately named [organization secrets](examples/inspect.md), and keep their calls
 off the actor trajectory.
 
-For a fixed judge served by Trajectory, an OpenAI-compatible client uses the API origin
-followed by `/v1` and an organization API key. A `trajectory.Client` uses the API origin
-without that suffix. Configure these separately from the runtime's injected actor settings.
-List that endpoint's available models with `GET /v1/models` (Bearer organization API key),
-`client.inference.list_models()`, or an OpenAI client's `models.list()`, and use the returned
-model ID exactly. Training model
-choices and models served for standalone inference are different lists. A 404 for one model
-does not establish that the account lacks inference access.
+For a fixed judge served by Trajectory, use an organization key. An OpenAI-compatible client
+uses the API origin plus `/v1`; `trajectory.Client` uses the origin alone. List available
+models with `client.inference.list_models()` and use the returned ID exactly. Training-model
+choices differ from standalone inference models; one model's 404 does not mean the account
+lacks inference access.
 
-Standalone inference also requires `X-Trajectory-Id`. Create a separate trajectory with the
-organization client, pass its `tid` in that header, and complete it when the auxiliary work
-ends. An OpenAI-compatible harness that only accepts a base URL and key needs an adapter to
-supply this header; those two settings alone are insufficient. Do not attach auxiliary calls
-to the managed actor trajectory. Test one call through the actual harness wrapper and confirm
-it uses a different trajectory ID from the actor.
+Standalone inference also requires `X-Trajectory-Id`. Create and complete a separate
+trajectory with the organization client, passing its `tid` in that header. A harness that
+accepts only a URL and key needs an adapter for the header. Test each auxiliary call path
+through its actual wrapper and confirm its ID differs from the actor's.
 
-[Auxiliary inference example](examples/auxiliary_inference.py) implements this lifecycle for
-a text request: an explicit organization client, a fresh trajectory ID, the unchanged model ID,
-and completion on success, truncation, or error. Adapt the harness's model-call function to use
-it; setting environment variables alone does not add the required header. The example leaves
-retries to its caller.
+[Auxiliary inference example](examples/auxiliary_inference.py) covers the separate client,
+trajectory and completion reasons. Adapt each harness model-call path; environment variables
+alone do not add the header. The example leaves retries to its caller.
 
 SDK responses are Pydantic models. If the harness validates responses with another library's
 model class, pass `response.model_dump()` to that validator.
@@ -547,7 +532,8 @@ private answers or hidden tests.
 Check that separation through the actor's actual tools. A shell running as the image's user
 can read any files that user can access, even if their paths are absent from the prompt.
 Keep private grader files and oracle solutions outside that access while the actor solves.
-URL-fetching tools may also accept `file://` paths; probe them with a test-only private file.
+Do not run actor-writable code with judge or organization credentials. Probe the actor's tools
+with a test-only private file and fake secret, including relative paths and `file://` URLs.
 
 For harness-managed containers, package the task Dockerfiles and build inputs where the
 harness expects them. To reuse prebuilt images, [`docker save` / `docker load`](https://docs.docker.com/reference/cli/docker/image/load/)
@@ -604,8 +590,10 @@ Test daemon startup inside a task runtime. Size `EnvResources.cpus` and `memory_
 work done there, including any task image builds. If the harness uses an external sandbox
 service instead, supply that service's credentials through `SecretRef`.
 
-Network access is configured separately: use `network_mode="allowlist"` with `allowed_hosts`,
-or `network_mode="public"` when unrestricted access is required.
+Task sandboxes default to no network. Set each task's `env_resources` to
+`EnvResources(network_mode="allowlist", allowed_hosts=[...])` or
+`EnvResources(network_mode="public")` as needed. Inspect the constructed specs before upload;
+image readiness does not verify network mode.
 
 For external task or grading services, pin a version where supported. Otherwise record the
 available version information and note that later runs may use different service behavior.

@@ -28,12 +28,14 @@ If a cookbook snapshot is supplied with the customer source, use that version fo
 ## Integrate and validate
 
 Read the customer's entrypoint, task loader, model-call path, grader, and result reader.
-Identify task identity, splits, runtime dependencies, private references, and the primary
-reported score. Record the source's model sampling settings, output limit, and stop rules;
-label any smaller validation setting before comparing scores. The runtime must execute the
-harness and publish its outcome; registering a task description does not run a grader.
-Before upload, probe the actor's tools with a test-only private file (`file://` for URL
-tools); they must not reach grader inputs, reference answers, or oracle solutions.
+Identify task identity, splits, runtime dependencies, network access, private references,
+and the primary reported score. Record the source's model sampling settings, output limit,
+and stop rules; label any smaller validation setting before comparing scores. The runtime
+must execute the harness and publish its outcome; registering a task description does not
+run a grader.
+Before each upload, probe the actor's tools with a test-only private file and fake secret,
+including relative paths and `file://` for URL tools. They must not reach grader inputs,
+reference answers, oracle solutions, or privileged credentials.
 Before bulk ingestion, test the actual harness with normal, length-capped, and exception
 replies. Verify its native grade and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If the
 runtime cannot run locally, use a managed task diagnostic. Syntax checks and a ready image
@@ -46,15 +48,17 @@ do not establish that the entrypoint can execute.
   for build contexts, dependencies, secrets, nested containers, and actor versus judge routing.
   Preserve the original working directory, required paths, inputs and grading rules.
   If adapting tools, keep the task instructions and exposed tool interface in agreement.
-  The Dockerfile's directory defines its uploaded context. Verify that required files are
-  inside it. A fixed judge needs its own client and credentials; the managed actor client
-  routes even differently named models to the actor. Keep judge calls off the actor trajectory.
+  The Dockerfile's directory defines its uploaded context. Before upload, check that every
+  local `COPY` source exists inside that directory. Check the final task specs' network mode;
+  an omitted `env_resources` means no network. A fixed judge needs its own client and
+  credentials; the managed actor client routes even differently named models to the actor.
+  Keep judge calls off the actor trajectory.
   The injected `TRAJECTORY_API_KEY` is an actor-session key. For auxiliary Trajectory calls,
   inject the organization key under a different secret name and construct the auxiliary
   client with that key and the API origin explicitly; `Client()` inherits the actor session.
   Adapt auxiliary calls using the [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py);
-  a base URL and key alone do not supply the required trajectory header. Exercise one call
-  through the actual wrapper and confirm its trajectory ID differs from the actor's.
+  a base URL and key alone do not supply the required trajectory header. Exercise each
+  auxiliary call path through its actual wrapper and confirm its ID differs from the actor's.
   For SDK versions whose chat signature lacks `tools`, follow the
   [cookbook's tool-call syntax](https://github.com/Trajectorylabs/trajectory-cookbook#connect-the-actor).
   Bound tool replies passed back to the actor; retain full data as artifacts when needed.
@@ -106,33 +110,18 @@ creation is the execution clock. Use one polling loop for a run.
 Use rollout admission and terminal states to audit concurrency; aggregate progress can lag
 while attempts reconcile.
 
-For training, inspect supported model options and choose limits appropriate to the harness
-and customer's budget. Understand which termination reasons and ungraded samples the chosen
-settings admit. Do not enable training on rejected outcomes merely to make progress appear.
-Batch size and samples per instance do not cap total planned training samples. Where supported,
-use `max_training_samples` for that cap; it includes rejected samples, but retries can add
-rollout attempts. Samples in one training group share a task; count distinct tasks separately.
-A single-task group can prove an optimizer update but not training across the benchmark.
-If validation shows rejected endings, leave room beyond the requested batches under
-`max_training_samples`. Under a fixed cap, reduce `train_batch_size` or
-`samples_per_instance`. An exact one-batch cap can expire without an update.
-If the cap is exhausted and every terminal sample is excluded by the run's training settings,
-cancel rather than wait for the batch-collection timeout.
-Public run options cap but do not disable training-triggered evaluations. Count tasks times
-`evaluation_samples_per_task` in every round. Inspect coverage with
-`client.training.rewards.list_held_out_rewards(run_id)` for published rounds and attempts with
-`Client.get` on `/api/v1/train/{run_id}/steps/{step}/trajectories`, passing
-`options={"params": {"mode": "eval"}}`; an inline query in that SDK method's path can be
-dropped. A round without a published reward is absent from the rewards method. These rounds
-do not appear in standalone eval-run lists. Check pricing and spending; sample limits do not
-enforce a dollar budget.
-Monitor completed steps, failures, and available checkpoints.
-Step-0 checkpoints precede optimizer updates; do not report them as trained models.
-In step summaries, `no_signal_groups` counts identical rewards, including singleton groups;
-it does not prove that every algorithm skipped an update. Check the rollout's trained-on
-status and the algorithm before describing what the optimizer did. For batch membership,
-pass `options={"params": {"selection": "trained"}}` on the same path at the consuming step:
-the first update consumes policy-step-0 rollouts at step 1.
+For training, inspect supported options and choose limits for the harness and budget. Check
+which endings and ungraded samples are eligible; do not admit rejected outcomes just to make
+progress appear. Batch size does not cap total samples. `max_training_samples` caps planned
+TRAIN samples, including rejected ones; retries and held-out eval rounds add attempts. A
+training group shares one task, so count distinct tasks separately. Rejected samples can
+exhaust the cap without an update; reduce the batch under a fixed cap or cancel when no
+eligible batch remains. A one-task update does not establish benchmark-wide training.
+Monitor steps, failures, checkpoints, and held-out coverage using the
+[cookbook's run inspection](https://github.com/Trajectorylabs/trajectory-cookbook#3-evaluate-train-and-compare-on-the-trajectory-platform).
+Step-0 checkpoints precede updates. Identical-reward groups can still train under some
+algorithms; check trained-on status before calling an update skipped. Sample limits are not
+a dollar budget.
 
 Compare the baseline and checkpoint using the same benchmark version, held-out tasks, scoring,
 and effective evaluation settings. Checkpoint evals inherit supported token and turn limits
