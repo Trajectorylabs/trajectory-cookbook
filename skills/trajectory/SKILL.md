@@ -32,6 +32,8 @@ Identify task identity, splits, runtime dependencies, private references, and th
 reported score. Record the source's model sampling settings, output limit, and stop rules;
 label any smaller validation setting before comparing scores. The runtime must execute the
 harness and publish its outcome; registering a task description does not run a grader.
+Before upload, probe the actor's tools with a test-only private file (`file://` for URL
+tools); they must not reach grader inputs, reference answers, or oracle solutions.
 Before bulk ingestion, test the actual harness with normal, length-capped, and exception
 replies. Verify its native grade and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If the
 runtime cannot run locally, use a managed task diagnostic. Syntax checks and a ready image
@@ -44,8 +46,6 @@ do not establish that the entrypoint can execute.
   for build contexts, dependencies, secrets, nested containers, and actor versus judge routing.
   Preserve the original working directory, required paths, inputs and grading rules.
   If adapting tools, keep the task instructions and exposed tool interface in agreement.
-  Keep private tests, grader references and oracle solutions outside the actor's reach;
-  check access through its actual tools, not only the prompt.
   The Dockerfile's directory defines its uploaded context. Verify that required files are
   inside it. A fixed judge needs its own client and credentials; the managed actor client
   routes even differently named models to the actor. Keep judge calls off the actor trajectory.
