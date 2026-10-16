@@ -5,11 +5,9 @@ description: Integrate a customer benchmark with Trajectory, evaluate and train 
 
 # Trajectory
 
-Use Trajectory for the customer's requested workflow. An evaluation request does not imply
-permission to train or deploy. Preserve their benchmark's solving and grading behavior.
-Missing live credentials prevent live validation, not implementation or offline checks.
-Complete the parts that do not depend on them; a manifest without an executable runtime is
-an unfinished integration. Keep unresolved product or scoring choices explicit.
+Use Trajectory for the customer's requested workflow; evaluation alone does not authorize
+training or deployment. Preserve the benchmark's solving and grading behavior. If live
+credentials are missing, finish offline validation and state what remains unverified.
 
 ## Find the contract
 
@@ -29,18 +27,14 @@ If a cookbook snapshot is supplied with the customer source, use that version fo
 
 Read the customer's entrypoint, task loader, model-call path, grader, and result reader.
 Identify task identity, splits, runtime dependencies, network access, private references,
-and the primary reported score. Record the source's model sampling settings, output limit,
-and stop rules; label any smaller validation setting before comparing scores. The runtime
-must execute the harness and publish its outcome; registering a task description does not
-run a grader.
+and the primary reported score. Preserve sampling settings, output limit, and stop rules
+when comparing scores. The runtime must execute the harness and publish its outcome.
 Before bulk upload, probe the actor's tools with a test-only private file and fake secret,
 including relative paths and `file://` for URL tools; repeat if those tools change. They
 must not reach grader inputs, reference answers, oracle solutions, or privileged credentials.
-Before scheduling many tasks, test the actual harness in its packaged runtime with correct,
-wrong, length-capped, and exception replies. Check native grades, reward bounds and weights, and
-`ENV_DONE`,
-`TRUNCATION`, and `ERROR` endings. If the runtime cannot run locally, use a managed task
-diagnostic. Syntax checks and a ready image do not establish that the entrypoint can execute.
+Before scheduling many tasks, test the packaged harness with correct, wrong, length-capped,
+and exception replies. Check native grades, reward bounds and weights, and `ENV_DONE`,
+`TRUNCATION`, and `ERROR` endings. If local execution is unavailable, use a managed diagnostic.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)
   for the customer's project. Use descriptive names and save returned IDs for later calls;
@@ -49,17 +43,15 @@ diagnostic. Syntax checks and a ready image do not establish that the entrypoint
   for build contexts, dependencies, secrets, nested containers, and actor versus judge routing.
   Preserve the original working directory, required paths, inputs and grading rules.
   If adapting tools, keep the task instructions and exposed tool interface in agreement.
-  The Dockerfile's directory defines its uploaded context. Before upload, check that every
-  local `COPY` source exists inside that directory. Check the final task specs' network mode;
+  The Dockerfile's directory defines its uploaded context. Before the first upload, resolve
+  every `COPY` source against that directory. Check the final task specs' network mode;
   an omitted `env_resources` means no network. A fixed judge needs its own client and
   credentials; the managed actor client routes even differently named models to the actor.
   Keep judge calls off the actor trajectory.
   The injected `TRAJECTORY_API_KEY` is an actor-session key. For auxiliary Trajectory calls,
-  inject the organization key under a different secret name and construct the auxiliary
-  client with that key and the API origin explicitly; `Client()` inherits the actor session.
-  Adapt auxiliary calls using the [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py);
-  a base URL and key alone do not supply the required trajectory header. Exercise each
-  auxiliary call path through its actual wrapper and confirm its ID differs from the actor's.
+  use a separately named organization secret and the
+  [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py).
+  Exercise each auxiliary call through its actual wrapper; it needs its own trajectory header.
   For SDK versions whose chat signature lacks `tools`, follow the
   [cookbook's tool-call syntax](https://github.com/Trajectorylabs/trajectory-cookbook#connect-the-actor).
   Bound tool replies passed back to the actor; retain full data as artifacts when needed.
