@@ -317,6 +317,9 @@ for resource in (client.training, client.evals):
         print(model.base_model_slug, model.options)
 ```
 
+Before packaging the harness, check `client.evals.list_models()` or
+`client.training.list_models()` and the actor inference route. Inference availability alone
+does not establish eval support.
 Omit `options`, or pass `{}`, for defaults. Leave computed defaults unset so the server
 can resolve them. Run the benchmark before training so you have a frozen baseline.
 Use a one-task managed eval with execution and concurrency limits before a larger eval;
@@ -326,14 +329,16 @@ output limit when checking its native grade; a shorter cap can prevent grading a
 the score incomparable.
 
 ```python
-baseline = client.evals.create(
+smoke = client.evals.create(
     bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.5-4B",
-    display_name="GSM8K baseline",
-    options={"disable_thinking": True, "evaluation_max_samples": 16},
+    display_name="GSM8K smoke test",
+    options={"disable_thinking": True, "evaluation_max_samples": 1},
 )
-baseline_eval_run_id = baseline.eval_run_id
+smoke_eval_run_id = smoke.eval_run_id
 ```
+
+After this passes, run the held-out baseline on the planned subset and keep its run ID.
 
 `execution_timeout_seconds` starts when the harness runs, after queueing and sandbox startup;
 a pending eval can outlast it. A failed eval can contain graded tasks without a published mean.

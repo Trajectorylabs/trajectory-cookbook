@@ -62,9 +62,9 @@ diagnostic. Syntax checks and a ready image do not establish that the entrypoint
   For SDK versions whose chat signature lacks `tools`, follow the
   [cookbook's tool-call syntax](https://github.com/Trajectorylabs/trajectory-cookbook#connect-the-actor).
   Bound tool replies passed back to the actor; retain full data as artifacts when needed.
-  Discover available models on the separate inference endpoint; do not assume training model
-  IDs are served there or treat one unavailable model as missing account access. Verify the
-  actual request's model ID when a wrapper may rewrite provider prefixes.
+  Check `client.evals.list_models()` or `client.training.list_models()` and the actor
+  inference route before packaging; inference availability alone does not establish eval
+  support. Verify the actual request's model ID when a wrapper may rewrite provider prefixes.
 - Follow [reward integration](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/reward_integration.md)
   to map the score actually consumed by the upstream evaluator. Validate wrong, partial, and
   correct outputs where applicable. Declare the raw score's bounds; `log_reward` defaults to
