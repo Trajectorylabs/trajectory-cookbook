@@ -279,6 +279,8 @@ After training succeeds, replace `YOUR_TRAINING_RUN_ID` with the run you want to
 Use its actual final step count; the commands above use three steps. Deployments require a
 committed checkpoint backed by Tinker training weights. Use a new model slug for this example:
 `role="production"` makes it the active target when deployment finishes.
+For `role="test"`, query the exact deployment route below; the model slug resolves only to
+the active production deployment.
 
 ```python
 import time
@@ -339,8 +341,8 @@ and wait for `CANCELLED`; a cancellation request alone does not confirm cleanup.
 served deployment and its endpoint resources, call `client.deployments.delete(deployment_id)`.
 
 For an existing production slug, create a `role="test"` deployment first. Once `DEPLOYED`,
-query that exact deployment at `POST /api/v1/deploy/<deployment-id>/chat/completions`, with
-its model slug, organization key and `X-Trajectory-Id`. Promote it from the platform's
+query `POST /api/v1/deploy/<deployment-id>/chat/completions` with its model slug, organization
+key and `X-Trajectory-Id`. Promote it from the platform's
 **Deployment** page when ready; promotion requires a signed-in user. Deployment provisions
 the model endpoint, so no separate model-endpoint creation is needed.
 For reasoning models, `max_tokens` includes reasoning tokens; a cap sized for only the visible

@@ -70,8 +70,8 @@ and exception replies. Check native grades, reward bounds and weights, and `ENV_
 - Report [how the attempt ended](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/termination_reasons.md).
   Read the model's `finish_reason`; a clean harness exit or zero grade does not make a
   cut-off reply normal. If the source grades cut-off replies, preserve that grade and mark
-  the ending `TRUNCATION`. Use `MAX_STEPS` for a harness turn limit. Preserve retry headers,
-  and check that exception cleanup does not overwrite the intended reason.
+  the ending `TRUNCATION`. Use `MAX_STEPS` for a harness turn limit. Preserve retry headers
+  and the intended reason; if completion fails during cleanup, retain the original error too.
 - A [task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
   can run the packaged entrypoint before bulk upload. Inspect its trajectory, grade, and
   ending. Where the benchmark provides known-good and known-bad solutions, use them to check
