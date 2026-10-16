@@ -368,8 +368,8 @@ rollouts per step; samples in a group share one task. Check `samples_per_instanc
 model's option defaults.
 `train_batch_size` and `samples_per_instance` set the batch needed for an optimizer step;
 they do not cap the samples planned while collecting it. `max_training_samples` caps planned
-samples, including rejected ones, and must cover one batch per requested step and one whole
-task. If validation shows rejected endings, leave headroom by reducing the batch under a fixed
+samples, including rejected ones, and must cover the requested batches in whole task groups.
+If validation shows rejected endings, leave headroom by reducing the batch under a fixed
 cap. Retries can create
 extra rollout attempts. Without an eligible batch, the run waits for its collection timeout.
 If the hard cap is exhausted and every terminal sample is excluded by the chosen training
