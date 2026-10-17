@@ -552,7 +552,8 @@ adapter; the source does not need to provide Trajectory-specific code.
 Do not run actor-writable code with judge or organization credentials. An actor shell needs a
 scrubbed environment and a separate user or sandbox without private grader files; hiding
 their paths from the prompt is insufficient. Probe the actor's tools with a test-only private
-file and fake secret, including relative paths and `file://` URLs.
+file and fake secret, including relative paths and `file://` URLs. Check data saved for later
+tool calls as well as the first tool response.
 
 For harness-managed containers, package the task Dockerfiles and build inputs where the
 harness expects them. To reuse prebuilt images, [`docker save` / `docker load`](https://docs.docker.com/reference/cli/docker/image/load/)
