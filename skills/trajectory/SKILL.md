@@ -120,8 +120,9 @@ progress appear. Batch size does not cap total samples. `max_training_samples` c
 TRAIN samples, including rejected ones; retries and held-out eval rounds add attempts.
 Reserve attempts for those rounds and a matched checkpoint eval. A training group shares
 one task, so count distinct tasks separately. Rejected or stale samples can exhaust the cap
-before all requested steps; reduce the batch under a fixed cap or cancel when no eligible batch
-remains. A one-task update does not establish benchmark-wide training.
+before all requested steps; the run then fails with `training_sample_cap_exhausted` after
+planned attempts finish. Reduce the batch under a fixed cap. A one-task update does not
+establish benchmark-wide training.
 Monitor steps, failures, checkpoints, and held-out coverage using the
 [cookbook's run inspection](https://github.com/Trajectorylabs/trajectory-cookbook#3-evaluate-train-and-compare-on-the-trajectory-platform).
 Step-0 checkpoints precede updates. Identical-reward groups can still train under some

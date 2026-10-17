@@ -381,8 +381,8 @@ model's option defaults.
 `train_batch_size` and `samples_per_instance` size an optimizer batch, not the total run.
 `max_training_samples` caps planned TRAIN samples, including rejected ones. It must fit one
 whole task group, but does not guarantee the requested steps: rejected or stale groups can
-exhaust it. Retries add attempts. A run without an eligible batch waits for its collection
-timeout; cancel if the cap is exhausted and no batch can form. Hosted training has no
+exhaust it. Once all planned attempts finish without another eligible batch, training fails
+with `training_sample_cap_exhausted`. Retries add attempts. Hosted training has no
 active-rollout concurrency option. Training also runs held-out eval rounds; options limit but
 do not disable them. Per round, `evaluation_max_samples` caps distinct tasks, while
 `evaluation_samples_per_task` sets attempts per task. Count every round and use
