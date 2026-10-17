@@ -63,6 +63,7 @@ multi-task eval.
   actual wrapper and confirm its trajectory ID differs from the actor's.
   For SDK versions whose chat signature lacks `tools`, follow the
   [cookbook's tool-call syntax](https://github.com/Trajectorylabs/trajectory-cookbook#connect-the-actor).
+  Dispatch returned tool calls before accepting a final answer; accompanying text is not a completed turn.
   Bound tool replies passed back to the actor; retain full data as artifacts when needed.
   Check `client.evals.list_models()` or `client.training.list_models()` and the actor
   inference route before packaging; inference availability alone does not establish eval
