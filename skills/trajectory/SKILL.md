@@ -36,10 +36,12 @@ containing that Dockerfile; it is the uploaded build context. Inspect the final 
 splits, network mode, and secrets. Test the packaged harness with correct, wrong,
 length-capped, and exception replies; check native grades, reward bounds and weights,
 and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If local execution is unavailable,
-use a managed diagnostic. Probe every actor-facing tool through its actual dispatcher with
-a fake secret and test-only private file. An unrestricted shell that inherits judge or
-organization keys or can read verifier files fails this gate; isolate those resources before
-upload. After image readiness, run exactly one managed task and inspect its raw grade,
+use a managed diagnostic. Write the Trajectory dispatcher around the source's actor and
+verifier boundary; the source need not provide one. Keep judge and organization keys and
+private grader files in the trusted harness, outside the actor tool's environment. Probe
+every actor-facing tool through that dispatcher with a fake secret and test-only private
+file before upload. An unrestricted shell that can read either fails this gate. After image
+readiness, run exactly one managed task and inspect its raw grade,
 effective reward, ending, and visible answer before any multi-task eval.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)

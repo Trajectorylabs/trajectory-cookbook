@@ -547,6 +547,8 @@ private answers or hidden tests.
 Check that separation through the actor's actual tools. A shell running as the image's user
 can read any files that user can access, even if their paths are absent from the prompt.
 Keep private grader files and oracle solutions outside that access while the actor solves.
+If the source separates the solver and verifier, preserve that boundary in its Trajectory
+adapter; the source does not need to provide Trajectory-specific code.
 Do not run actor-writable code with judge or organization credentials. An actor shell needs a
 scrubbed environment and a separate user or sandbox without private grader files; hiding
 their paths from the prompt is insufficient. Probe the actor's tools with a test-only private
