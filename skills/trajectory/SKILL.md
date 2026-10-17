@@ -33,11 +33,11 @@ and the primary reported score. Preserve sampling settings, output limit, and st
 when comparing scores. The runtime must execute the harness and publish its outcome.
 Before the first upload, resolve every Dockerfile `COPY` source against the directory
 containing that Dockerfile; it is the uploaded build context. Inspect the final task specs'
-splits, network mode, and secrets. Test correct and wrong answers, cut-off replies, malformed
-tool calls, and exceptions; check native grades, reward bounds and weights,
-and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If local execution is unavailable,
-use a managed diagnostic. Write the Trajectory dispatcher around the source's actor and
-verifier boundary; the source need not provide one. Keep judge and organization keys and
+splits, network mode, and secrets. Test each selected grader path with correct and wrong
+answers, cut-off replies, malformed tool calls, and exceptions; check native grades,
+reward bounds, weights, and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If local execution
+is unavailable, use a managed diagnostic. Write the Trajectory dispatcher around the source's
+actor and verifier boundary; the source need not provide one. Keep judge and organization keys and
 private grader files in the trusted harness, outside the actor tool's environment. Probe
 every actor-facing tool and follow-up read path with a fake secret and test-only private
 file before upload; try relative paths and `file://` URLs. A tool that can return or store
