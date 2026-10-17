@@ -36,6 +36,7 @@ uploader, dispatcher, and runtime build files in the customer repo; validate tho
 entrypoints. Place the dispatcher around the source's actor and verifier boundary; the runtime
 must execute the harness and publish its outcome. Keep judge and organization keys and private
 grader files in the trusted harness; pass tool subprocesses only the environment they need.
+Publish only grader fields safe for trajectory readers; keep private references out of events.
 
 Before upload, check the SDK's model-request signature and import the packaged harness and
 grader during the image build. Test representative source IDs from each split and grader

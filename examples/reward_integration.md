@@ -120,8 +120,8 @@ Each `log_reward` call adds a named component; weight `0` records one without co
 Retrieve with `include_reward_components=True` to inspect logged components; the SDK may omit
 them from the default trajectory response.
 
-Here `grade_rubric` returns how many required criteria were met and a verdict per criterion.
-The reward is pass/fail, and the fraction met is recorded with weight `0`:
+Here `grade_rubric` returns how many required criteria were met. The reward is pass/fail,
+and the fraction met is recorded with weight `0`. Keep private grader references out of events:
 
 ```python
 from trajectory import Client
@@ -154,7 +154,10 @@ def run_task(prompt: str, rubric: list[dict]) -> None:
         weight=0.0,
         explanation=f"{met}/{total} required criteria met",
     )
-    client.trajectories.log_event(tid, event_id="rubric", name="rubric", payload=result)
+    client.trajectories.log_event(
+        tid, event_id="rubric", name="rubric",
+        payload={"n_required_met": met, "n_required": total},
+    )
     client.trajectories.complete(tid)
 ```
 
