@@ -93,9 +93,9 @@ grading can run.
 Inspect per-task outcomes before reporting an aggregate.
 
 For training, inspect supported options and eligible endings. Group-relative training needs
-reward contrast; budget extra task groups beyond `train_batch_size` because all-equal groups
-spend the sample cap without filling the batch. Also budget retries, held-out eval rounds,
-and a matched checkpoint eval; a sample cap is not a dollar budget.
+reward contrast. Set `max_training_samples` above `train_batch_size * samples_per_instance`:
+all-equal and rejected groups spend samples without filling the batch. Budget retries,
+held-out eval rounds, and a matched checkpoint eval; a sample cap is not a dollar budget.
 `used_groups=0` does not establish an empty optimizer batch: no-signal and incomplete groups
 are excluded. Read `in_training_batch` from `GET /api/v1/train/{run_id}/steps/{step}/groups`
 before reporting batch membership.
