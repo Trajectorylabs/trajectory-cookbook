@@ -6,10 +6,8 @@ from trajectory import Client
 def call_auxiliary(
     prompt: str, model: str, api_key: str, base_url: str, timeout: float
 ) -> dict:
-    origin = base_url.rstrip("/")
-    if origin.endswith("/v1"):
-        origin = origin[:-3]
-    # The calling harness owns retries. Never inherit the actor's session credential or TID.
+    origin = base_url.rstrip("/").removesuffix("/v1")
+    # The harness owns retries; do not reuse the actor's session key or TID.
     with Client(
         api_key=api_key, base_url=origin, max_retries=0, timeout=timeout
     ) as client:
@@ -25,7 +23,10 @@ def call_auxiliary(
             if choice.finish_reason in ("length", "max_tokens"):
                 reason = "TRUNCATION"
                 raise ValueError("Auxiliary model response was truncated")
-            if choice.finish_reason != "stop" or not choice.message.content:
+            if (
+                choice.finish_reason != "stop"
+                or not (choice.message.content or "").strip()
+            ):
                 raise ValueError("Auxiliary model returned no completed text answer")
             reason = "ENV_DONE"
         except Exception as error:
