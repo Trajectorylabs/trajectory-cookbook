@@ -37,32 +37,29 @@ entrypoints. Place the dispatcher around the source's actor and verifier boundar
 must execute the harness and publish its outcome. Keep judge and organization keys and private
 grader files in the trusted harness; pass tool subprocesses only the environment they need.
 
-Before upload, check the SDK's model-request signature. Run a build-time import check for the
-packaged harness and grader. Test representative source IDs from each split and grader path,
-including their runtime data. Cover correct, wrong, cut-off, and exceptional outcomes. Local
-Docker is optional: use a managed one-task diagnostic to check execution, grading, and
-artifacts.
-An import check alone is insufficient. Probe the actual actor-facing tools and their
-subprocess environments with a fake secret and test-only private file; a mock tool does not
-establish isolation.
+Before upload, check the SDK's model-request signature and import the packaged harness and
+grader during the image build. Test representative source IDs from each split and grader
+path, including their runtime data. Cover correct, wrong, cut-off, and exceptional outcomes;
+known-good and known-bad solutions separate adapter correctness from model quality. Probe the
+actual actor-facing tools and their subprocess environments with a fake secret and test-only
+private file; a mock tool does not establish isolation.
 
-Once the image is ready, inspect registered task splits, network mode, and secrets. Check one
-managed task's raw grade, effective reward, ending, and visible answer before expanding.
+Once the image is ready, inspect registered task splits, network mode, and secrets. Use a
+[managed one-task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
+to check execution, grading, artifacts, raw and effective reward, ending, and visible answer
+before expanding. Local Docker is optional; keep the build-time checks when it is unavailable.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)
   for the customer's project. Inspect existing work before creating another benchmark or run.
 - Follow [runtime packaging](https://github.com/Trajectorylabs/trajectory-cookbook#package-a-benchmark-runtime)
-  for build contexts, dependencies, secrets, nested containers, and actor versus judge routing.
-  Preserve required paths, inputs, grading rules, and the actor's tool interface. For nested
-  Docker, put `RUN dockerd --version && docker --version` in its Dockerfile; the managed image
-  build checks those binaries, and sandbox readiness runs `docker info`. Set the source's
-  network mode explicitly; task networking defaults to none. The managed client routes model
-  calls to the actor even when they name another model. Source-fixed tool and judge calls
-  need separate clients and appropriate credentials; changing their models leaves benchmark
-  score parity unverified. The injected `TRAJECTORY_API_KEY` is an actor-session key. For
-  auxiliary Trajectory calls, use an organization secret and the runtime's injected base URL.
-  Follow the [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py)
-  and check eval or training model availability before packaging.
+  for build contexts, dependencies, secrets, nested Docker, network, and model routing.
+  Preserve source paths and the actor's tool interface. Check nested Docker binaries with
+  `RUN dockerd --version && docker --version`; set network mode explicitly (default: none).
+  Managed model calls route to the actor even when they name another model. Keep source-fixed
+  tool and judge calls on separate clients and credentials, or score parity is unverified.
+  The injected `TRAJECTORY_API_KEY` is an actor-session key; auxiliary Trajectory calls need
+  an organization secret and the injected base URL ([example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py)).
+  Check model availability before packaging.
 - Follow [reward integration](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/reward_integration.md)
   to map the score the source result reader actually consumes. Validate wrong, partial, and
   correct outputs where applicable. Report native grades from the raw component, not
@@ -73,9 +70,6 @@ managed task's raw grade, effective reward, ending, and visible answer before ex
   A clean harness exit or zero grade does not make a cut-off reply normal.
   Preserve native grades for cut-off replies and mark `TRUNCATION`.
   Preserve retry headers; report unexpected harness errors as `ERROR` and re-raise.
-- A [task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
-  can run the packaged entrypoint before bulk upload. Where available, use known-good and
-  known-bad solutions to check the adapter independently of model quality.
 
 Keep source task identities and explicit train/test membership; omitting a split lets
 ingestion assign one. Account for omitted or failed tasks. If the source has no split metadata,
