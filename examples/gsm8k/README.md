@@ -33,7 +33,6 @@ The SDK uses `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` f
 ## 2. Choose or create an agent
 
 Follow the shared [agent selection guidance](../../README.md#choose-or-create-an-agent).
-Use an explicitly selected agent, reuse one whose purpose fits, or create one for a new use case.
 For a new GSM8K project:
 
 ```bash
@@ -41,8 +40,7 @@ uv run --with trajectory-sdk==0.9.20 python -c \
   'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 
-The remaining commands use `gsm8k-cookbook`; substitute your selected agent's name if different.
-Reuse that agent on later runs without repeating the creation command.
+Substitute your selected agent's name below if different.
 
 ## 3. Validate one task
 
@@ -55,16 +53,9 @@ agent_name = "gsm8k-cookbook"
 task_diagnose(agent_name=agent_name)
 ```
 
-`task_diagnose` downloads one training problem, packages its task file with the harness and
-grader, builds the runtime, and runs that task on `Qwen/Qwen3.5-4B`. This catches packaging,
-execution, and grading errors before uploading the benchmark, with more detailed error
-reports and logs to help debug failures.
-
-The task diagnostic prints its ID, status, task report, and reward. Zero is a valid graded
-answer. Continue to the smoke upload and evaluation after this diagnostic passes.
-
-If a check fails, inspect its printed run-wide and per-task failures, fix the reported runtime
-or grading problem, and [repeat the relevant diagnostic](#inspect-existing-work).
+`task_diagnose` packages one training problem and its grader, builds the runtime, and runs
+it on `Qwen/Qwen3.5-4B`. It prints the diagnostic ID, status, task report, and reward.
+Zero is a valid grade. Fix packaging or grading failures and repeat the diagnostic.
 For a different harness, use the [task upload validation recipe](../task_diagnostics.md).
 
 ## 4. Evaluate one held-out task and confirm a grade
@@ -84,7 +75,6 @@ baseline_reward = eval_smoketest(client, bench_id)
 print(f"baseline_reward={baseline_reward:.6f}")
 ```
 
-Use your chosen `agent_name`.
 `ingest_smoketest` uploads one training problem and one different problem from GSM8K's test
 split, then waits for the runtime image to be ready. Both ingestion helpers only upload and
 wait; diagnostics are separate calls. Benchmark-wide diagnostics are reserved for step 6.
@@ -92,7 +82,7 @@ wait; diagnostics are separate calls. Benchmark-wide diagnostics are reserved fo
 `eval_smoketest` evaluates one held-out task and prints its evaluation ID, progress and grade
 counts. It returns the reward only if every attempt has a native grade, `ENV_DONE` ending,
 and completed rollout. It stops on failures or missing grades. A recorded zero is valid.
-This catches basic execution and grading errors; one test problem cannot measure generalization.
+One test problem cannot measure generalization.
 
 ## 5. Train on one task and evaluate the checkpoint
 
@@ -151,8 +141,9 @@ print(f"final_reward={final_reward:.6f}")
 print(f"reward_delta={final_reward - baseline_reward:+.6f}")
 ```
 
-Reward may stay unchanged or fall in a short run. For an existing benchmark where you want
-only evaluation or only training, use the [individual SDK calls](../../README.md#3-evaluate-train-and-compare-on-the-trajectory-platform).
+Reward may stay unchanged or fall in a short run. For an existing benchmark, use the
+[selector and option guidance](../../README.md#evaluate-train-and-compare) with the
+corresponding SDK calls above.
 
 ## 6. Expand to the 80-task example
 

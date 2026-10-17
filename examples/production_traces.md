@@ -18,7 +18,7 @@ tid = session.tid
 ```
 
 Pass `x_trajectory_id=tid` to each model call, as in
-[the capture example](../README.md#pass-the-tid-to-llm-calls). Reuse the request's
+[the capture example](../README.md#record-a-task). Reuse the request's
 idempotency key when retrying creation. The organization API key authenticates these calls.
 
 When a grader is available, [log its reward](reward_integration.md). Complete the trajectory

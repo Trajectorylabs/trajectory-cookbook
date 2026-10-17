@@ -44,8 +44,8 @@ comparison target before completing ingestion. Do not silently choose a scoring 
 
 ## Put the adapter in your task harness
 
-In the [main README](../README.md#log-reward-to-the-trajectory), `check_answer(...)`
-returns a scalar that goes directly into `log_reward`. If your existing grader instead
+In the [main README](../README.md#record-a-task), `grade` is the scalar passed to
+`log_reward`. If your existing grader instead
 returns a report such as `{"accuracy": 0.75, "latency_seconds": 12.0}`, add score selection
 between grading and `log_reward` in your runtime harness, after the model finishes the task.
 This code runs inside the submitted runtime, not in the script that uploads the benchmark.

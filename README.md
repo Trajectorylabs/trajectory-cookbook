@@ -3,19 +3,17 @@
 Examples for evaluating and training models with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/).
 
-For coding agents, use the [Trajectory skill](skills/trajectory/SKILL.md) alongside your
-benchmark's source. It covers integration, validation, evaluation, training, and diagnosis.
-Copy `skills/trajectory/` into `.agents/skills/` in your benchmark repository for Codex, or
-`.claude/skills/` for Claude Code. Ask your agent to read and use the `trajectory` skill for your task.
+Before starting your coding agent, copy the [Trajectory skill](skills/trajectory/SKILL.md) to
+`<benchmark-repo>/.agents/skills/trajectory/SKILL.md` for Codex or
+`<benchmark-repo>/.claude/skills/trajectory/SKILL.md` for Claude Code. Ask the agent to use it.
 
 Runnable examples and runtime images pin `trajectory-sdk==0.9.20`.
 The [public Tau 3 Banking recipe](examples/tau3_banking/banking.md) preserves the upstream evaluator.
 
 **Start here:** [Run your first task with T Factory](examples/t_factory/README.md).
-See one model response, its reward, and a completed execution. 
+See one model response, its reward, and a completed execution.
 
 ## Examples Guide
-
 
 | Example | What you learn |
 | --- | --- |
@@ -26,9 +24,6 @@ See one model response, its reward, and a completed execution.
 | [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
 | [Harvey LAB](examples/harvey_labs.md) | An existing multi-turn harness, its native judge, and nested Podman. |
 | [Big Finance Benchmark](examples/big_finance_benchmark.md) | An existing ReAct research agent, web tools, and rubric grading. |
-
-The SDK lifecycle stays the same as the benchmark becomes more complex. Keep the benchmark's
-native solving and grading rules when adapting it.
 
 Supporting Guides:
 
@@ -59,13 +54,8 @@ for direct resource API calls. The OpenAI-compatible inference routes also accep
 
 ### Choose or create an agent
 
-An agent groups related benchmarks, training history, and the serving model for a project or
-use case. Keep benchmarks together when they measure capabilities you want to improve in the
-same agent; a distinct project or use case is a reason to create another one.
-
-- Use the agent explicitly selected for the project when one is provided.
-- Reuse an agent when its purpose fits the project and benchmarks.
-- Create an agent when no existing one fits, even if the organization has unrelated agents.
+An agent groups related benchmarks, training history, and serving models. Use the agent
+selected for your project, reuse one with the same purpose, or create one for a new use case.
 
 Inspect agents by name and description:
 
@@ -93,127 +83,52 @@ print(agent.agent_id)
 
 Use the selected or newly created agent's name wherever `YOUR_AGENT_NAME` appears below.
 
-## SDK guidance
+## SDK workflow reference
 
-The following snippets show individual SDK calls for existing integrations. For runnable,
-step-by-step onboarding, start with [T Factory](examples/t_factory/README.md), then follow the
-[GSM8K workflow](examples/gsm8k/README.md).
+The [GSM8K walkthrough](examples/gsm8k/README.md) runs one task through validation,
+evaluation, training, checkpoint comparison, and optional deployment. The notes below cover
+choices when adapting that flow to another harness.
 
-This reference trains and evaluates Qwen 3.5 4B on a small GSM8K benchmark with 64 training
-problems and 16 held-out test problems. Start by capturing one math task, then package the same
-task loop and grader as a benchmark for repeatable evaluation and training.
+### Record a task
 
-### 1. Inject the Trajectory SDK into your benchmark
-
-#### Replace the OpenAI client with the Trajectory client
+Create one trajectory per task. Pass its ID to every actor model call; log the native grade
+and complete the same trajectory after grading. The create response calls the ID `tid`;
+retrieved trajectories call it `trajectory_id`.
 
 ```python
-# Before
-from openai import OpenAI
-
-client = OpenAI()
-```
-
-```python
-# After
 from trajectory import Client
 
 client = Client()
-```
-
-#### Create a TID when a task starts
-
-Create one trajectory for each task and keep its ID for the full task lifecycle.
-
-```python
 tid = client.trajectories.create().tid
-```
-
-Creation calls this ID `tid`; listed and retrieved trajectories call it `trajectory_id`.
-
-#### Pass the TID to LLM calls
-
-```python
 response = client.chat.completions.create(
     model="openai/gpt-5.4-mini",
     messages=[{"role": "user", "content": prompt}],
     x_trajectory_id=tid,
 )
-model_answer = response.choices[0].message.content
-```
-
-#### Log reward to the trajectory
-
-Pass the same TID when the benchmark calculates reward, then mark the task complete.
-For an existing harness, preserve its [native score and completion outcome](#report-native-results).
-Keep full reports in [trajectory artifacts](examples/diagnostic_artifacts.md), and finish
-uploading them before completing the trajectory.
-
-```python
-reward = float(check_answer(model_answer, expected_answer))
-client.trajectories.log_reward(
-    tid,
-    name="reward_accuracy",
-    value=reward,
-)
+client.trajectories.log_reward(tid, name="reward_accuracy", value=grade)
 client.trajectories.complete(tid)
 ```
 
-Explicitly map the grader’s documented score field to `log_reward(value=...)`; do not assume
-its output contains a key named `reward`.
+Map `grade` from the benchmark's documented score field; it need not be named `reward`.
+Keep full reports in [artifacts](examples/diagnostic_artifacts.md) before completion.
+For errors, retries, components, and non-normal endings, follow
+[reward integration](examples/reward_integration.md) and
+[ending a trajectory](examples/termination_reasons.md).
 
-Preserve the benchmark's scoring formula. See the [reward integration guide](examples/reward_integration.md)
-for score mapping, diagnostic signals, and validation.
+### Register a benchmark
 
-#### Run your benchmark and see the result
+Give each `TaskSpec` the source task's stable `name`, an executable `run_command`, and
+its `split`. The retrieved task exposes `name` as `label` and has a generated `task_id`;
+omit `TaskSpec.id` for new tasks. Without an explicit split, ingestion assigns roughly 15%
+to TEST and the rest to TRAIN. Set every split to `test` for evaluation-only data. If the
+source has no split, mark your partition provisional and do not compare it with the
+benchmark's published score.
 
-```python
-from trajectory import Client
-client = Client()
-tid = client.trajectories.create().tid
-response = client.chat.completions.create(model="openai/gpt-5.4-mini", messages=[{"role": "user", "content": "What is 6 × 7?"}], x_trajectory_id=tid)
-reward = float(response.choices[0].message.content.strip() == "42")
-client.trajectories.log_reward(tid, name="reward_accuracy", value=reward)
-client.trajectories.complete(tid)
-print(client.trajectories.retrieve(tid, include_steps=True, include_reward_components=True))
-```
-
-### 2. Upload GSM8K to the Trajectory Platform
-
-The GSM8K example contains 64 training tasks and 16 held-out test tasks. The uploader writes each
-task to a local JSON file and packages those files into the runtime image. Each task selects its
-file through `run_command`; no task content is passed through environment variables. The harness
-sends only the question to the model and requires it to call `submit_answer`:
-
-```python
-TaskSpec(
-    name="gsm8k/train_0001",
-    split="train",
-    run_command=(
-        "python -u /opt/gsm8k/gsm8k_harness.py "
-        "--task-file /opt/gsm8k/tasks/train_0001.json"
-    ),
-    tags=["gsm8k"],
-)
-```
-
-`TaskSpec.name` is your dataset's task identifier. When you retrieve a benchmark with
-`client.benchmarks.specs.retrieve(..., include_tasks=True)`, each task exposes that name as
-`label` and a platform-assigned `task_id` for API calls. Omit `TaskSpec.id` when registering
-new tasks.
-
-Set `TaskSpec.split` explicitly to preserve a dataset's train/test membership. If omitted,
-ingestion deterministically assigns approximately 15% of those tasks to TEST and the rest to
-TRAIN. For an evaluation-only dataset, set `split="test"` on every task.
-If the source gives no split, mark any partition you choose as provisional and keep it
-separate from the benchmark's published comparison score.
-
-Using the agent chosen in [Setup](#choose-or-create-an-agent), package the tasks and runtime,
-upload the benchmark, and wait for its runtime image to become ready:
+Use [task diagnostics](examples/task_diagnostics.md) before the full upload. Then register
+the full desired task set under the same agent and benchmark name:
 
 ```python
 from pathlib import Path
-
 from trajectory import BenchmarkSpec, Client
 from trajectory.lib import DockerfileBuild, start_push
 from trajectory.lib.benchmark_operations import BenchmarkOperationError
@@ -225,11 +140,8 @@ benchmark = BenchmarkSpec(
     tasks=tasks,
 )
 operation = start_push(
-    client,
-    benchmark,
-    agent_name="YOUR_AGENT_NAME",
-    root=Path("my-benchmark"),
-    build_images=True,
+    client, benchmark, agent_name="YOUR_AGENT_NAME",
+    root=Path("my-benchmark"), build_images=True,
 )
 print(operation.id)
 try:
@@ -241,194 +153,60 @@ except BenchmarkOperationError as error:
 bench_id = result.status.bench_id
 ```
 
-Keep the operation ID to reconnect after a local timeout:
+A local timeout leaves the operation running. Reconnect with
+`get_operation(client, operation_id)`, then inspect `refresh()` and `pages("failure")`
+before retrying. Failures identify the stage and affected runtime or task; full build logs
+may be unavailable. Cancel through `client.benchmarks.ingestion.cancel(operation_id)`
+and verify its state. Reuploading under the same agent and benchmark name creates a new
+version; pin `bench_id` for comparisons. `start_push`, `push`, and
+`start_task_diagnostic` accept `upload_timeout` for each blob upload, not the whole
+operation.
 
-```python
-from trajectory.lib import get_operation
+The runtime receives `TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL` automatically.
+Do not set `TRAJECTORY_*` task variables. For other credentials, inspect
+`client.secrets.list()`, upload missing values with `client.secrets.create()`, and
+inject them with `TaskSpec.env_vars={"JUDGE_KEY": SecretRef(secret_ref="STORED_KEY")}`.
+The environment variable name and stored secret name can differ.
 
-operation = get_operation(client, "YOUR_OPERATION_ID")
-print(operation.refresh())
-for failure in operation.pages("failure"):
-    print(failure)
-```
+### Evaluate, train, and compare
 
-Failures identify the stage, runtime or task, and message; build failures may include a
-redacted provider-error excerpt, though full logs are not guaranteed. A local `result()`
-timeout leaves the operation running. To stop it, request
-`client.benchmarks.ingestion.cancel(operation.id)` and verify its state.
+Use `bench_id` to select a specific version, or both `agent_name` and
+`benchmark_name` for the latest version. Do not mix those selectors. `agent_id`
+sets ownership; it does not select a benchmark. Check `evals.list_models()` and
+`training.list_models()` before packaging: inference availability does not establish
+run support. Use `list_options(bench_id=..., base_model_slug=...)` for each mode's
+supported options and bounds; omit computed defaults.
 
-To revise the harness or tasks, upload the full desired task set under the same benchmark
-name and agent. This creates a version; earlier versions remain available. Pin `bench_id`
-for comparisons, since selecting by agent and benchmark names uses the latest version.
+Run a one-task managed eval with limits before a larger held-out baseline. Diagnostics
+do not accept eval options. Preserve the source's output limit and generation settings
+when checking its native grade. A failed eval can contain graded tasks without a
+published mean; inspect attempts before interpreting the aggregate.
 
-`push()`, `start_push()` and `start_task_diagnostic()` accept `upload_timeout` (default
-3,600 seconds; `None` disables it) for each blob-store HTTP operation, not the full upload,
-API calls, image build or signed-URL lifetime.
+`train_batch_size` counts task groups per optimizer step; `samples_per_instance`
+sets model samples per group. `max_training_samples` caps planned TRAIN samples,
+including rejected ones, and must fit one full group. It does not guarantee all requested
+steps: retries, rejected groups, or stale groups can exhaust it. Once planned attempts
+settle without another eligible batch, the run fails with
+`training_sample_cap_exhausted`. Training also runs held-out eval rounds;
+`evaluation_max_samples` and `evaluation_samples_per_task` apply per round, not to
+the entire run. Hosted training has no active-rollout concurrency option.
 
-Run the complete uploader with that agent name, then save the benchmark ID:
+Read `client.training.rewards.list_held_out_rewards(run_id)` for published rounds.
+For an unpublished round, retrieve
+`/api/v1/train/{run_id}/steps/{step}/trajectories` with
+`options={"params": {"mode": "eval"}}`; an inline query string can be dropped.
+`used_groups` counts only fully graded groups with reward contrast; a no-signal or
+incomplete group can still enter the optimizer batch. Check `in_training_batch` at
+`/api/v1/train/{run_id}/steps/{step}/groups` (policy step 0 is consumed at step 1).
+`no_signal_groups` means equal rewards within a fully graded group.
 
-```bash
-uv run examples/gsm8k/ingest.py --agent-name "YOUR_AGENT_NAME"
-```
-
-```text
-agent_name=YOUR_AGENT_NAME
-bench_id=bm_<32-hex>
-```
-
-If your benchmark needs an organization secret, check which secrets are already stored
-for the organization. List them to determine which missing secrets need to be uploaded
-before running tasks:
-
-```python
-import os
-
-from trajectory import Client
-
-client = Client()
-existing_secrets = {secret.name for secret in client.secrets.list()}
-if "OPENAI_API_KEY" not in existing_secrets:
-    client.secrets.create(
-        name="OPENAI_API_KEY",
-        value=os.environ["OPENAI_API_KEY"],
-    )
-```
-
-`client.secrets.list()` returns names and metadata, not secret values themselves.
-If a required secret is absent, upload its value before running the benchmark.
-In a `TaskSpec`, `env_vars={"JUDGE_KEY": SecretRef(secret_ref="OPENAI_API_KEY")}`
-injects that organization secret as the runtime variable `JUDGE_KEY`. The `env_vars`
-key sets the variable name; `secret_ref` names the stored secret.
-
-Managed task runtimes receive `TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL` automatically;
-use `Client()` inside the harness. Do not put `TRAJECTORY_*` names in `env_vars`, including
-through `SecretRef`. Use `SecretRef` for additional credentials the benchmark needs.
-
-### 3. Evaluate, train, and compare on the Trajectory Platform
-
-Select a benchmark by `bench_id` to pin a version, or by both `agent_name` and
-`benchmark_name` to use the latest version. Do not combine those selectors. `agent_id` is an
-optional ownership input, not a benchmark selector.
-
-Training and evaluation use `create`, `base_model_slug`, `parent_checkpoint_id`, and the
-same `options` schema. Discover the supported settings and bounds for each mode:
-
-```python
-for resource in (client.training, client.evals):
-    catalog = resource.list_options(bench_id=bench_id, base_model_slug="Qwen/Qwen3.5-4B")
-    for model in catalog.models:
-        print(model.base_model_slug, model.options)
-```
-
-Before packaging the harness, check `client.evals.list_models()` or
-`client.training.list_models()` and the actor inference route. Inference availability alone
-does not establish eval support.
-Omit `options`, or pass `{}`, for defaults. Leave computed defaults unset so the server
-can resolve them. Run the benchmark before training so you have a frozen baseline.
-Use a one-task managed eval with execution and concurrency limits before a larger eval;
-[diagnostic helpers](examples/task_diagnostics.md) do not accept run options.
-Check its raw grade, effective reward, and ending. Retain the source's generation settings and
-output limit when checking its native grade; a shorter cap can prevent grading and makes
-the score incomparable.
-If the smoke reply has no visible answer because it exhausted its cap in reasoning, check the
-model's thinking setting or choose another model before scaling.
-
-```python
-smoke = client.evals.create(
-    bench_id=bench_id,
-    base_model_slug="Qwen/Qwen3.5-4B",
-    display_name="GSM8K smoke test",
-    options={
-        "disable_thinking": True,
-        "evaluation_max_samples": 1,
-        "evaluation_max_active_rollouts": 1,
-        "execution_timeout_seconds": 600,
-    },
-)
-smoke_eval_run_id = smoke.eval_run_id
-```
-
-After this passes, run the held-out baseline on the planned subset and keep its run ID.
-
-`execution_timeout_seconds` starts when the harness runs, after queueing and sandbox startup;
-a pending eval can outlast it. A failed eval can contain graded tasks without a published mean.
-Inspect each trajectory's reward and rollout status before reporting a score.
-
-Capped evals of the same benchmark and split can reuse tasks. Track task IDs across runs
-when counting distinct coverage or enforcing an attempt budget.
-
-Start training:
-
-```python
-training = client.training.create(
-    bench_id=bench_id,
-    base_model_slug="Qwen/Qwen3.5-4B",
-    options={
-        "disable_thinking": True,
-        "num_steps": 20,
-        "train_batch_size": 4,
-        "max_output_tokens_per_step": 32_768,
-        "max_turns_per_trajectory": 1,
-        "max_response_chars_per_tool_call": 128,
-    },
-)
-training_run_id = training.training_run_id
-```
-
-Each optimizer step uses four task groups. With eight samples per group, that produces 32
-rollouts per step; samples in a group share one task. Check `samples_per_instance` in the
-model's option defaults.
-`train_batch_size` and `samples_per_instance` size an optimizer batch, not the total run.
-`max_training_samples` caps planned TRAIN samples, including rejected ones. It must fit one
-whole task group, but does not guarantee the requested steps: rejected or stale groups can
-exhaust it. Once all planned attempts finish without another eligible batch, training fails
-with `training_sample_cap_exhausted`. Retries add attempts. Hosted training has no
-active-rollout concurrency option. Training also runs held-out eval rounds; options limit but
-do not disable them. Per round, `evaluation_max_samples` caps distinct tasks, while
-`evaluation_samples_per_task` sets attempts per task. Count every round and use
-`evaluation_max_active_rollouts` for concurrency.
-Use `client.training.rewards.list_held_out_rewards(training_run_id)` for published round
-rewards and their coverage; a round without a published reward is absent. For attempts,
-including pending or cancelled ones, call:
-
-```python
-path = f"/api/v1/train/{training_run_id}/steps/{step}/trajectories"
-held_out = client.get(path, cast_to=dict, options={"params": {"mode": "eval"}})
-```
-
-These rounds do not appear in standalone eval-run lists. With `Client.get`, use
-`options["params"]`; released SDK versions can drop an inline `?mode=eval` in the path.
-Sample limits are not a dollar cap; check pricing and spending.
-
-Poll `client.training.runs.retrieve(training_run_id)` until the run terminates.
-In step summaries, `no_signal_groups` means identical rewards within a group. A
-single-sample group always has that label, even when its algorithm trains on it; check
-the rollout's trained-on status before calling an update skipped.
-For batch membership, call the same path with
-`options={"params": {"selection": "trained"}}` at the consuming step: the first update
-consumes policy-step-0 rollouts at step 1.
-
-Checkpoint evaluations inherit supported token and turn limits from the source training run
-unless the eval overrides them. Compare the effective limits with the baseline, not only the
-options sent to each eval. Resolve and evaluate the final checkpoint on the same held-out tasks:
-
-```python
-checkpoint = client.training.checkpoints.retrieve(training_run_id, step_index=20)
-final = client.evals.create(
-    bench_id=bench_id,
-    base_model_slug="Qwen/Qwen3.5-4B",
-    parent_checkpoint_id=checkpoint.checkpoint_id,
-    display_name="GSM8K trained checkpoint",
-    options={"disable_thinking": True, "evaluation_max_samples": 16},
-)
-```
-
-### 4. Deploy and query the trained checkpoint
-
-Follow the [deployment example](examples/gsm8k/README.md#optional-deploy-and-query-the-trained-checkpoint)
-to wait for readiness, query with a trajectory ID, and remove the deployment when finished.
-A production deployment becomes the active target for its slug; use a test deployment when
-checking a replacement before promotion.
+Checkpoint evals inherit supported token and turn limits from training unless
+overridden. Compare effective limits and identical held-out task IDs with the baseline.
+Capped evals on the same version and split select the same tasks; a new version may
+change the subset. Sample limits are not a dollar cap. See the
+[GSM8K walkthrough](examples/gsm8k/README.md#5-train-on-one-task-and-evaluate-the-checkpoint)
+for runnable calls and [deployment](examples/gsm8k/README.md#optional-deploy-and-query-the-trained-checkpoint)
+for serving a checkpoint.
 
 ## Package a benchmark runtime
 
@@ -536,27 +314,26 @@ Use `TaskSpec.runtime` to override the image for tasks with different dependenci
 build contexts, for example `runtime=DockerfileBuild(f"runtimes/{task_id}/Dockerfile")`.
 Include common harness code in each context or supply it through a base image.
 
-The SDK uploads files under each Dockerfile's directory, filtered by `.dockerignore` at the
-benchmark root; it does not select files by reading `COPY` statements. A root Dockerfile
+The SDK uploads files under each Dockerfile's directory; `COPY` paths are relative to that
+directory. `.dockerignore` at the benchmark root filters uploads. A root Dockerfile
 therefore includes the checkout unless files are excluded. Include the files needed to build
 and run that runtime, including files referenced by package metadata. Shared file paths upload
 once per submission; selecting a task does not automatically exclude other tasks' files.
+
+Smoke-test the source grader in the final image, including its runtime data. Without a local
+container engine, check files and tools after Dockerfile `COPY`, then run a managed one-task
+validation. Resolve missing-resource warnings even when a sample grade returns; a ready image
+alone does not show that a task can be graded.
 
 If the harness starts separate task containers or remote sandboxes, make its inputs available
 there at the expected paths. Files in the harness image are not automatically available in
 another environment. Preserve the benchmark's separation between actor-visible inputs and
 private answers or hidden tests.
 
-Check that separation through the actor's actual tools. A shell running as the image's user
-can read any files that user can access, even if their paths are absent from the prompt.
-Keep private grader files and oracle solutions outside that access while the actor solves.
-If the source separates the solver and verifier, preserve that boundary in its Trajectory
-adapter; the source does not need to provide Trajectory-specific code.
-Do not run actor-writable code with judge or organization credentials. An actor shell needs a
-scrubbed environment and a separate user or sandbox without private grader files; hiding
-their paths from the prompt is insufficient. Probe the actor's tools with a test-only private
-file and fake secret, including relative paths and `file://` URLs. Check data saved for later
-tool calls as well as the first tool response.
+Check that separation through the actor's actual tools: hiding paths from the prompt does
+not prevent a shell from reading accessible files. Keep private grader files, solutions,
+and judge or organization credentials outside actor-writable code. Preserve the source's
+solver/verifier boundary; probe it with a test-only private file and fake secret.
 
 For harness-managed containers, package the task Dockerfiles and build inputs where the
 harness expects them. To reuse prebuilt images, [`docker save` / `docker load`](https://docs.docker.com/reference/cli/docker/image/load/)
@@ -571,9 +348,9 @@ package manager to retain compatible versions, platform markers and dependency g
 Resolve dependencies for the image's Python version before uploading. An orchestration tool
 and its grader may require incompatible package versions; retain their separate environments
 when the native harness separates them.
-Preserve the original working directory and create the input, output and scratch directories
-used by the entrypoint and its subprocesses. Copying the source files alone does not recreate
-the runtime's filesystem layout.
+Preserve the original working directory and create the input, output, scratch, and verifier
+result directories used by the entrypoint and its subprocesses. Copying source files alone
+does not recreate the runtime's filesystem layout.
 Check the imports, executables and plugins used by the runtime entrypoint during the image
 build. Include data files that dependencies fetch on first use when the task runs without
 network access, and verify the runtime searches the installation path. Check execution and
@@ -584,8 +361,8 @@ For `uv sync --locked`, the package index must match the lockfile. If the build 
 supplies a different index, pass the lockfile's index explicitly; for PyPI, use
 `--default-index https://pypi.org/simple`.
 
-Managed builds do not supply Docker BuildKit's automatic platform arguments, such as
-`TARGETARCH`. For binaries that run in the build environment, detect the architecture with
+Do not rely on BuildKit's automatic platform arguments, such as `TARGETARCH`, in managed
+builds. For binaries that run in the build environment, detect the architecture with
 `uname -m` and map it to the vendor's download names. Set cross-compilation targets explicitly.
 
 Inspect failed ingestion items while other runtimes build. `runtime_build_failed` with
@@ -604,6 +381,7 @@ If your harness uses local Docker, set `env_resources=EnvResources(docker_engine
 the task. Import `EnvResources` from `trajectory.types.benchmarks.task_spec`.
 The runtime must include `dockerd` on `PATH`, the Docker CLI, their operating-system dependencies,
 and any plugins the harness needs. The flag starts the daemon; it does not install those tools.
+The managed readiness probe runs `docker info`, even if your harness uses the Engine API directly.
 For a harness that uses Compose, check the installed executables during the image build:
 
 ```dockerfile
@@ -629,8 +407,7 @@ context to the files it needs. For many small files, you can archive them and ex
 during the image build. Exclude the unpacked copy from uploads. The archive still counts
 toward the byte limit; task-specific runtimes can use smaller contexts.
 
-Use `COPY` followed by `RUN tar`; managed builds do not support local archive extraction
-with `ADD`:
+Extract archives explicitly during the build:
 
 ```dockerfile
 COPY tasks.tar.gz /tmp/tasks.tar.gz

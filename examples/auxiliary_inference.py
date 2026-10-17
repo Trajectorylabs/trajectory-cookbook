@@ -6,10 +6,9 @@ from trajectory import Client
 def call_auxiliary(
     prompt: str, model: str, api_key: str, base_url: str, timeout: float
 ) -> tuple[dict, str]:
-    origin = base_url.rstrip("/").removesuffix("/v1")
     # The harness owns retries; do not reuse the actor's session key or TID.
     with Client(
-        api_key=api_key, base_url=origin, max_retries=0, timeout=timeout
+        api_key=api_key, base_url=base_url, max_retries=0, timeout=timeout
     ) as client:
         tid = client.trajectories.create().tid
         reason = "ERROR"
@@ -39,8 +38,3 @@ def call_auxiliary(
             raise
         client.trajectories.complete(tid, termination_reason=reason)
         return response.model_dump(), tid
-
-
-def server_allows_retry(error: Exception) -> bool:
-    headers = getattr(getattr(error, "response", None), "headers", {})
-    return str(headers.get("x-should-retry", "")).strip().lower() != "false"

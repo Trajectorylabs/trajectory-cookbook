@@ -18,79 +18,61 @@ Authentication uses `X-API-Key`. Check the selected organization before creating
 Start with the public [cookbook](https://github.com/Trajectorylabs/trajectory-cookbook).
 Its [GSM8K walkthrough](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md)
 covers the managed lifecycle. Adapt the workflow, not GSM8K's task, model choice, or scoring assumptions.
-Use the cookbook index to read the sections needed for this benchmark.
 Use the installed SDK's signatures and docstrings to check calls and options; record its
 version. Cookbook examples pin a version. If a method or field differs, resolve the mismatch
-before changing the integration. SDK list pages are iterable and expose `.items`, not `.data`.
+before changing the integration.
 Do not depend on access to a login-gated documentation site.
 If a cookbook snapshot is supplied with the customer source, use that version for the run.
 
 ## Integrate and validate
 
-Read the customer's entrypoint, task loader, model-call path, grader, and result reader.
-Identify task identity, splits, runtime dependencies, network access, private references,
-and the primary reported score. Preserve sampling settings, output limit, and stop rules
-when comparing scores. The runtime must execute the harness and publish its outcome.
-Before the first upload, resolve every Dockerfile `COPY` source against the directory
-containing that Dockerfile; it is the uploaded build context. Inspect the final task specs'
-splits, network mode, and secrets. Test each selected grader path with correct and wrong
-answers, cut-off replies, malformed tool calls, and exceptions; check native grades,
-reward bounds, weights, and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If local execution
-is unavailable, use a managed diagnostic. Write the Trajectory dispatcher around the source's
-actor and verifier boundary; the source need not provide one. Keep judge and organization keys and
-private grader files in the trusted harness, outside the actor tool's environment. Probe
-every actor-facing tool and follow-up read path with a fake secret and test-only private
-file before upload; try relative paths and `file://` URLs. A tool that can return or store
-either for later actor use fails this gate. Once the image is ready, run exactly one managed
-task and inspect its raw grade, effective reward, ending, and visible answer before any
-multi-task eval. Check its token usage against model rates before expanding; harder tasks can
-cost more, and a sample cap is not a dollar cap.
+Trace the customer's task loader, actor interface, model calls (if present), grader, and
+result reader. If the source has no agent, implement a basic model actor through its documented
+interface. Call the source grader directly; preserve its call order and
+shared state. Identify task IDs, splits, runtime packages and data, network access, private
+references, and the primary score.
+Preserve sampling settings, output limit, and stop rules when comparing scores. Save the
+uploader, dispatcher, and runtime build files in the customer repo; validate those saved
+entrypoints. Place the dispatcher around the source's actor and verifier boundary; the runtime
+must execute the harness and publish its outcome. Keep judge and organization keys and private
+grader files in the trusted harness, outside the actor tool's environment.
+
+Before upload, check the SDK's model-request signature. Run a build-time import check for the
+packaged harness and grader. Test representative source IDs from each split and grader path,
+including their runtime data. Cover correct, wrong, cut-off, and exceptional outcomes. Local
+Docker is optional: use a managed one-task diagnostic to check execution, grading, and
+artifacts.
+An import check alone is insufficient. Probe actor-facing tools with a fake secret and
+test-only private file.
+
+Once the image is ready, inspect registered task splits, network mode, and secrets. Check one
+managed task's raw grade, effective reward, ending, and visible answer before expanding.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)
-  for the customer's project. Use descriptive names and save returned IDs for later calls;
-  do not retype long IDs. Inspect existing work before creating another benchmark or run.
+  for the customer's project. Inspect existing work before creating another benchmark or run.
 - Follow [runtime packaging](https://github.com/Trajectorylabs/trajectory-cookbook#package-a-benchmark-runtime)
   for build contexts, dependencies, secrets, nested containers, and actor versus judge routing.
-  Preserve the original working directory, required paths, inputs and grading rules.
-  If adapting tools, keep the task instructions and exposed tool interface in agreement.
-  An omitted `env_resources` means no network. A fixed judge needs its own client and
-  credentials; the managed actor client routes even differently named models to the actor.
-  Keep judge calls off the actor trajectory. If the judge model changes, state that benchmark
-  score parity is unverified.
-  The injected `TRAJECTORY_API_KEY` is an actor-session key. For auxiliary Trajectory calls,
-  use a separately named organization secret and the runtime's injected base URL; an uploader's
-  `localhost` points at the sandbox. Follow the
-  [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py).
-  List auxiliary models with `client.inference.list_models()`; exercise each call through its
-  actual wrapper and confirm its trajectory ID differs from the actor's. Record that ID on
-  the actor trace so the two can be inspected together.
-  For SDK versions whose chat signature lacks `tools`, follow the
-  [cookbook's tool-call syntax](https://github.com/Trajectorylabs/trajectory-cookbook#connect-the-actor).
-  Dispatch returned tool calls before accepting a final answer; accompanying text is not a completed turn.
-  Bound tool replies passed back to the actor; retain full data as artifacts when needed.
-  Check `client.evals.list_models()` or `client.training.list_models()` and the actor
-  inference route before packaging; inference availability alone does not establish eval
-  support. Verify the actual request's model ID when a wrapper may rewrite provider prefixes.
+  Preserve required paths, inputs, grading rules, and the actor's tool interface. For nested
+  Docker, put `RUN dockerd --version && docker --version` in its Dockerfile; the managed image
+  build checks those binaries, and sandbox readiness runs `docker info`. Set the source's
+  network mode explicitly; task networking defaults to none. The managed client routes model
+  calls to the actor even when they name another model. A fixed judge needs a separate client and
+  secret; changing its model leaves benchmark score parity unverified. The injected
+  `TRAJECTORY_API_KEY` is an actor-session key; for auxiliary Trajectory calls, use an
+  organization secret and the runtime's injected base URL. Follow the
+  [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py)
+  and check eval or training model availability before packaging.
 - Follow [reward integration](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/reward_integration.md)
-  to map the score actually consumed by the upstream evaluator. Validate wrong, partial, and
-  correct outputs where applicable. Declare the raw score's bounds; `log_reward` defaults to
-  `[0, 1]` and normalizes the effective reward. Report native grades from the raw component,
-  not `trajectory.reward`. Give diagnostic-only components weight `0`.
-  A missing grade or execution failure is not a zero.
-  Trace the result reader as well as the grader. If source documentation and the result reader
-  disagree on the primary metric, state the discrepancy and compare using the value the
-  evaluator actually consumes. Preserve the source's aggregation denominator when reporting
-  diagnostics; a mean of task fractions can differ from an item-level rate. Events do not
-  affect the effective reward.
+  to map the score the source result reader actually consumes. Validate wrong, partial, and
+  correct outputs where applicable. Report native grades from the raw component, not
+  `trajectory.reward`. A missing grade or execution failure is not a zero.
 - Report [how the attempt ended](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/termination_reasons.md).
   Read the model's `finish_reason`; a clean harness exit or zero grade does not make a
-  cut-off reply normal. If the source grades cut-off replies, preserve that grade and mark
-  the ending `TRUNCATION`. Use `MAX_STEPS` for a harness turn limit. Preserve retry headers
-  and the intended reason; if completion fails during cleanup, retain the original error too.
+  cut-off reply normal. Preserve native grades for cut-off replies and mark `TRUNCATION`.
+  Preserve retry headers; report unexpected harness errors as `ERROR` and re-raise.
 - A [task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
-  can run the packaged entrypoint before bulk upload. Inspect its trajectory, grade, and
-  ending. Where the benchmark provides known-good and known-bad solutions, use them to check
-  the adapter independently of model quality.
+  can run the packaged entrypoint before bulk upload. Where available, use known-good and
+  known-bad solutions to check the adapter independently of model quality.
 
 Keep source task identities and explicit train/test membership. Account for omitted or failed
 tasks. If the source has no split metadata, label any partition you make as provisional; do
@@ -102,42 +84,25 @@ unrelated benchmark names to bypass failed builds.
 
 ## Evaluate, train, and compare
 
-At that gate, a graded reply cut off before any visible answer verifies the grader
-but not viable model settings. Check thinking mode and output room before scaling.
-Reduce task count to control validation cost; keep the source's generation settings and
-output limit when checking its native grade. A shorter output cap can prevent grading.
-Do not set `max_total_tokens_per_trajectory` equal to a single reply's cap: reaching it
-can close the trajectory before the harness logs reward.
-When that gate needs execution or concurrency caps, use a one-sample eval; diagnostic
-helpers do not accept run options.
-Inspect per-task outcomes as well as the aggregate. Build readiness, an accepted run ID, and a
-completed evaluation each establish different facts.
-`execution_timeout_seconds` starts when the harness runs; queueing and sandbox startup do not
-consume it. Let that option enforce a per-task limit. Neither run submission nor trajectory
-creation is the execution clock. Use one polling loop for a run.
-Use rollout admission and terminal states to audit concurrency; aggregate progress can lag
-while attempts reconcile.
+Follow the [GSM8K eval and training walkthrough](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md)
+and the [selector and option guidance](https://github.com/Trajectorylabs/trajectory-cookbook#evaluate-train-and-compare).
+Use a capped one-sample eval when validation needs run options; task diagnostics do not accept
+them. Preserve the source's generation settings and per-step output limit. Set
+`max_total_tokens_per_trajectory` above the sum of possible replies, including retries, so
+grading can run.
+Inspect per-task outcomes before reporting an aggregate.
 
-For training, inspect supported options and choose limits for the harness and budget. Check
-which endings and ungraded samples are eligible; do not admit rejected outcomes just to make
-progress appear. Batch size does not cap total samples. `max_training_samples` caps planned
-TRAIN samples, including rejected ones; retries and held-out eval rounds add attempts.
-Reserve attempts for those rounds and a matched checkpoint eval. A training group shares
-one task, so count distinct tasks separately. Rejected or stale samples can exhaust the cap
-before all requested steps; the run then fails with `training_sample_cap_exhausted` after
-planned attempts finish. Reduce the batch under a fixed cap. A one-task update does not
-establish benchmark-wide training.
-Monitor steps, failures, checkpoints, and held-out coverage using the
-[cookbook's run inspection](https://github.com/Trajectorylabs/trajectory-cookbook#3-evaluate-train-and-compare-on-the-trajectory-platform).
-Step-0 checkpoints precede updates. Identical-reward groups can still train under some
-algorithms; check trained-on status before calling an update skipped. Sample limits are not
-a dollar budget.
+For training, inspect supported options and eligible endings. Group-relative training needs
+reward contrast; budget extra task groups beyond `train_batch_size` because all-equal groups
+spend the sample cap without filling the batch. Also budget retries, held-out eval rounds,
+and a matched checkpoint eval; a sample cap is not a dollar budget.
+`used_groups=0` does not establish an empty optimizer batch: no-signal and incomplete groups
+are excluded. Read `in_training_batch` from `GET /api/v1/train/{run_id}/steps/{step}/groups`
+before reporting batch membership.
 
 Compare the baseline and checkpoint using the same benchmark version, held-out tasks, scoring,
-and effective evaluation settings. Checkpoint evals inherit supported token and turn limits
-from training unless overridden. Preserve IDs so a later upload cannot silently change the
-comparison. Report attempted, graded, failed, and unfinished counts alongside reward. A small
-smoke evaluation verifies execution; it cannot establish model improvement.
+and effective evaluation settings. Report attempted, graded, failed, and unfinished counts
+alongside reward. A smoke evaluation cannot establish model improvement.
 
 For deployment, follow the
 [checkpoint serving example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md#optional-deploy-and-query-the-trained-checkpoint).
@@ -155,12 +120,14 @@ For application traffic, use [production traces](https://github.com/Trajectoryla
 Keep ingestion, diagnostic, benchmark, evaluation, training, checkpoint, deployment, and
 trajectory IDs with the operation that returned them. A local timeout or interrupted client
 does not mean the service stopped. Retrieve the existing operation before retrying creation;
-reuse its idempotency key when retrying the same supported request.
+reuse its idempotency key for the same inputs, and use a new key after changing them.
+Wait for evals and training in a bounded polling command that prints state changes and failures.
 
 Locate the failing boundary: upload/build, runtime startup, model request, harness execution,
 grading, reward publication, or run aggregation. Read the specific failure and available logs
 or artifacts. Retrieve a trajectory with `include_reward_components=True` when checking its
-grades. For flat rewards, distinguish genuine wrong answers from absent grades, rejected
+grades; read its `error` and the list entry's rollout diagnostic for failed attempts.
+For flat rewards, distinguish genuine wrong answers from absent grades, rejected
 endings, and missing training progress before changing training settings.
 
 State observed evidence separately from hypotheses. Give the relevant IDs and verified UI

@@ -32,8 +32,9 @@ before setting these options. `ERROR` counts toward the run's failure limit unle
 The failure limit counts failed rollouts, not completed rollouts rejected from training. Repeated
 `TRUNCATION` does not trip it.
 
-The platform sets `LIMIT_REACHED` and `MAX_STEPS` itself when a run's token, context or turn
-limit stops the model, and `STALE`, `CANCELLED` and `SANDBOX_*` on its own. `GOLDEN_PATCH` is reserved.
+The platform also sets `MAX_STEPS` when its turn limit stops the model. It sets
+`LIMIT_REACHED` for token or context limits, and `STALE`, `CANCELLED` and `SANDBOX_*` on its own.
+`GOLDEN_PATCH` is reserved.
 
 ## Detect a cut-off final reply
 
@@ -65,9 +66,9 @@ client.trajectories.complete(tid, termination_reason="TRUNCATION" if cut_off els
 After a run's turn, token or context limit is reached, model requests return an empty reply
 with `metadata.trajectory_termination_reason: "trajectory_cancelled"`. Stop calling the
 model. The platform keeps `LIMIT_REACHED` or `MAX_STEPS` even if you then call `complete()`.
-Exhausting either `max_output_tokens_per_step` or `max_total_tokens_per_trajectory` can close
-the trajectory before the harness publishes reward. Size both run limits for the expected
-replies; a platform-cancelled attempt can remain ungraded.
+If `max_total_tokens_per_trajectory` equals `max_output_tokens_per_step`, a full-length
+reply can hit the total cap before the harness grades it. Leave room above the per-step cap
+when the harness must grade a cut-off reply; `LIMIT_REACHED` may otherwise be ungraded.
 For model request errors and retries, see [Connect the actor](../README.md#connect-the-actor).
 
 A rollout's `CANCELLED` state or reason describes its execution lifecycle. It does not prove
