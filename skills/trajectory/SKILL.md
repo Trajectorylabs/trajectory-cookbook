@@ -60,7 +60,8 @@ multi-task eval.
   `localhost` points at the sandbox. Follow the
   [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py).
   List auxiliary models with `client.inference.list_models()`; exercise each call through its
-  actual wrapper and confirm its trajectory ID differs from the actor's.
+  actual wrapper and confirm its trajectory ID differs from the actor's. Record that ID on
+  the actor trace so the two can be inspected together.
   For SDK versions whose chat signature lacks `tools`, follow the
   [cookbook's tool-call syntax](https://github.com/Trajectorylabs/trajectory-cookbook#connect-the-actor).
   Dispatch returned tool calls before accepting a final answer; accompanying text is not a completed turn.

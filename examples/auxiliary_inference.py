@@ -1,11 +1,11 @@
-"""Run an auxiliary text request on its own organization-owned trajectory."""
+"""Run an auxiliary text request and return its trace ID with the response."""
 
 from trajectory import Client
 
 
 def call_auxiliary(
     prompt: str, model: str, api_key: str, base_url: str, timeout: float
-) -> dict:
+) -> tuple[dict, str]:
     origin = base_url.rstrip("/").removesuffix("/v1")
     # The harness owns retries; do not reuse the actor's session key or TID.
     with Client(
@@ -38,7 +38,7 @@ def call_auxiliary(
                 )
             raise
         client.trajectories.complete(tid, termination_reason=reason)
-        return response.model_dump()
+        return response.model_dump(), tid
 
 
 def server_allows_retry(error: Exception) -> bool:
