@@ -69,7 +69,9 @@ ending, and visible answer before using more attempts.
   A missing grade or execution failure is not a zero.
   Trace the result reader as well as the grader. If source documentation and the result reader
   disagree on the primary metric, state the discrepancy and compare using the value the
-  evaluator actually consumes. Events do not affect the effective reward.
+  evaluator actually consumes. Preserve the source's aggregation denominator when reporting
+  diagnostics; a mean of task fractions can differ from an item-level rate. Events do not
+  affect the effective reward.
 - Report [how the attempt ended](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/termination_reasons.md).
   Read the model's `finish_reason`; a clean harness exit or zero grade does not make a
   cut-off reply normal. If the source grades cut-off replies, preserve that grade and mark
