@@ -455,11 +455,12 @@ key used for ingestion. Do not copy it into judge or auxiliary-tool credentials.
 through separately named [organization secrets](examples/inspect.md), and keep their calls
 off the actor trajectory.
 
-For a fixed judge served by Trajectory, use an organization key. An OpenAI-compatible client
-uses the API origin plus `/v1`; `trajectory.Client` uses the origin alone. List available
-models with `client.inference.list_models()` and use the returned ID exactly. Training-model
-choices differ from standalone inference models; one model's 404 does not mean the account
-lacks inference access.
+For a fixed judge served by Trajectory, use an organization key and the managed runtime's
+injected `TRAJECTORY_BASE_URL`; the uploader's `localhost` points at the sandbox instead.
+An OpenAI-compatible client uses the API origin plus `/v1`; `trajectory.Client` uses the origin
+alone. List models with `client.inference.list_models()` and use the returned ID exactly.
+Training-model choices differ from standalone inference models; one model's 404 does not mean
+the account lacks inference access.
 
 Standalone inference also requires `X-Trajectory-Id`. Create and complete a separate
 trajectory with the organization client, passing its `tid` in that header. A harness that

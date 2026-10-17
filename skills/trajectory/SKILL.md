@@ -56,7 +56,8 @@ multi-task eval.
   credentials; the managed actor client routes even differently named models to the actor.
   Keep judge calls off the actor trajectory.
   The injected `TRAJECTORY_API_KEY` is an actor-session key. For auxiliary Trajectory calls,
-  use a separately named organization secret and the
+  use a separately named organization secret and the runtime's injected base URL; an uploader's
+  `localhost` points at the sandbox. Follow the
   [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py).
   Exercise each auxiliary call through its actual wrapper; it needs its own trajectory header.
   For SDK versions whose chat signature lacks `tools`, follow the
