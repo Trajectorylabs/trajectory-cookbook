@@ -12,9 +12,17 @@ from trajectory import Client
 ROOT = Path(__file__).parent
 
 
-@pytest.mark.parametrize("answer, expected_reward", [("42", 1.0), ("41", 0.0)])
+@pytest.mark.parametrize(
+    "answer, expected_reward, finish_reason, expected_reason",
+    [
+        ("42", 1.0, "tool_calls", "ENV_DONE"),
+        ("41", 0.0, "tool_calls", "ENV_DONE"),
+        ("42", 1.0, "length", "TRUNCATION"),
+        ("42", 1.0, "max_tokens", "TRUNCATION"),
+    ],
+)
 def test_task_records_reward_and_completes_with_published_sdk(
-    tmp_path, monkeypatch, answer, expected_reward
+    tmp_path, monkeypatch, answer, expected_reward, finish_reason, expected_reason
 ):
     spec = importlib.util.spec_from_file_location(
         "gsm8k_harness", ROOT / "runtime/gsm8k_harness.py"
@@ -39,7 +47,7 @@ def test_task_records_reward_and_completes_with_published_sdk(
                     "choices": [
                         {
                             "index": 0,
-                            "finish_reason": "tool_calls",
+                            "finish_reason": finish_reason,
                             "message": {
                                 "role": "assistant",
                                 "content": None,
@@ -84,7 +92,7 @@ def test_task_records_reward_and_completes_with_published_sdk(
     assert requests[1][1]["X-Trajectory-Id"] == "tid_test"
     assert requests[2][2]["name"] == "reward_accuracy"
     assert requests[2][2]["value"] == expected_reward
-    assert requests[3][2] == {"termination_reason": "ENV_DONE"}
+    assert requests[3][2] == {"termination_reason": expected_reason}
 
 
 @pytest.mark.parametrize(

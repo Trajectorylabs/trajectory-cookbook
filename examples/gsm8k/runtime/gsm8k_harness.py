@@ -81,9 +81,8 @@ def main() -> None:
         top_p=0.95,
         x_trajectory_id=trajectory_id,
     )
-    submitted = extract_submitted_answer(
-        getattr(response.choices[0].message, "tool_calls", None)
-    )
+    choice = response.choices[0]
+    submitted = extract_submitted_answer(getattr(choice.message, "tool_calls", None))
     reward = float(
         submitted is not None and expected is not None and submitted == expected
     )
@@ -93,9 +92,10 @@ def main() -> None:
         name="reward_accuracy",
         value=reward,
     )
-    completed = client.trajectories.complete(
-        trajectory_id, termination_reason="ENV_DONE"
+    reason = (
+        "TRUNCATION" if choice.finish_reason in ("length", "max_tokens") else "ENV_DONE"
     )
+    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
     if completed.status != "completed":
         raise RuntimeError(f"trajectory completion failed: {completed}")
 
