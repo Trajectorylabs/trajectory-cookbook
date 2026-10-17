@@ -76,10 +76,11 @@ managed task's raw grade, effective reward, ending, and visible answer before ex
   can run the packaged entrypoint before bulk upload. Where available, use known-good and
   known-bad solutions to check the adapter independently of model quality.
 
-Keep source task identities and explicit train/test membership. Account for omitted or failed
-tasks. If the source has no split metadata, label any partition you make as provisional; do
-not train on held-out tasks or compare a provisional subset with the benchmark's published
-score. A small validation subset is useful, but does not prove the full benchmark works.
+Keep source task identities and explicit train/test membership; omitting a split lets
+ingestion assign one. Account for omitted or failed tasks. If the source has no split metadata,
+set an evaluation-only subset to TEST or label any partition you make as provisional. Do not
+train on held-out tasks or compare a provisional subset with the benchmark's published score.
+A small validation subset is useful, but does not prove the full benchmark works.
 Keep diagnostic-driven changes to a shared harness valid for the other source tasks.
 When updating a harness, use the documented benchmark versioning flow rather than creating
 unrelated benchmark names to bypass failed builds.

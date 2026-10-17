@@ -57,12 +57,13 @@ for direct resource API calls. The OpenAI-compatible inference routes also accep
 An agent groups related benchmarks, training history, and serving models. Use the agent
 selected for your project, reuse one with the same purpose, or create one for a new use case.
 
-Inspect agents by name and description:
+Confirm the selected organization, then inspect agents by name and description:
 
 ```python
 from trajectory import Client
 
 client = Client()
+print(client.organizations.retrieve_current()["organization_id"])
 for candidate in client.agents.list():
     print(candidate.name, candidate.description)
 ```
