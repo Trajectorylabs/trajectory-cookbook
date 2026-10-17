@@ -104,6 +104,7 @@ def eval_smoketest(
             "disable_thinking": True,
             "evaluation_max_samples": 1,
             "evaluation_max_active_rollouts": 1,
+            "execution_timeout_seconds": 600,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },
     )

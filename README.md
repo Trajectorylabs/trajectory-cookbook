@@ -338,7 +338,12 @@ smoke = client.evals.create(
     bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.5-4B",
     display_name="GSM8K smoke test",
-    options={"disable_thinking": True, "evaluation_max_samples": 1},
+    options={
+        "disable_thinking": True,
+        "evaluation_max_samples": 1,
+        "evaluation_max_active_rollouts": 1,
+        "execution_timeout_seconds": 600,
+    },
 )
 smoke_eval_run_id = smoke.eval_run_id
 ```
