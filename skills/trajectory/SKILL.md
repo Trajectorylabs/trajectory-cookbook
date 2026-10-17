@@ -43,7 +43,8 @@ every actor-facing tool and follow-up read path with a fake secret and test-only
 file before upload; try relative paths and `file://` URLs. A tool that can return or store
 either for later actor use fails this gate. Once the image is ready, run exactly one managed
 task and inspect its raw grade, effective reward, ending, and visible answer before any
-multi-task eval.
+multi-task eval. Check its token usage against model rates before expanding; harder tasks can
+cost more, and a sample cap is not a dollar cap.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)
   for the customer's project. Use descriptive names and save returned IDs for later calls;
