@@ -41,9 +41,9 @@ Publish only grader fields safe for trajectory readers; keep private references 
 Before upload, check the SDK's model-request signature and import the packaged harness and
 grader during the image build. Test representative source IDs from each split and grader
 path, including their runtime data. Cover correct, wrong, cut-off, and exceptional outcomes;
-known-good and known-bad solutions separate adapter correctness from model quality. Probe the
-actual actor-facing tools and their subprocess environments with a fake secret and test-only
-private file; a mock tool does not establish isolation.
+known-good and known-bad solutions separate adapter correctness from model quality. Before
+grading, invoke a packaged source tool through the actor interface and check its path, fake
+credentials, and access to a test-only private file. A mock tool does not establish isolation.
 
 Once the image is ready, inspect registered task splits, network mode, and secrets. Use a
 [managed one-task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
