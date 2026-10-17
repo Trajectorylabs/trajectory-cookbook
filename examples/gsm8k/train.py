@@ -134,7 +134,12 @@ def _wait_for_evaluation(
     trajectories = list(client.trajectories.list(eval_run_id=eval_id))
     graded = 0
     for trajectory in trajectories:
-        if trajectory.reward is None:
+        if (
+            trajectory.reward is None
+            or trajectory.termination_reason != "ENV_DONE"
+            or trajectory.rollout is None
+            or trajectory.rollout.status != "COMPLETED"
+        ):
             continue
         detail = client.trajectories.retrieve(
             trajectory.trajectory_id, include_reward_components=True
@@ -154,7 +159,7 @@ def _wait_for_evaluation(
         or len(trajectories) != progress.total_rollouts
     ):
         raise RuntimeError(
-            f"evaluation {eval_id} has incomplete grades: "
+            f"evaluation {eval_id} lacks fully graded normal completions: "
             f"{graded}/{progress.total_rollouts}; inspect its trajectories before training"
         )
 

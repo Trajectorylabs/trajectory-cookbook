@@ -88,17 +88,19 @@ def test_task_records_reward_and_completes_with_published_sdk(
 
 
 @pytest.mark.parametrize(
-    "rewards,grades,total,mean,expected",
+    "rewards,grades,total,mean,reason,rollout_status,expected",
     [
-        ([None, None], [False, False], 2, 0.0, None),
-        ([0.0], [False], 1, 0.0, None),
-        ([0.0], [True], 1, 0.0, 0.0),
-        ([0.0, None], [True, False], 2, 0.0, None),
-        ([1.0], [True], 2, 1.0, None),
+        ([None, None], [False, False], 2, 0.0, "ENV_DONE", "COMPLETED", None),
+        ([0.0], [False], 1, 0.0, "ENV_DONE", "COMPLETED", None),
+        ([0.0], [True], 1, 0.0, "ENV_DONE", "COMPLETED", 0.0),
+        ([0.0, None], [True, False], 2, 0.0, "ENV_DONE", "COMPLETED", None),
+        ([1.0], [True], 2, 1.0, "ENV_DONE", "COMPLETED", None),
+        ([1.0], [True], 1, 1.0, "TRUNCATION", "COMPLETED", None),
+        ([1.0], [True], 1, 1.0, "ERROR", "FAILED", None),
     ],
 )
 def test_completed_eval_requires_grades_before_training(
-    rewards, grades, total, mean, expected
+    rewards, grades, total, mean, reason, rollout_status, expected
 ):
     from types import SimpleNamespace
 
@@ -117,7 +119,12 @@ def test_completed_eval_requires_grades_before_training(
         ),
         trajectories=SimpleNamespace(
             list=lambda **_: iter(
-                SimpleNamespace(trajectory_id=str(i), reward=r)
+                SimpleNamespace(
+                    trajectory_id=str(i),
+                    reward=r,
+                    termination_reason=reason,
+                    rollout=SimpleNamespace(status=rollout_status),
+                )
                 for i, r in enumerate(rewards)
             ),
             retrieve=lambda tid, **_: SimpleNamespace(
@@ -128,7 +135,7 @@ def test_completed_eval_requires_grades_before_training(
         ),
     )
     if expected is None:
-        with pytest.raises(RuntimeError, match="incomplete grades"):
+        with pytest.raises(RuntimeError, match="fully graded normal completions"):
             train._wait_for_evaluation(client, "eval_fixture", "fixture", 0)
     else:
         assert (
