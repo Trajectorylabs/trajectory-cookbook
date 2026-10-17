@@ -472,6 +472,8 @@ alone do not add the header. The example leaves retries to its caller.
 
 SDK responses are Pydantic models. If the harness validates responses with another library's
 model class, pass `response.model_dump()` to that validator.
+Validate tool-call arguments before executing tools. Follow the source harness's retry or error
+rule for malformed calls; a broken call is not a graded answer.
 Bound tool output before appending it to actor messages; keep full results in artifacts when
 needed. Large tool replies consume context and can leave too little room for a final answer.
 

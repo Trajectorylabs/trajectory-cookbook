@@ -33,8 +33,8 @@ and the primary reported score. Preserve sampling settings, output limit, and st
 when comparing scores. The runtime must execute the harness and publish its outcome.
 Before the first upload, resolve every Dockerfile `COPY` source against the directory
 containing that Dockerfile; it is the uploaded build context. Inspect the final task specs'
-splits, network mode, and secrets. Test the packaged harness with correct, wrong,
-length-capped, and exception replies; check native grades, reward bounds and weights,
+splits, network mode, and secrets. Test correct and wrong answers, cut-off replies, malformed
+tool calls, and exceptions; check native grades, reward bounds and weights,
 and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If local execution is unavailable,
 use a managed diagnostic. Write the Trajectory dispatcher around the source's actor and
 verifier boundary; the source need not provide one. Keep judge and organization keys and
