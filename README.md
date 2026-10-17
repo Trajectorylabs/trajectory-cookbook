@@ -379,9 +379,9 @@ Each optimizer step uses four task groups. With eight samples per group, that pr
 rollouts per step; samples in a group share one task. Check `samples_per_instance` in the
 model's option defaults.
 `train_batch_size` and `samples_per_instance` size an optimizer batch, not the total run.
-`max_training_samples` caps planned TRAIN samples, including rejected ones; it must cover
-requested batches in whole task groups. Reduce the batch under a fixed cap if endings are
-rejected. Retries add attempts, and a run without an eligible batch waits for its collection
+`max_training_samples` caps planned TRAIN samples, including rejected ones. It must fit one
+whole task group, but does not guarantee the requested steps: rejected or stale groups can
+exhaust it. Retries add attempts. A run without an eligible batch waits for its collection
 timeout; cancel if the cap is exhausted and no batch can form. Hosted training has no
 active-rollout concurrency option. Training also runs held-out eval rounds; options limit but
 do not disable them. Per round, `evaluation_max_samples` caps distinct tasks, while
