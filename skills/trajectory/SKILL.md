@@ -35,15 +35,15 @@ Preserve sampling settings, output limit, and stop rules when comparing scores. 
 uploader, dispatcher, and runtime build files in the customer repo; validate those saved
 entrypoints. Place the dispatcher around the source's actor and verifier boundary; the runtime
 must execute the harness and publish its outcome. Keep judge and organization keys and private
-grader files in the trusted harness, outside the actor tool's environment.
+grader files in the trusted harness; pass tool subprocesses only the environment they need.
 
 Before upload, check the SDK's model-request signature. Run a build-time import check for the
 packaged harness and grader. Test representative source IDs from each split and grader path,
 including their runtime data. Cover correct, wrong, cut-off, and exceptional outcomes. Local
 Docker is optional: use a managed one-task diagnostic to check execution, grading, and
 artifacts.
-An import check alone is insufficient. Probe actor-facing tools with a fake secret and
-test-only private file.
+An import check alone is insufficient. Probe actor-facing tools and their subprocess
+environments with a fake secret and test-only private file.
 
 Once the image is ready, inspect registered task splits, network mode, and secrets. Check one
 managed task's raw grade, effective reward, ending, and visible answer before expanding.
@@ -56,19 +56,21 @@ managed task's raw grade, effective reward, ending, and visible answer before ex
   Docker, put `RUN dockerd --version && docker --version` in its Dockerfile; the managed image
   build checks those binaries, and sandbox readiness runs `docker info`. Set the source's
   network mode explicitly; task networking defaults to none. The managed client routes model
-  calls to the actor even when they name another model. A fixed judge needs a separate client and
-  secret; changing its model leaves benchmark score parity unverified. The injected
-  `TRAJECTORY_API_KEY` is an actor-session key; for auxiliary Trajectory calls, use an
-  organization secret and the runtime's injected base URL. Follow the
-  [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py)
+  calls to the actor even when they name another model. Source-fixed tool and judge calls
+  need separate clients and appropriate credentials; changing their models leaves benchmark
+  score parity unverified. The injected `TRAJECTORY_API_KEY` is an actor-session key. For
+  auxiliary Trajectory calls, use an organization secret and the runtime's injected base URL.
+  Follow the [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py)
   and check eval or training model availability before packaging.
 - Follow [reward integration](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/reward_integration.md)
   to map the score the source result reader actually consumes. Validate wrong, partial, and
   correct outputs where applicable. Report native grades from the raw component, not
   `trajectory.reward`. A missing grade or execution failure is not a zero.
 - Report [how the attempt ended](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/termination_reasons.md).
-  Read the model's `finish_reason`; a clean harness exit or zero grade does not make a
-  cut-off reply normal. Preserve native grades for cut-off replies and mark `TRUNCATION`.
+  Read each model reply's `finish_reason` and determine submission from the source's contract,
+  not the last chat message alone. A clean harness exit or zero grade does not make a
+  cut-off reply normal.
+  Preserve native grades for cut-off replies and mark `TRUNCATION`.
   Preserve retry headers; report unexpected harness errors as `ERROR` and re-raise.
 - A [task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
   can run the packaged entrypoint before bulk upload. Where available, use known-good and
