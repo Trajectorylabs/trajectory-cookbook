@@ -54,7 +54,8 @@ multi-task eval.
   If adapting tools, keep the task instructions and exposed tool interface in agreement.
   An omitted `env_resources` means no network. A fixed judge needs its own client and
   credentials; the managed actor client routes even differently named models to the actor.
-  Keep judge calls off the actor trajectory.
+  Keep judge calls off the actor trajectory. If the judge model changes, state that benchmark
+  score parity is unverified.
   The injected `TRAJECTORY_API_KEY` is an actor-session key. For auxiliary Trajectory calls,
   use a separately named organization secret and the runtime's injected base URL; an uploader's
   `localhost` points at the sandbox. Follow the
