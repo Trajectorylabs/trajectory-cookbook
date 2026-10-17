@@ -203,7 +203,8 @@ incomplete group can still enter the optimizer batch. Check `in_training_batch` 
 Checkpoint evals inherit supported token and turn limits from training unless
 overridden. Compare effective limits and identical held-out task IDs with the baseline.
 Capped evals on the same version and split select the same tasks; a new version may
-change the subset. Sample limits are not a dollar cap. See the
+change the subset. For spend by run, use platform Billing (`/<org-key>/billing`),
+which shows the last 30 days; sample limits do not cap dollars. See the
 [GSM8K walkthrough](examples/gsm8k/README.md#5-train-on-one-task-and-evaluate-the-checkpoint)
 for runnable calls and [deployment](examples/gsm8k/README.md#optional-deploy-and-query-the-trained-checkpoint)
 for serving a checkpoint.
