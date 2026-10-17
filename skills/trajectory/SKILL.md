@@ -59,7 +59,8 @@ multi-task eval.
   use a separately named organization secret and the runtime's injected base URL; an uploader's
   `localhost` points at the sandbox. Follow the
   [separate-client example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py).
-  Exercise each auxiliary call through its actual wrapper; it needs its own trajectory header.
+  List auxiliary models with `client.inference.list_models()`; exercise each call through its
+  actual wrapper and confirm its trajectory ID differs from the actor's.
   For SDK versions whose chat signature lacks `tools`, follow the
   [cookbook's tool-call syntax](https://github.com/Trajectorylabs/trajectory-cookbook#connect-the-actor).
   Bound tool replies passed back to the actor; retain full data as artifacts when needed.
