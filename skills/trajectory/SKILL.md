@@ -67,9 +67,9 @@ managed task's raw grade, effective reward, ending, and visible answer before ex
   correct outputs where applicable. Report native grades from the raw component, not
   `trajectory.reward`. A missing grade or execution failure is not a zero.
 - Report [how the attempt ended](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/termination_reasons.md).
-  Read each model reply's `finish_reason` and determine submission from the source's contract,
-  not the last chat message alone. A clean harness exit or zero grade does not make a
-  cut-off reply normal.
+  Read each model reply's `finish_reason` before dispatching its tool calls; stop on a cut-off
+  reply. Determine submission from the source's contract, not the last chat message alone.
+  A clean harness exit or zero grade does not make a cut-off reply normal.
   Preserve native grades for cut-off replies and mark `TRUNCATION`.
   Preserve retry headers; report unexpected harness errors as `ERROR` and re-raise.
 - A [task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
