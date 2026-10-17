@@ -306,29 +306,27 @@ while True:
 if not state.is_active:
     raise RuntimeError("Deployment is ready but is not the active target for its slug")
 tid = client.trajectories.create().tid
+reason = "ERROR"
 try:
     response = client.chat.completions.create(
         model=state.model_slug,
         messages=[{"role": "user", "content": "What is 17 times 6?"}],
         x_trajectory_id=tid,
     )
+    choice = response.choices[0]
+    if choice.finish_reason in ("length", "max_tokens"):
+        reason = "TRUNCATION"
+        raise RuntimeError(f"Serving check failed: {choice.finish_reason=}")
+    if choice.finish_reason != "stop" or not (choice.message.content or "").strip():
+        raise RuntimeError(f"Serving check failed: {choice.finish_reason=}")
 except Exception as error:
     try:
-        client.trajectories.complete(tid, termination_reason="ERROR")
+        client.trajectories.complete(tid, termination_reason=reason)
     except Exception as cleanup_error:
         error.add_note(f"Trace completion also failed: {type(cleanup_error).__name__}")
     raise
 else:
-    choice = response.choices[0]
-    if choice.finish_reason in ("length", "max_tokens"):
-        reason = "TRUNCATION"
-    elif choice.finish_reason == "stop" and choice.message.content:
-        reason = "ENV_DONE"
-    else:
-        reason = "ERROR"
-    client.trajectories.complete(tid, termination_reason=reason)
-    if reason != "ENV_DONE":
-        raise RuntimeError(f"Serving check failed: {choice.finish_reason=}")
+    client.trajectories.complete(tid, termination_reason="ENV_DONE")
     print(choice.message.content)
 ```
 
