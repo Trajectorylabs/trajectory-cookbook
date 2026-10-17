@@ -38,6 +38,8 @@ length-capped, and exception replies; check native grades, reward bounds and wei
 and `ENV_DONE`, `TRUNCATION`, and `ERROR` endings. If local execution is unavailable,
 use a managed diagnostic. If actor tools can reach private grader inputs or credentials,
 probe that boundary with test-only files and fake secrets through the actual tools.
+After image readiness, run a one-task managed eval and inspect its raw grade, effective reward,
+ending, and visible answer before using more attempts.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)
   for the customer's project. Use descriptive names and save returned IDs for later calls;
@@ -88,10 +90,8 @@ unrelated benchmark names to bypass failed builds.
 
 ## Evaluate, train, and compare
 
-Start with one managed task that proves the packaged harness can produce a grade. Check its
-raw component, effective reward, and ending before scheduling more tasks.
-A graded reply cut off before any visible answer verifies the grader, not viable model settings;
-check thinking mode and output room before scaling.
+At that gate, a graded reply cut off before any visible answer verifies the grader
+but not viable model settings. Check thinking mode and output room before scaling.
 Reduce task count to control validation cost; keep the source's generation settings and
 output limit when checking its native grade. A shorter output cap can prevent grading.
 Do not set `max_total_tokens_per_trajectory` equal to a single reply's cap: reaching it
