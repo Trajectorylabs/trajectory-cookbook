@@ -42,8 +42,9 @@ packaged harness and grader. Test representative source IDs from each split and 
 including their runtime data. Cover correct, wrong, cut-off, and exceptional outcomes. Local
 Docker is optional: use a managed one-task diagnostic to check execution, grading, and
 artifacts.
-An import check alone is insufficient. Probe actor-facing tools and their subprocess
-environments with a fake secret and test-only private file.
+An import check alone is insufficient. Probe the actual actor-facing tools and their
+subprocess environments with a fake secret and test-only private file; a mock tool does not
+establish isolation.
 
 Once the image is ready, inspect registered task splits, network mode, and secrets. Check one
 managed task's raw grade, effective reward, ending, and visible answer before expanding.
