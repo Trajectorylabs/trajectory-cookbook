@@ -92,10 +92,11 @@ them. Preserve the source's generation settings and per-step output limit. Set
 grading can run.
 Inspect per-task outcomes before reporting an aggregate.
 
-For training, inspect supported options and eligible endings. Group-relative training needs
-reward contrast. Set `max_training_samples` above `train_batch_size * samples_per_instance`:
-all-equal and rejected groups spend samples without filling the batch. Budget retries,
-held-out eval rounds, and a matched checkpoint eval; a sample cap is not a dollar budget.
+For training, inspect supported options and eligible endings. Default group rejection excludes
+equal-reward groups. With one variant per task, set `max_training_samples` above
+`train_batch_size * samples_per_instance` to leave room for rejected groups. With multiple
+variants, allow every variant of each planned task. Budget retries, held-out eval rounds,
+and a matched checkpoint eval; a sample cap is not a dollar budget.
 `used_groups=0` does not establish an empty optimizer batch: no-signal and incomplete groups
 are excluded. Read `in_training_batch` from `GET /api/v1/train/{run_id}/steps/{step}/groups`
 before reporting batch membership.
