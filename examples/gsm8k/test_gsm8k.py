@@ -136,7 +136,7 @@ def test_completed_eval_requires_grades_before_training(
         )
 
 
-def test_comparison_keeps_baseline_version_when_latest_changes(monkeypatch):
+def test_evaluations_keep_baseline_version_when_latest_changes(monkeypatch):
     from types import SimpleNamespace
 
     spec = importlib.util.spec_from_file_location(
@@ -178,6 +178,9 @@ def test_comparison_keeps_baseline_version_when_latest_changes(monkeypatch):
     assert "benchmark_name" not in eval_calls[1]
     assert eval_calls[0]["options"] == eval_calls[1]["options"]
     assert eval_calls[1]["parent_checkpoint_id"] == "checkpoint_1"
+    assert train.eval_smoketest(client, "bm_old") == 0.5
+    assert eval_calls[2]["bench_id"] == "bm_old"
+    assert "benchmark_name" not in eval_calls[2]
 
 
 @pytest.mark.parametrize("outcome", ["ready", "build_failed", "timeout"])
@@ -185,6 +188,7 @@ def test_upload_keeps_operation_id_and_reports_build_failure(
     monkeypatch, capsys, outcome
 ):
     from types import SimpleNamespace
+
     from trajectory.lib.benchmark_operations import BenchmarkOperationError
 
     spec = importlib.util.spec_from_file_location(

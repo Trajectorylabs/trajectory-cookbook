@@ -79,13 +79,12 @@ from examples.gsm8k.train import eval_smoketest
 
 client = Client()
 agent_name = "gsm8k-cookbook"
-bench_name = "gsm8k-smoketest"
-ingest_smoketest(agent_name=agent_name)
-baseline_reward = eval_smoketest(client, agent_name, bench_name)
+bench_id = ingest_smoketest(agent_name=agent_name)
+baseline_reward = eval_smoketest(client, bench_id)
 print(f"baseline_reward={baseline_reward:.6f}")
 ```
 
-Use your chosen `agent_name` and `bench_name="gsm8k-smoketest"`.
+Use your chosen `agent_name`.
 `ingest_smoketest` uploads one training problem and one different problem from GSM8K's test
 split, then waits for the runtime image to be ready. Both ingestion helpers only upload and
 wait; diagnostics are separate calls. Benchmark-wide diagnostics are reserved for step 6.
@@ -101,8 +100,7 @@ Continue in the same Python session. Use one task group per step for the smoke-t
 
 ```python
 training = client.training.create(
-    agent_name=agent_name,
-    benchmark_name=bench_name,
+    bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.5-4B",
     options={
         "disable_thinking": True,
@@ -146,7 +144,7 @@ After successful training, evaluate the checkpoint on the same held-out task:
 ```python
 checkpoint = client.training.checkpoints.retrieve(run_id, step_index=3)
 final_reward = eval_smoketest(
-    client, agent_name, bench_name, parent_checkpoint_id=checkpoint.checkpoint_id
+    client, bench_id, parent_checkpoint_id=checkpoint.checkpoint_id
 )
 print(f"baseline_reward={baseline_reward:.6f}")
 print(f"final_reward={final_reward:.6f}")
@@ -182,10 +180,9 @@ It prints training progress and the baseline/final reward comparison. Increasing
 lets you run longer; use repeated runs and a sufficiently large frozen test set to assess improvement.
 
 Uploading the same benchmark name under the same agent creates a new version. The comparison
-script prints and pins the baseline's `bench_id` for training and checkpoint evaluation.
-For the manual smoke-test calls above, selecting by agent and benchmark names resolves the
-latest version each time; finish those calls before uploading another version, or pass the
-original `bench_id` instead. Training starts from the base model unless you set
+script pins the baseline's `bench_id`; the manual smoke workflow uses the ID returned by
+upload. Later versions cannot change either comparison's held-out tasks.
+Training starts from the base model unless you set
 `parent_checkpoint_id` to continue from a checkpoint.
 
 ## Inspect existing work

@@ -89,16 +89,14 @@ def train_and_evaluate(
 
 def eval_smoketest(
     client: Client,
-    agent_name: str,
-    bench_name: str,
+    bench_id: str,
     model: str = _DEFAULT_MODEL,
     poll_seconds: float = 30,
     parent_checkpoint_id: str | None = None,
 ) -> float:
     # Evaluate one held-out task to catch basic execution and grading errors quickly.
     evaluation = client.evals.create(
-        agent_name=agent_name,
-        benchmark_name=bench_name,
+        bench_id=bench_id,
         base_model_slug=model,
         parent_checkpoint_id=parent_checkpoint_id,
         display_name="GSM8K smoketest",
