@@ -1,13 +1,8 @@
 # Connect an existing grader to Trajectory
 
-The adapter is the part of your harness that reads the grader's output and calls the SDK.
-A grader may return a scalar, a JSON object, or several metrics. The adapter reads the
-grader's output and forwards the selected score to `log_reward(value=...)`. 
-
-A successful grader command or runtime image build can sometimes hide that the submitted harness
-failed to read and publish the real grade. If the adapter reports a missing `reward` key, 
-check whether the grader uses a different score field and map that field explicitly 
-to `log_reward(value=...)`.
+The harness reads the source grader's output and passes its selected score to
+`log_reward(value=...)`. Check which field the source evaluator consumes; a successful
+grader command or image build does not prove the harness published that score.
 
 ## Choose the score explicitly
 
@@ -17,9 +12,8 @@ Trace its formula, including partial scores, weights, and aggregation. Pass the 
 Trajectory uses `(value - min_value) / (max_value - min_value)` for its effective reward.
 Compare native metrics in their original units when that normalized value differs.
 
-Tip: if you want to keep additional numeric signals visible without affecting that score,
-consider logging them as named reward components with weight `0`; see
-[Log several reward components and grader output](#log-several-reward-components-and-grader-output).
+Log additional numeric signals with weight `0` if they should be visible without changing
+the reward; see [Log several reward components and grader output](#log-several-reward-components-and-grader-output).
 
 For an existing benchmark, inspect its grader, evaluation reader, reporting code, and a real
 output. Record:

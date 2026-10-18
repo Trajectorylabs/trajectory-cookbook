@@ -33,8 +33,7 @@ Supporting Guides:
 - [Runtime packaging](#package-a-benchmark-runtime): files, dependencies, secrets, and nested containers.
 - [Production traces](examples/production_traces.md): capture application requests under an agent (private beta).
 
-The sections below are SDK reference material for adapting your own benchmark. Follow the
-[first-task guide](examples/t_factory/README.md) for a short runnable introduction.
+The sections below cover SDK choices for adapting your own benchmark.
 
 ## Setup
 
@@ -192,7 +191,8 @@ the entire run. Hosted training has no active-rollout concurrency option.
 Read `client.training.rewards.list_held_out_rewards(run_id)` for published rounds.
 For an unpublished round, retrieve
 `/api/v1/train/{run_id}/steps/{step}/trajectories` with
-`options={"params": {"mode": "eval"}}`; an inline query string can be dropped.
+`options={"params": {"mode": "eval"}}`; SDK 0.9.20 can drop an inline query string when
+pagination adds a cursor.
 `used_groups` counts only fully graded groups with reward contrast; a no-signal or
 incomplete group can still enter the optimizer batch. Check `in_training_batch` at
 `/api/v1/train/{run_id}/steps/{step}/groups` (policy step 0 is consumed at step 1).

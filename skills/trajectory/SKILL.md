@@ -5,136 +5,94 @@ description: Integrate a customer benchmark with Trajectory, evaluate and train 
 
 # Trajectory
 
-Use Trajectory for the customer's requested workflow; evaluation alone does not authorize
-training or deployment. Preserve the benchmark's solving and grading behavior. If live
-credentials are missing, finish offline validation and state what remains unverified.
+Follow the customer's requested scope. Evaluation alone does not authorize training or
+deployment. Preserve the benchmark's solving and grading behavior. If credentials are
+missing, finish offline validation and state what remains unverified.
 
 ## Find the contract
 
-The Python package is `trajectory-sdk`; import `Client` from `trajectory`. It reads
-`TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL` (default `https://api.trajectory.ai`).
-Authentication uses `X-API-Key`. Check the selected organization before creating resources.
+Install `trajectory-sdk`; import `Client` from `trajectory`. It reads
+`TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL`. Check the organization before creating resources.
 
 Start with the public [cookbook](https://github.com/Trajectorylabs/trajectory-cookbook).
 Its [GSM8K walkthrough](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md)
 covers the managed lifecycle. Adapt the workflow, not GSM8K's task, model choice, or scoring assumptions.
-Use the installed SDK's signatures and docstrings to check calls and options; record its
-version. Cookbook examples pin a version. If a method or field differs, resolve the mismatch
-before changing the integration.
-Do not depend on access to a login-gated documentation site.
-If a cookbook snapshot is supplied with the customer source, use that version for the run.
+Check the installed SDK's version, signatures, and docstrings against the cookbook. Use a
+supplied cookbook snapshot when one is provided. The documentation site may be login-gated.
 
 ## Integrate and validate
 
-Trace the customer's task loader, actor interface, model calls (if present), grader, and
-result reader. If the source has no agent, implement a basic model actor through its documented
-interface. Call the source grader directly; preserve its call order and
-shared state. Identify task IDs, splits, runtime packages and data, network access, private
-references, and the primary score.
-Preserve sampling settings, output limit, and stop rules when comparing scores. Save the
-uploader, dispatcher, and runtime build files in the customer repo; validate those saved
-entrypoints. Place the dispatcher around the source's actor and verifier boundary; the runtime
-must execute the harness and publish its outcome. Keep judge and organization keys and private
-grader files in the trusted harness; pass tool subprocesses only the environment they need.
-Publish only grader fields safe for trajectory readers; keep private references out of events.
+Trace the source task loader, actor and tools, grader, and result reader. Identify task IDs,
+splits, runtime files, external services, private references, and the primary score. Keep the
+source grader's call order and state. If the source has no actor, implement one through its
+documented interface. Save and validate the uploader and runtime entrypoints in the customer
+repo; an image build alone does not run a task.
 
-Before upload, check the SDK's model-request signature and import the packaged harness and
-grader during the image build. Test representative source IDs from each split and grader
-path, including their runtime data. Cover correct, wrong, cut-off, and exceptional outcomes;
-known-good and known-bad solutions separate adapter correctness from model quality. Before
-grading, invoke a packaged source tool through the actor interface. Use a real tool to try
-reading a test-only private grader file; rejecting an unsupported tool name does not test
-isolation. Check fake credentials in the intended subprocess.
+Before upload, import the packaged harness and grader and run representative source tasks
+through their actual tools. Check correct, wrong, cut-off, and error paths with known outputs.
+Keep private grader inputs and credentials outside actor-visible tools; probe that boundary
+through a real source tool when the actor can read files or run commands.
 
-Bind required runtime credentials through `TaskSpec.env_vars` and `SecretRef`; naming them in
-the README does not inject them. Inspect registered task splits, network mode, and env vars. Use a
+Bind runtime credentials through `TaskSpec.env_vars` and `SecretRef`. Inspect uploaded splits,
+network mode, and environment variables. Run a
 [managed one-task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
-to check execution, grading, artifacts, raw and effective reward, ending, and visible answer
-before expanding. Local Docker is optional; keep the build-time checks when it is unavailable.
+and inspect its answer, native grade, ending, and failure details before a larger eval.
 
 - [Choose or reuse an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent)
-  for the customer's project. Inspect existing work before creating another benchmark or run.
+  and inspect existing benchmarks before creating another.
 - Follow [runtime packaging](https://github.com/Trajectorylabs/trajectory-cookbook#package-a-benchmark-runtime)
-  for build contexts, dependencies, secrets, nested Docker, network, and model routing.
-  Preserve source paths and the actor's tool interface. Check nested Docker binaries with
-  `RUN dockerd --version && docker --version`; set network mode explicitly (default: none).
-  Managed model calls route to the actor even when they name another model. Keep source-fixed
-  tool and judge calls on separate clients and credentials, or score parity is unverified.
-  The injected `TRAJECTORY_API_KEY` is an actor-session key; auxiliary Trajectory calls need
-  an organization secret and the injected base URL ([example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/auxiliary_inference.py)).
-  Check model availability before packaging.
+  for files, secrets, nested containers, network, and model routing. Managed model calls use
+  the actor model; source-fixed judges need separate credentials and clients.
 - Follow [reward integration](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/reward_integration.md)
-  to map the score the source result reader actually consumes. Validate wrong, partial, and
-  correct outputs where applicable. Report native grades from the raw component, not
-  `trajectory.reward`. A numeric fallback from an unrun or failed grader is not a grade.
+  to map the score the source result reader consumes. Report native grades from the raw
+  component, not `trajectory.reward`. A fallback from an unrun grader is not a grade.
 - Report [how the attempt ended](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/termination_reasons.md).
-  Read each model reply's `finish_reason` before dispatching its tool calls; stop on a cut-off
-  reply. Determine submission from the source's contract, not the last chat message alone.
-  A clean harness exit or zero grade does not make a cut-off reply normal.
-  Preserve native grades for cut-off replies and mark `TRUNCATION`.
-  Preserve retry headers; report unexpected harness errors as `ERROR` and re-raise.
+  Check each reply's `finish_reason` before tool dispatch. Grade a cut-off answer if the source
+  does, then mark `TRUNCATION`. A clean process exit does not establish `ENV_DONE`; report
+  unexpected harness failures as `ERROR` and preserve retry headers.
 
-Keep source task identities and explicit train/test membership; omitting a split lets
-ingestion assign one. Account for omitted or failed tasks. If the source has no split metadata,
-set an evaluation-only subset to TEST or label any partition you make as provisional. Do not
-train on held-out tasks or compare a provisional subset with the benchmark's published score.
-A small validation subset is useful, but does not prove the full benchmark works.
-Keep diagnostic-driven changes to a shared harness valid for the other source tasks.
-When updating a harness, use the documented benchmark versioning flow rather than creating
-unrelated benchmark names to bypass failed builds.
+Keep source task IDs and explicit train/test membership. If the source has no split, mark an
+evaluation-only subset TEST or label your partition provisional; do not train on held-out
+tasks or compare a provisional subset with a published benchmark score. Account for omitted
+or failed tasks. Update the existing benchmark name when repairing its harness.
 
 ## Evaluate, train, and compare
 
-Follow the [GSM8K eval and training walkthrough](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md)
-and the [selector and option guidance](https://github.com/Trajectorylabs/trajectory-cookbook#evaluate-train-and-compare).
-Use a capped one-sample eval when validation needs run options; task diagnostics do not accept
-them. Preserve the source's generation settings and per-step output limit. Set
-`max_total_tokens_per_trajectory` above the sum of possible replies, including retries, so
-grading can run.
-Inspect per-task outcomes before reporting an aggregate.
+Follow the [GSM8K lifecycle](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md)
+and [run-option guidance](https://github.com/Trajectorylabs/trajectory-cookbook#evaluate-train-and-compare).
+Use a cheap one-task gate before a larger held-out eval. Preserve the source's generation
+settings and output limits; leave enough total tokens for all replies and grading.
+Inspect per-task grades and failures before reporting a mean.
 
-For training, inspect supported options and eligible endings. Default group rejection excludes
-equal-reward groups. Budget retries, held-out eval rounds, and a matched checkpoint eval.
-`used_groups=0` does not establish an empty optimizer batch: no-signal and incomplete groups
-are excluded. Read `in_training_batch` from `GET /api/v1/train/{run_id}/steps/{step}/groups`
-before reporting batch membership.
+For training, check supported options, eligible endings, and the planned sample cap. Equal-
+reward groups may be rejected. `used_groups=0` does not prove the optimizer batch was empty;
+inspect group membership before making that claim.
 
-Compare the baseline and checkpoint using the same benchmark version, held-out tasks, scoring,
-and effective evaluation settings. Report attempted, graded, failed, and unfinished counts
-alongside reward. A smoke evaluation cannot establish model improvement.
+Compare baseline and checkpoint on the same benchmark version, held-out tasks, scorer, and
+effective eval settings. Report attempted, graded, failed, and unfinished counts. A smoke
+eval cannot establish model improvement.
 
 For deployment, follow the
 [checkpoint serving example](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md#optional-deploy-and-query-the-trained-checkpoint).
-Verify deployment state and a non-empty, completed inference answer; HTTP 200 with
-`finish_reason=length` only proves the endpoint responded. Distinguish serving successfully
-from achieving the benchmark's target quality. Changing an active production model requires
-the customer's intended scope to include that change. Remove a temporary proof deployment
-after querying it; retain it when the user wants a live endpoint.
+Verify a completed, nonempty answer and remove a temporary proof deployment. Promoting an
+active production model requires the customer's authorization.
 
-For application traffic, use [production traces](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/production_traces.md)
-(private beta). Associate each request with its agent and preserve its trajectory ID.
+For application traffic, follow [production traces](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/production_traces.md)
+(private beta) and retain each request's trajectory ID.
 
 ## Inspect and recover
 
-Keep ingestion, diagnostic, benchmark, evaluation, training, checkpoint, deployment, and
-trajectory IDs with the operation that returned them. A local timeout or interrupted client
-does not mean the service stopped. Retrieve the existing operation before retrying creation;
-reuse its idempotency key for the same inputs, and use a new key after changing them.
-Wait for evals and training in a bounded polling command that prints state changes and failures.
+Keep the IDs returned by ingestion, diagnostics, eval, training, checkpoint, deployment,
+and trajectory calls. After a local timeout, retrieve the existing remote operation before
+creating another. Poll boundedly and print state changes and failures.
 
-Locate the failing boundary: upload/build, runtime startup, model request, harness execution,
-grading, reward publication, or run aggregation. Read the specific failure and available logs
-or artifacts. Retrieve a trajectory with `include_reward_components=True` when checking its
-grades; read its `error` and the list entry's rollout diagnostic for failed attempts.
-For flat rewards, distinguish genuine wrong answers from absent grades, rejected
-endings, and missing training progress before changing training settings.
+Locate the failing boundary: build, runtime, model, harness, grader, reward publication, or
+run aggregation. Read the failure and available logs or artifacts. Retrieve trajectories with
+`include_reward_components=True` when checking native grades. For flat rewards, distinguish
+wrong answers from absent grades, rejected endings, and no training progress.
 
-State observed evidence separately from hypotheses. Give the relevant IDs and verified UI
-links when available; do not construct an organization URL from an organization ID by guessing
-its URL key. If the API does not expose a needed diagnostic or link, name the missing
-information rather than inventing it.
+Report observed evidence, IDs, and verified UI links. Do not guess an organization URL key or
+an unavailable failure reason.
 
-After a fix, repeat the affected validation before scaling again. Confirm remote cancellation
-and cleanup when stopping work; terminating a local process is insufficient. Cancel a running
-evaluation through its run, not by completing a trajectory owned by its live worker. Report
-remaining running resources and blockers explicitly.
+Repeat the affected validation after a fix. Confirm remote cancellation and cleanup; stopping
+the local client does not stop a run. Never complete a trajectory owned by a live worker.
