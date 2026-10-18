@@ -6,8 +6,9 @@ Examples for evaluating and training models with the
 Before starting your coding agent, copy the [Trajectory skill](skills/trajectory/SKILL.md) to
 `<benchmark-repo>/.agents/skills/trajectory/SKILL.md` for Codex or
 `<benchmark-repo>/.claude/skills/trajectory/SKILL.md` for Claude Code. Ask the agent to use it.
+Keep the skill and examples from the same cookbook commit when pinning a workflow.
 
-Runnable examples and runtime images pin `trajectory-sdk==0.9.20`.
+Runnable examples and runtime images pin `trajectory-sdk==0.9.23`.
 The [public Tau 3 Banking recipe](examples/tau3_banking/banking.md) preserves the upstream evaluator.
 
 **Start here:** [Run your first task with T Factory](examples/t_factory/README.md).
@@ -43,7 +44,7 @@ under **Settings → API keys**. Give your coding agent that organization's key 
 Install the SDK version used by these examples and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.9.20
+pip install trajectory-sdk==0.9.23
 export TRAJECTORY_API_KEY="..."
 ```
 
@@ -186,12 +187,12 @@ published mean; inspect attempts before interpreting the aggregate.
 `train_batch_size` counts task groups per optimizer step; `samples_per_instance`
 sets model samples per group. Training also runs held-out eval rounds;
 `evaluation_max_samples` and `evaluation_samples_per_task` apply per round, not to
-the entire run. Hosted training has no active-rollout concurrency option.
+the entire run. Use `max_active_rollouts` to limit concurrent training rollouts.
 
 Read `client.training.rewards.list_held_out_rewards(run_id)` for published rounds.
 For an unpublished round, retrieve
 `/api/v1/train/{run_id}/steps/{step}/trajectories` with
-`options={"params": {"mode": "eval"}}`; SDK 0.9.20 can drop an inline query string when
+`options={"params": {"mode": "eval"}}`; SDK 0.9.23 can drop an inline query string when
 pagination adds a cursor.
 `used_groups` counts only fully graded groups with reward contrast; a no-signal or
 incomplete group can still enter the optimizer batch. Check `in_training_batch` at
@@ -226,7 +227,7 @@ model, use a separate client configured for its endpoint and credentials. Sendin
 through the managed actor client would use the actor model instead.
 During training and evaluation, the run's `max_output_tokens_per_step` overrides a model
 request's `max_tokens`. Set the run option to bound each actor reply.
-In `trajectory-sdk==0.9.20`, send tool definitions through
+In `trajectory-sdk==0.9.23`, send tool definitions through
 `extra_body={"tools": tools, "tool_choice": "auto"}`; check the installed signature after upgrading.
 
 The runtime's injected `TRAJECTORY_API_KEY` is a trajectory session key, not the organization
@@ -246,9 +247,9 @@ trajectory with the organization client, passing its `tid` in that header. A har
 accepts only a URL and key needs an adapter for the header. Test each auxiliary call path
 through its actual wrapper and confirm its ID differs from the actor's.
 
-[Auxiliary inference example](examples/auxiliary_inference.py) covers the separate client,
-trajectory and completion reasons. Adapt each harness model-call path; environment variables
-alone do not add the header. The example leaves retries to its caller.
+Use the [capture pattern](#record-a-task) with that separate client and the auxiliary
+request's own completion reason. Environment variables alone do not add the trajectory header;
+adapt the harness's model-call wrapper. Let the harness own retries when it already retries calls.
 
 SDK responses are Pydantic models. If the harness validates responses with another library's
 model class, pass `response.model_dump()` to that validator.

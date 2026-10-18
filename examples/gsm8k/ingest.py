@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.20", "httpx"]
+# dependencies = ["trajectory-sdk==0.9.23", "httpx"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
@@ -64,7 +64,7 @@ def ingest(name: str, agent_name: str) -> str:
 def ingest_smoketest(agent_name: str) -> str:
     # Use one task per split for the quickest check of ingestion and runtime errors.
     rows = {split: _load_rows(split, 1) for split in ("train", "test")}
-    return _push_benchmark(rows, "gsm8k-smoketest", agent_name)
+    return _push_benchmark(rows, "gsm8k-trajectory-sdk", agent_name)
 
 
 def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> str:

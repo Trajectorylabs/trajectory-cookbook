@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.20"]
+# dependencies = ["trajectory-sdk==0.9.23"]
 # ///
 """Evaluate, train, and compare the final checkpoint on GSM8K."""
 
@@ -133,37 +133,32 @@ def _wait_for_evaluation(
 
     trajectories = list(client.trajectories.list(eval_run_id=eval_id))
     graded = 0
+    failed = 0
     for trajectory in trajectories:
-        if (
-            trajectory.reward is None
-            or trajectory.rollout is None
-            or trajectory.rollout.status != "COMPLETED"
-        ):
-            continue
-        detail = client.trajectories.retrieve(
-            trajectory.trajectory_id, include_steps=True, include_reward_components=True
+        failed += (
+            trajectory.rollout is not None and trajectory.rollout.status == "FAILED"
         )
-        if not detail.steps or not detail.steps[-1].messages:
-            continue
-        if detail.steps[-1].messages[-1].finish_reason not in {"stop", "tool_calls"}:
-            continue
+        detail = client.trajectories.retrieve(
+            trajectory.trajectory_id, include_reward_components=True
+        )
         graded += any(
             component.name == "reward_accuracy"
             for component in detail.reward_components or []
         )
     print(
         f"evaluation={display_name} attempted={len(trajectories)} "
-        f"graded={graded} ungraded={len(trajectories) - graded}",
+        f"graded={graded} failed={failed}",
         flush=True,
     )
     if (
         not trajectories
         or graded != len(trajectories)
-        or len(trajectories) != progress.total_rollouts
+        or graded != progress.total_rollouts
+        or failed
     ):
         raise RuntimeError(
-            f"evaluation {eval_id} lacks fully graded normal completions: "
-            f"{graded}/{progress.total_rollouts}; inspect its trajectories before training"
+            f"evaluation {eval_id}: {graded}/{progress.total_rollouts} graded, "
+            f"{failed} failed; inspect its trajectories before continuing"
         )
 
     result = client.evals.runs.retrieve(eval_id)

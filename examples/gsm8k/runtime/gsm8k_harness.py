@@ -82,7 +82,7 @@ def main() -> None:
         x_trajectory_id=trajectory_id,
     )
     choice = response.choices[0]
-    submitted = extract_submitted_answer(getattr(choice.message, "tool_calls", None))
+    submitted = extract_submitted_answer(choice.message.tool_calls)
     reward = float(
         submitted is not None and expected is not None and submitted == expected
     )
@@ -92,9 +92,12 @@ def main() -> None:
         name="reward_accuracy",
         value=reward,
     )
-    reason = (
-        "TRUNCATION" if choice.finish_reason in ("length", "max_tokens") else "ENV_DONE"
-    )
+    if choice.finish_reason in ("length", "max_tokens"):
+        reason = "TRUNCATION"
+    elif submitted is None:
+        reason = "MISSING_SUBMIT"
+    else:
+        reason = "ENV_DONE"
     completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
     if completed.status != "completed":
         raise RuntimeError(f"trajectory completion failed: {completed}")

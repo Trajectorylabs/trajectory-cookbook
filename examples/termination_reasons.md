@@ -38,25 +38,29 @@ The platform also sets `MAX_STEPS` when its turn limit stops the model. It sets
 
 ## Detect a cut-off reply
 
-Check each model reply's `finish_reason` before dispatching its tool calls, even if the
-reply contains tool-call data:
+Read the finish reason from the model response:
 
 ```python
-cut_off = response.choices[0].finish_reason in ("length", "max_tokens")
+finish_reason = response.choices[0].finish_reason
 ```
 
-If cut off, stop the actor loop without dispatching that reply's tool calls. Grade any answer
-the source evaluator accepts, then complete with `TRUNCATION`. If the harness hides the model
-response, inspect the latest recorded step after each request (after confirming the trajectory
-has at least one step):
+If the harness hides the response, read it from the latest recorded step after the request
+(after confirming the trajectory has at least one step):
 
 ```python
 num_steps = client.trajectories.retrieve(tid).num_steps
 page = client.trajectories.steps.list(tid, start_step_index=num_steps - 1, limit=1)
-reply = page.items[0].messages[-1]
-cut_off = reply.finish_reason in ("length", "max_tokens")
+finish_reason = page.items[0].messages[-1].finish_reason
 ```
 
+In either case, check before dispatching tool calls:
+
+```python
+cut_off = finish_reason in ("length", "max_tokens")
+```
+
+If cut off, stop the actor loop without dispatching that reply's tool calls. Grade any answer
+the source evaluator accepts, then complete with `TRUNCATION`.
 
 ## When the platform ends the trajectory
 

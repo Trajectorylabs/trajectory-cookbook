@@ -7,8 +7,9 @@ For quick debugging, use one training problem and one held-out test problem, the
 [GSM8K dataset](https://github.com/openai/grade-school-math), not the entire upstream dataset.
 
 The harness asks the model to solve a math problem and call `submit_answer`. It records reward
-`1.0` for the correct numeric answer and `0.0` for an incorrect or text-only answer. The model
-receives the question, while the grader retains the reference answer.
+`1.0` for the correct numeric answer and `0.0` otherwise. No usable `submit_answer` call
+means `MISSING_SUBMIT`; a length-capped reply means `TRUNCATION`. The model receives the
+question, while the grader retains the reference answer.
 
 ## 1. Set up and confirm your organization
 
@@ -16,7 +17,7 @@ Use your API key from the first lesson. Start Python from the cookbook repositor
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk==0.9.20 --with httpx python
+uv run --with trajectory-sdk==0.9.23 --with httpx python
 ```
 
 ```python
@@ -36,7 +37,7 @@ Follow the shared [agent selection guidance](../../README.md#choose-or-create-an
 For a new GSM8K project:
 
 ```bash
-uv run --with trajectory-sdk==0.9.20 python -c \
+uv run --with trajectory-sdk==0.9.23 python -c \
   'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 
@@ -80,8 +81,9 @@ split, then waits for the runtime image to be ready. Both ingestion helpers only
 wait; diagnostics are separate calls. Benchmark-wide diagnostics are reserved for step 6.
 
 `eval_smoketest` evaluates one held-out task and prints its evaluation ID, progress and grade
-counts. It returns the reward only if every attempt has a native grade, a non-cut-off final reply,
-and a completed rollout. It stops on failures or missing grades. A recorded zero is valid.
+counts. It stops on failed rollouts or missing native grades. A graded wrong or cut-off answer is
+still graded; the platform can score a cut-off answer as zero. Inspect its ending before
+choosing training limits.
 One test problem cannot measure generalization.
 
 ## 5. Train on one task and evaluate the checkpoint
@@ -147,7 +149,8 @@ corresponding SDK calls above.
 
 ## 6. Expand to the 80-task example
 
-After the smoke run completes, upload the example's **64 training and 16 held-out test problems**:
+After the smoke run completes, upload the example's **64 training and 16 held-out test problems**
+as a new version of the same benchmark:
 
 ```bash
 uv run examples/gsm8k/ingest.py --agent-name "gsm8k-cookbook" --name "gsm8k-trajectory-sdk"
@@ -271,8 +274,6 @@ For `role="test"`, query the exact deployment route below; the model slug resolv
 the active production deployment.
 
 ```python
-import time
-
 from trajectory import Client
 
 client = Client()
@@ -283,19 +284,16 @@ deployment = client.deployments.create(
     role="production",
 )
 print(deployment.deployment_id)
-deadline = time.monotonic() + 600
-while True:
-    state = client.deployments.retrieve(deployment.deployment_id)
-    if state.status == "DEPLOYED":
-        break
-    if state.status in {"FAILED", "CANCELLED"}:
-        raise RuntimeError(state.model_dump())
-    if time.monotonic() >= deadline:
-        raise TimeoutError(f"Deployment still {state.status}: {deployment.deployment_id}")
-    time.sleep(5)
+```
 
-if not state.is_active:
-    raise RuntimeError("Deployment is ready but is not the active target for its slug")
+Wait for `DEPLOYED` on the platform's **Deployment** page, or poll
+`client.deployments.retrieve(deployment.deployment_id)`. Stop on `FAILED` or `CANCELLED`.
+Once ready, query the active deployment and complete the query's trajectory:
+
+```python
+state = client.deployments.retrieve(deployment.deployment_id)
+if state.status != "DEPLOYED" or not state.is_active:
+    raise RuntimeError(f"Deployment is not active: {state.status}, {state.failure}")
 tid = client.trajectories.create().tid
 reason = "ERROR"
 try:
@@ -307,24 +305,19 @@ try:
     choice = response.choices[0]
     if choice.finish_reason in ("length", "max_tokens"):
         reason = "TRUNCATION"
-        raise RuntimeError(f"Serving check failed: {choice.finish_reason=}")
-    if choice.finish_reason != "stop" or not (choice.message.content or "").strip():
-        raise RuntimeError(f"Serving check failed: {choice.finish_reason=}")
-except Exception as error:
-    try:
-        client.trajectories.complete(tid, termination_reason=reason)
-    except Exception as cleanup_error:
-        error.add_note(f"Trace completion also failed: {type(cleanup_error).__name__}")
-    raise
-else:
-    client.trajectories.complete(tid, termination_reason="ENV_DONE")
-    print(choice.message.content)
+    elif choice.finish_reason == "stop" and (choice.message.content or "").strip():
+        reason = "ENV_DONE"
+finally:
+    client.trajectories.complete(tid, termination_reason=reason)
+
+if reason != "ENV_DONE":
+    raise RuntimeError(f"No completed answer: {choice.finish_reason=}, {tid=}")
+print(choice.message.content)
 ```
 
-A local polling timeout leaves the deployment running. Retrieve the same deployment ID before
-retrying. To stop pending deployment work, use `POST /api/v1/deploy/<deployment-id>/cancel`
-and wait for `CANCELLED`; a cancellation request alone does not confirm cleanup. To remove a
-served deployment and its endpoint resources, call `client.deployments.delete(deployment_id)`.
+Stopping polling leaves the deployment running. Reuse its ID to inspect it or cancel pending
+work with `POST /api/v1/deploy/<deployment-id>/cancel`; wait for `CANCELLED`. Remove a served
+deployment with `client.deployments.delete(deployment_id)` when finished.
 
 For an existing production slug, create a `role="test"` deployment first. Once `DEPLOYED`,
 query `POST /api/v1/deploy/<deployment-id>/chat/completions` with its model slug, organization
@@ -332,8 +325,7 @@ key and `X-Trajectory-Id`. Promote it from the platform's
 **Deployment** page when ready; promotion requires a signed-in user. Deployment provisions
 the model endpoint, so no separate model-endpoint creation is needed.
 For reasoning models, `max_tokens` includes reasoning tokens; a cap sized for only the visible
-answer can return no answer. Check the answer and complete its trajectory from `finish_reason`
-as above; a length-capped HTTP response is `TRUNCATION`, not a completed-answer check.
+answer can return no answer. The example checks both `finish_reason` and nonempty content.
 
 An OpenAI client uses the API origin followed by `/v1` for active-slug inference, or
 `/api/v1/deploy/<deployment-id>` for the exact-deployment check. Pass the trajectory header

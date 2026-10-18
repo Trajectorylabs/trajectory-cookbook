@@ -12,11 +12,22 @@ from trajectory import Client
 ROOT = Path(__file__).parent
 
 
+@pytest.fixture
+def train():
+    spec = importlib.util.spec_from_file_location("gsm8k_train_test", ROOT / "train.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 @pytest.mark.parametrize(
     "answer, expected_reward, finish_reason, expected_reason",
     [
         ("42", 1.0, "tool_calls", "ENV_DONE"),
         ("41", 0.0, "tool_calls", "ENV_DONE"),
+        (None, 0.0, "stop", "MISSING_SUBMIT"),
+        (None, 0.0, "length", "TRUNCATION"),
         ("42", 1.0, "length", "TRUNCATION"),
         ("42", 1.0, "max_tokens", "TRUNCATION"),
     ],
@@ -60,7 +71,9 @@ def test_task_records_reward_and_completes_with_published_sdk(
                                             "arguments": json.dumps({"answer": answer}),
                                         },
                                     }
-                                ],
+                                ]
+                                if answer is not None
+                                else [],
                             },
                         }
                     ],
@@ -96,80 +109,79 @@ def test_task_records_reward_and_completes_with_published_sdk(
 
 
 @pytest.mark.parametrize(
-    "rewards,grades,total,mean,reason,rollout_status,expected",
+    "grades,rollout_status,total,expected",
     [
-        ([None, None], [False, False], 2, 0.0, "ENV_DONE", "COMPLETED", None),
-        ([0.0], [False], 1, 0.0, "ENV_DONE", "COMPLETED", None),
-        ([0.0], [True], 1, 0.0, "ENV_DONE", "COMPLETED", 0.0),
-        ([0.0, None], [True, False], 2, 0.0, "ENV_DONE", "COMPLETED", None),
-        ([1.0], [True], 2, 1.0, "ENV_DONE", "COMPLETED", None),
-        ([1.0], [True], 1, 1.0, "TRUNCATION", "COMPLETED", None),
-        ([1.0], [True], 1, 1.0, "ERROR", "FAILED", None),
+        ([False], "COMPLETED", 1, None),  # An effective zero is not a native grade.
+        (
+            [True],
+            "COMPLETED",
+            1,
+            0.0,
+        ),  # A capped positive grade still counts as graded.
+        ([True, False], "COMPLETED", 2, None),
+        ([True], "COMPLETED", 2, None),  # One attempt has no trajectory yet.
+        ([True], "FAILED", 1, None),
     ],
 )
-def test_completed_eval_requires_grades_before_training(
-    rewards, grades, total, mean, reason, rollout_status, expected
+def test_completed_eval_requires_native_grades(
+    train, grades, rollout_status, total, expected
 ):
-    from types import SimpleNamespace
-
-    spec = importlib.util.spec_from_file_location("gsm8k_train_test", ROOT / "train.py")
-    train = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = train
-    spec.loader.exec_module(train)
-    client = SimpleNamespace(
-        evals=SimpleNamespace(
-            runs=SimpleNamespace(
-                progress=lambda _: SimpleNamespace(
-                    status="completed", terminal_rollouts=total, total_rollouts=total
-                ),
-                retrieve=lambda _: SimpleNamespace(reward_mean=mean),
+    def respond(request):
+        path = request.url.path
+        if path.endswith("/progress"):
+            return httpx2.Response(
+                200,
+                json={
+                    "status": "completed",
+                    "terminal_rollouts": total,
+                    "total_rollouts": total,
+                },
             )
-        ),
-        trajectories=SimpleNamespace(
-            list=lambda **_: iter(
-                SimpleNamespace(
-                    trajectory_id=str(i),
-                    reward=r,
-                    rollout=SimpleNamespace(status=rollout_status),
-                )
-                for i, r in enumerate(rewards)
-            ),
-            retrieve=lambda tid, **_: SimpleNamespace(
-                steps=[
-                    SimpleNamespace(
-                        messages=[
-                            SimpleNamespace(
-                                finish_reason="length"
-                                if reason == "TRUNCATION"
-                                else "stop"
-                            )
-                        ]
-                    )
-                ],
-                reward_components=[SimpleNamespace(name="reward_accuracy")]
-                if grades[int(tid)]
-                else []
-            ),
-        ),
-    )
-    if expected is None:
-        with pytest.raises(RuntimeError, match="fully graded normal completions"):
-            train._wait_for_evaluation(client, "eval_fixture", "fixture", 0)
-    else:
-        assert (
-            train._wait_for_evaluation(client, "eval_fixture", "fixture", 0) == expected
-        )
+        if path.endswith("/trajectories"):
+            return httpx2.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "trajectory_id": str(i),
+                            "reward": 0.0,
+                            "termination_reason": "TRUNCATION",
+                            "rollout": {"status": rollout_status},
+                        }
+                        for i in range(len(grades))
+                    ],
+                    "has_more": False,
+                },
+            )
+        if "/trajectories/" in path:
+            return httpx2.Response(
+                200,
+                json={
+                    "reward_components": [{"name": "reward_accuracy", "value": 1.0}]
+                    if grades[int(path.rsplit("/", 1)[-1])]
+                    else []
+                },
+            )
+        return httpx2.Response(200, json={"reward_mean": 0.0})
+
+    with Client(
+        api_key="test",
+        base_url="https://example.com",
+        http_client=httpx2.Client(transport=httpx2.MockTransport(respond)),
+    ) as client:
+        if expected is None:
+            with pytest.raises(RuntimeError, match="inspect its trajectories"):
+                train._wait_for_evaluation(client, "eval_fixture", "fixture", 0)
+        else:
+            assert (
+                train._wait_for_evaluation(client, "eval_fixture", "fixture", 0)
+                == expected
+            )
 
 
-def test_evaluations_keep_baseline_version_when_latest_changes(monkeypatch):
+def test_evaluations_keep_baseline_version_when_latest_changes(monkeypatch, train):
     from types import SimpleNamespace
 
-    spec = importlib.util.spec_from_file_location(
-        "gsm8k_comparison_test", ROOT / "train.py"
-    )
-    train = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = train
-    spec.loader.exec_module(train)
     eval_calls, training_calls = [], []
 
     def create_eval(**kwargs):
