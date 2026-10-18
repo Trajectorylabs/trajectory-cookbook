@@ -1295,7 +1295,7 @@ dependencies = [
 requires-dist = [
     { name = "tau2", extras = ["knowledge"], git = "https://github.com/sierra-research/tau2-bench?rev=fc0055dc4e0a316c3f83133267fbd6faaa770992" },
     { name = "tenacity", specifier = "==9.1.4" },
-    { name = "trajectory-sdk", specifier = "==0.9.23" },
+    { name = "trajectory-sdk", specifier = "==0.9.24" },
 ]
 
 [[package]]
@@ -1383,7 +1383,7 @@ wheels = [
 
 [[package]]
 name = "trajectory-sdk"
-version = "0.9.23"
+version = "0.9.24"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx2" },
@@ -1391,9 +1391,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/d9/0175dbd8b242f772ba52a1559ee9c1431f8ad7b504c285e9b12edea848aa/trajectory_sdk-0.9.23.tar.gz", hash = "sha256:dd022cabe3c9a97d7fb76398b532e4fa2d28ffb702fd1def7a41e5c097e476c8", size = 170147, upload-time = "2026-10-18T17:42:04.84Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/d6/fd016a89817e9be5ea8ce202da3e4506613f8ba300fc4469d2bf8a2c31d8/trajectory_sdk-0.9.24.tar.gz", hash = "sha256:8d2aeb6a293333be82dfdb3ccdf4a8fcb4e82afc0aa1e7436bca1eb6ac6ab805", size = 173280, upload-time = "2026-10-18T22:46:20.177Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/ed/302c7ca6efb907b7b4ff2ac3c07daf7fde7a6dd2d71866b1bef4926c9583/trajectory_sdk-0.9.23-py3-none-any.whl", hash = "sha256:0d78be47cd3a24f73cb89a94ba48c4b8a5c486f5646629534353cd54c349e6d4", size = 271294, upload-time = "2026-10-18T17:42:03.443Z" },
+    { url = "https://files.pythonhosted.org/packages/ee/d2/efc49311c10a241e9cdb707ce2212b1da93990e89acf9cacfd782341273f/trajectory_sdk-0.9.24-py3-none-any.whl", hash = "sha256:f8319fe897bace957cd97ff7f036f33b531a57d278e3d8fd77a216908eff3cda", size = 274685, upload-time = "2026-10-18T22:46:18.412Z" },
 ]
 
 [[package]]

@@ -8,7 +8,7 @@ Give your coding agent the SDK's
 [Trajectory skill](https://github.com/Trajectorylabs/trajectory-platform/blob/main/skills/trajectory/SKILL.md)
 when adapting a benchmark.
 
-The runnable examples pin `trajectory-sdk==0.9.23`.
+The runnable examples pin `trajectory-sdk==0.9.24`.
 
 **Start here:** [Run one T Factory task](examples/t_factory/README.md) to see a model response,
 recorded reward, and completed trajectory.

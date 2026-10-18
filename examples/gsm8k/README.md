@@ -17,7 +17,7 @@ Use your API key from the first lesson. Start Python from the cookbook repositor
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk==0.9.23 --with httpx python
+uv run --with trajectory-sdk==0.9.24 --with httpx python
 ```
 
 ```python
@@ -37,7 +37,7 @@ Follow the SDK's [agent selection guidance](https://github.com/Trajectorylabs/tr
 For a new GSM8K project:
 
 ```bash
-uv run --with trajectory-sdk==0.9.23 python -c \
+uv run --with trajectory-sdk==0.9.24 python -c \
   'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 
@@ -259,11 +259,10 @@ In the platform, the agent's **Train** and **Compare** tabs show these runs.
 The SDK's [platform guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/platform.mdx)
 gives the direct paths for saved IDs.
 
-## Optional: deploy and query the trained checkpoint
+## Optional: deploy the trained checkpoint
 
 After training succeeds, replace `YOUR_TRAINING_RUN_ID` with the run you want to deploy.
-Use its actual final step count; the commands above use three steps. Use a new model slug
-for this example; `role="production"` makes it active when deployment finishes.
+Use its actual final step count; the commands above use three steps.
 
 ```python
 from trajectory import Client
@@ -273,15 +272,14 @@ checkpoint = client.training.checkpoints.retrieve("YOUR_TRAINING_RUN_ID", step_i
 deployment = client.deployments.create(
     checkpoint_id=checkpoint.checkpoint_id,
     model_slug="gsm8k-trained",
-    role="production",
+    role="test",
 )
 print(deployment.deployment_id)
 ```
 
-Wait for `DEPLOYED`, then follow the SDK's
+Follow the SDK's
 [deployment guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/deployments.mdx)
-to query and complete a serving trajectory. For an existing production slug, create a
-`role="test"` deployment and query its exact route before promoting it. Serving answers
+to wait for `DEPLOYED`, test the exact deployment route, and promote it. Serving answers
 do not replace the graded checkpoint evaluation in step 5.
 
 ## Adapt this workflow to your benchmark
