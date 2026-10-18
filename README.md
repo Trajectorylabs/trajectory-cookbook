@@ -164,7 +164,8 @@ version; pin `bench_id` for comparisons. `start_push`, `push`, and
 operation.
 
 The runtime receives `TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL` automatically.
-Do not set `TRAJECTORY_*` task variables. For other credentials, inspect
+Task variables cannot start with `TRAJECTORY_` or use `MODEL_ENDPOINT_ID`,
+`MODEL_ENDPOINT_ACCESS_TOKEN`, or `MODEL_ENDPOINT_URL`. For other credentials, inspect
 `client.secrets.list()`, upload missing values with `client.secrets.create()`, and
 inject them with `TaskSpec.env_vars={"JUDGE_KEY": SecretRef(secret_ref="STORED_KEY")}`.
 The environment variable name and stored secret name can differ.
