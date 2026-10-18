@@ -14,10 +14,6 @@ This example's source reader uses `accuracy`; another benchmark may use a differ
 ```python
 import math
 
-from trajectory import Client
-from your_benchmark.grading import grade_answer
-
-
 def select_score(scores: dict[str, object], key: str) -> float:
     if key not in scores:
         raise ValueError(f"Missing score {key!r}; available: {sorted(scores)}")
@@ -28,38 +24,38 @@ def select_score(scores: dict[str, object], key: str) -> float:
     if not math.isfinite(score):
         raise ValueError(f"Score {key!r} must be finite")
     return score
-
-
-def run_task(prompt: str, expected_answer: str) -> None:
-    client = Client()
-    tid = client.trajectories.create().tid
-    response = client.chat.completions.create(
-        model="policy",
-        messages=[{"role": "user", "content": prompt}],
-        x_trajectory_id=tid,
-    )
-    report = grade_answer(response.choices[0].message.content, expected_answer)
-    score = select_score(report, "accuracy")
-    client.trajectories.log_reward(tid, name="accuracy", value=score)
-    client.trajectories.complete(tid, termination_reason="ENV_DONE")
 ```
 
-This shows the successful path. Parse the source grader's documented format before
+With the harness's `client`, `tid`, and `model_answer`, publish the source reader's
+primary score after successful grading:
+
+```python
+report = grade_answer(model_answer, expected_answer)
+score = select_score(report, "accuracy")
+client.trajectories.log_reward(tid, name="accuracy", value=score)
+```
+
+Parse the source grader's documented format before
 `select_score` when it returns booleans, strings, or nested data. Validate its range;
 for a signed score, declare `min_value=-1, max_value=1` when logging. Do not clamp,
 round, guess a missing field, or substitute zero for a failed grader.
 
+The trajectory reward is the weighted average of scaled components. Publish either
+the native total once or components that reproduce it, not both.
+
 A wrong answer can have a valid zero. An unrecovered model, environment, or grader error
 is `ERROR` with no published reward, even when an incidental verifier result exists.
-Keep that result in an event or artifact instead. See the SDK's
+Keep that result in an event or artifact instead. See the
+[cut-off reply example](termination_reasons.md) and SDK's
 [reward contract](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#report-the-grade-through-the-sdk)
-and [trajectory endings](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/trajectory-endings.mdx).
+and [trajectory endings](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/trajectory-endings.mdx)
+before completing the trajectory.
 
 ## Show secondary scores without changing the reward
 
 Publish the source's primary score once. If this grader also returns a
-`criteria_fraction` in `[0, 1]`, insert these calls before `complete()` in the harness
-above. Weight `0` makes it visible without changing reward; an event can hold grader
+`criteria_fraction` in `[0, 1]`, insert these calls before `complete()` in the same
+harness. Weight `0` makes it visible without changing reward; an event can hold grader
 details separately:
 
 ```python
