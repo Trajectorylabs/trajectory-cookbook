@@ -136,14 +136,17 @@ def _wait_for_evaluation(
     for trajectory in trajectories:
         if (
             trajectory.reward is None
-            or trajectory.termination_reason != "ENV_DONE"
             or trajectory.rollout is None
             or trajectory.rollout.status != "COMPLETED"
         ):
             continue
         detail = client.trajectories.retrieve(
-            trajectory.trajectory_id, include_reward_components=True
+            trajectory.trajectory_id, include_steps=True, include_reward_components=True
         )
+        if not detail.steps or not detail.steps[-1].messages:
+            continue
+        if detail.steps[-1].messages[-1].finish_reason not in {"stop", "tool_calls"}:
+            continue
         graded += any(
             component.name == "reward_accuracy"
             for component in detail.reward_components or []

@@ -80,8 +80,8 @@ split, then waits for the runtime image to be ready. Both ingestion helpers only
 wait; diagnostics are separate calls. Benchmark-wide diagnostics are reserved for step 6.
 
 `eval_smoketest` evaluates one held-out task and prints its evaluation ID, progress and grade
-counts. It returns the reward only if every attempt has a native grade, `ENV_DONE` ending,
-and completed rollout. It stops on failures or missing grades. A recorded zero is valid.
+counts. It returns the reward only if every attempt has a native grade, a non-cut-off final reply,
+and a completed rollout. It stops on failures or missing grades. A recorded zero is valid.
 One test problem cannot measure generalization.
 
 ## 5. Train on one task and evaluate the checkpoint

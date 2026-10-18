@@ -130,12 +130,22 @@ def test_completed_eval_requires_grades_before_training(
                 SimpleNamespace(
                     trajectory_id=str(i),
                     reward=r,
-                    termination_reason=reason,
                     rollout=SimpleNamespace(status=rollout_status),
                 )
                 for i, r in enumerate(rewards)
             ),
             retrieve=lambda tid, **_: SimpleNamespace(
+                steps=[
+                    SimpleNamespace(
+                        messages=[
+                            SimpleNamespace(
+                                finish_reason="length"
+                                if reason == "TRUNCATION"
+                                else "stop"
+                            )
+                        ]
+                    )
+                ],
                 reward_components=[SimpleNamespace(name="reward_accuracy")]
                 if grades[int(tid)]
                 else []
