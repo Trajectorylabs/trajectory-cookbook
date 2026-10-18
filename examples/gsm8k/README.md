@@ -33,7 +33,7 @@ The SDK uses `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` f
 
 ## 2. Choose or create an agent
 
-Follow the shared [agent selection guidance](../../README.md#choose-or-create-an-agent).
+Follow the SDK's [agent selection guidance](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx).
 For a new GSM8K project:
 
 ```bash
@@ -98,6 +98,7 @@ training = client.training.create(
         "disable_thinking": True,
         "num_steps": 3,
         "train_batch_size": 1,
+        "max_active_rollouts": 2,
         "max_output_tokens_per_step": 2048,
     },
 )
@@ -106,6 +107,8 @@ print(f"training_run_id={run_id}")
 ```
 
 One task group can contain multiple model samples according to the model's defaults.
+`train_batch_size` does not cap launched attempts; `max_active_rollouts` bounds
+concurrency, not total spend. Watch attempts during this smoke run.
 The training task is separate from the held-out evaluation task.
 
 ### Watch actual progress
@@ -142,7 +145,7 @@ print(f"reward_delta={final_reward - baseline_reward:+.6f}")
 ```
 
 Reward may stay unchanged or fall in a short run. For an existing benchmark, use the
-[selector and option guidance](../../README.md#evaluate-train-and-compare) with the
+[evaluation selectors](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/evaluations.mdx) and [training options](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/training.mdx) with the
 corresponding SDK calls above.
 
 ## 6. Expand to the 80-task example
@@ -252,24 +255,15 @@ held-out round, inspect its sample counts and `round_completed` before comparing
 To resume training, pass the chosen `checkpoint_id` as `parent_checkpoint_id` to
 `client.training.create`, with that checkpoint's `base_model_slug`.
 
-In the platform, the agent's **Training** and **Evaluation** sections show these runs.
-For direct links, use the platform's origin and the organization's URL key from an existing
-platform URL; the opaque organization ID is not its URL key.
-
-| Page | Path |
-| --- | --- |
-| Benchmark version | `/<org-key>/agents/<agent-id>/benchmarks/<bench-id>` |
-| Training run | `/<org-key>/models/<training-run-id>` |
-| Eval trajectories | `/<org-key>/evaluate/runs/<eval-run-id>/trajectories` |
+In the platform, the agent's **Train** and **Compare** tabs show these runs.
+The SDK's [platform guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/platform.mdx)
+gives the direct paths for saved IDs.
 
 ## Optional: deploy and query the trained checkpoint
 
 After training succeeds, replace `YOUR_TRAINING_RUN_ID` with the run you want to deploy.
-Use its actual final step count; the commands above use three steps. Deployments require a
-committed checkpoint backed by Tinker training weights. Use a new model slug for this example:
-`role="production"` makes it the active target when deployment finishes.
-For `role="test"`, query the exact deployment route below; the model slug resolves only to
-the active production deployment.
+Use its actual final step count; the commands above use three steps. Use a new model slug
+for this example; `role="production"` makes it active when deployment finishes.
 
 ```python
 from trajectory import Client
@@ -284,54 +278,11 @@ deployment = client.deployments.create(
 print(deployment.deployment_id)
 ```
 
-Wait for `DEPLOYED` on the platform's **Deployment** page, or poll
-`client.deployments.retrieve(deployment.deployment_id)`. Stop on `FAILED` or `CANCELLED`.
-Once ready, query the active deployment and complete the query's trajectory:
-
-```python
-state = client.deployments.retrieve(deployment.deployment_id)
-if state.status != "DEPLOYED" or not state.is_active:
-    raise RuntimeError(f"Deployment is not active: {state.status}, {state.failure}")
-tid = client.trajectories.create().tid
-reason = "ERROR"
-try:
-    response = client.chat.completions.create(
-        model=state.model_slug,
-        messages=[{"role": "user", "content": "What is 17 times 6?"}],
-        x_trajectory_id=tid,
-    )
-    choice = response.choices[0]
-    if choice.finish_reason in ("length", "max_tokens"):
-        reason = "TRUNCATION"
-    elif choice.finish_reason == "stop" and (choice.message.content or "").strip():
-        reason = "ENV_DONE"
-finally:
-    client.trajectories.complete(tid, termination_reason=reason)
-
-if reason != "ENV_DONE":
-    raise RuntimeError(f"No completed answer: {choice.finish_reason=}, {tid=}")
-print(choice.message.content)
-```
-
-Stopping polling leaves the deployment running. Reuse its ID to inspect it or cancel pending
-work with `POST /api/v1/deploy/<deployment-id>/cancel`; wait for `CANCELLED`. Remove a served
-deployment with `client.deployments.delete(deployment_id)` when finished.
-
-For an existing production slug, create a `role="test"` deployment first. Once `DEPLOYED`,
-query `POST /api/v1/deploy/<deployment-id>/chat/completions` with its model slug, organization
-key and `X-Trajectory-Id`. Promote it from the platform's
-**Deployment** page when ready; promotion requires a signed-in user. Deployment provisions
-the model endpoint, so no separate model-endpoint creation is needed.
-For reasoning models, `max_tokens` includes reasoning tokens; a cap sized for only the visible
-answer can return no answer. The example checks both `finish_reason` and nonempty content.
-
-An OpenAI client uses the API origin followed by `/v1` for active-slug inference, or
-`/api/v1/deploy/<deployment-id>` for the exact-deployment check. Pass the trajectory header
-through `extra_headers`. See [inference setup](../../README.md#connect-the-actor) for model
-discovery and credentials, and [production traces](../production_traces.md) for application traffic.
-
-This query demonstrates serving; the checkpoint evaluation in step 5 uses the benchmark's
-`submit_answer` tool and grader to measure reward.
+Wait for `DEPLOYED`, then follow the SDK's
+[deployment guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/deployments.mdx)
+to query and complete a serving trajectory. For an existing production slug, create a
+`role="test"` deployment and query its exact route before promoting it. Serving answers
+do not replace the graded checkpoint evaluation in step 5.
 
 ## Adapt this workflow to your benchmark
 
@@ -347,7 +298,7 @@ When changing the dataset or harness, preserve the benchmark's native task input
 private references, and grading rules. GSM8K exposes only `submit_answer`; a harness with file
 or shell tools must keep reference answers outside the model's access.
 
-Use [runtime packaging guidance](../../README.md#package-a-benchmark-runtime) and the
+Use the SDK's [runtime packaging guidance](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#package-the-harness-in-an-image) and the
 [Harvey](../harvey_labs.md) or [Inspect](../inspect.md) recipes for an existing harness.
 Benchmark-specific source inspection may be necessary to understand those inputs and grading
 rules. The public guides cover the SDK lifecycle.

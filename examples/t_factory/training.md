@@ -25,7 +25,7 @@ def t_word_density(answer: str) -> float:
 ```
 
 The benchmark contains 128 training tasks and 64 held-out test tasks.
-[Choose or create an agent](../../README.md#choose-or-create-an-agent). For a new agent:
+[Choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). For a new agent:
 
 ```bash
 uv run --with trajectory-sdk==0.9.23 python -c \

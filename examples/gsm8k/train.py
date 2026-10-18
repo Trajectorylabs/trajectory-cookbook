@@ -55,6 +55,7 @@ def train_and_evaluate(
             "disable_thinking": True,
             "num_steps": num_steps,
             "train_batch_size": 4,
+            "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },
     )

@@ -17,7 +17,7 @@ recovery policy is recorded in task specifications and trajectory protocol event
 not replace the simulator with a solo agent or fabricate customer messages.
 
 Choose an existing agent and organization API key using the
-[Cookbook guidance](../../README.md#choose-or-create-an-agent). Register the organization
+[SDK agent guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). Register the organization
 secret `OPENAI_API_KEY` for the upstream user simulator and judge; its value is never
 included in the image or upload.
 
