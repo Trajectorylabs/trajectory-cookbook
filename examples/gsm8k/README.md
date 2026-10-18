@@ -99,8 +99,6 @@ training = client.training.create(
         "num_steps": 3,
         "train_batch_size": 1,
         "max_output_tokens_per_step": 2048,
-        "max_turns_per_trajectory": 1,
-        "max_response_chars_per_tool_call": 128,
     },
 )
 run_id = training.training_run_id

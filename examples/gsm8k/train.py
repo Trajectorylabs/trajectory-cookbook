@@ -56,8 +56,6 @@ def train_and_evaluate(
             "num_steps": num_steps,
             "train_batch_size": 4,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
-            "max_turns_per_trajectory": 1,
-            "max_response_chars_per_tool_call": 128,
         },
     )
     run_id = created.training_run_id

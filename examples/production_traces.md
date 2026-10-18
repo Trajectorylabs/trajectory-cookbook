@@ -36,15 +36,19 @@ organization client and retain the application's session and trajectory IDs:
 ```python
 from datetime import datetime, timezone
 
-result = client.telemetry.ingest_events(events=[{
-    "event_id": "request-example-001:answer-accepted",
-    "event_type": "answer.accepted",
-    "timestamp": datetime.now(timezone.utc).isoformat(),
-    "session_id": "session-example-001",
-    "source": "support-app",
-    "trajectory_id": tid,
-    "properties": {"surface": "chat"},
-}])
+result = client.telemetry.ingest_events(
+    events=[
+        {
+            "event_id": "request-example-001:answer-accepted",
+            "event_type": "answer.accepted",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "session_id": "session-example-001",
+            "source": "support-app",
+            "trajectory_id": tid,
+            "properties": {"surface": "chat"},
+        }
+    ]
+)
 print(result.ingested, result.skipped, result.failures)
 ```
 

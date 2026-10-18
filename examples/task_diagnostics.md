@@ -69,9 +69,6 @@ print(diagnostic.benchmark_diagnostic_id)
 ```
 
 Use the same status polling and result inspection shown above.
-For a one-task check of an existing benchmark, use
-`client.diagnostics.start_task(bench_id="YOUR_BENCH_ID")`. It selects one task; it does not
-accept a task ID.
 
 If you need a task execution timeout or an active-rollout limit, run a one-sample evaluation
 with `execution_timeout_seconds`, `evaluation_max_samples=1`, and

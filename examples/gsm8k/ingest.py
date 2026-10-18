@@ -17,7 +17,6 @@ from trajectory.lib import (
     start_push,
     start_task_diagnostic,
 )
-
 from trajectory.lib.benchmark_operations import BenchmarkOperationError
 
 _RUNTIME_SOURCE = Path(__file__).parent / "runtime"

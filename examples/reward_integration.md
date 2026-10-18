@@ -39,8 +39,7 @@ comparison target before completing ingestion. Do not silently choose a scoring 
 ## Put the adapter in your task harness
 
 In the [main README](../README.md#record-a-task), `grade` is the scalar passed to
-`log_reward`. If your existing grader instead
-returns a report such as `{"accuracy": 0.75, "latency_seconds": 12.0}`, add score selection
+`log_reward`. If your existing grader returns a report such as `{"accuracy": 0.75, "latency_seconds": 12.0}`, add score selection
 between grading and `log_reward` in your runtime harness, after the model finishes the task.
 This code runs inside the submitted runtime, not in the script that uploads the benchmark.
 
@@ -89,7 +88,6 @@ def select_score(scores: dict[str, object], score_key: str) -> float:
     if not math.isfinite(score):
         raise ValueError(f"Score field {score_key!r} must be finite")
     return score
-
 ```
 
 This example expects numeric JSON scores. If the native grader uses booleans, strings, or
@@ -149,7 +147,9 @@ def run_task(prompt: str, rubric: list[dict]) -> None:
         explanation=f"{met}/{total} required criteria met",
     )
     client.trajectories.log_event(
-        tid, event_id="rubric", name="rubric",
+        tid,
+        event_id="rubric",
+        name="rubric",
         payload={"n_required_met": met, "n_required": total},
     )
     client.trajectories.complete(tid)

@@ -130,6 +130,7 @@ the full desired task set under the same agent and benchmark name:
 
 ```python
 from pathlib import Path
+
 from trajectory import BenchmarkSpec, Client
 from trajectory.lib import DockerfileBuild, start_push
 from trajectory.lib.benchmark_operations import BenchmarkOperationError
@@ -141,8 +142,11 @@ benchmark = BenchmarkSpec(
     tasks=tasks,
 )
 operation = start_push(
-    client, benchmark, agent_name="YOUR_AGENT_NAME",
-    root=Path("my-benchmark"), build_images=True,
+    client,
+    benchmark,
+    agent_name="YOUR_AGENT_NAME",
+    root=Path("my-benchmark"),
+    build_images=True,
 )
 print(operation.id)
 try:
