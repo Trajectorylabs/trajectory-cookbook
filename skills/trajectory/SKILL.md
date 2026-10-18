@@ -46,7 +46,8 @@ grading, invoke a packaged source tool through the actor interface. Use a real t
 reading a test-only private grader file; rejecting an unsupported tool name does not test
 isolation. Check fake credentials in the intended subprocess.
 
-Once the image is ready, inspect registered task splits, network mode, and secrets. Use a
+Bind required runtime credentials through `TaskSpec.env_vars` and `SecretRef`; naming them in
+the README does not inject them. Inspect registered task splits, network mode, and env vars. Use a
 [managed one-task diagnostic](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/task_diagnostics.md)
 to check execution, grading, artifacts, raw and effective reward, ending, and visible answer
 before expanding. Local Docker is optional; keep the build-time checks when it is unavailable.
