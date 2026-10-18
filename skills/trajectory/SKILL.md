@@ -65,7 +65,7 @@ before expanding. Local Docker is optional; keep the build-time checks when it i
 - Follow [reward integration](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/reward_integration.md)
   to map the score the source result reader actually consumes. Validate wrong, partial, and
   correct outputs where applicable. Report native grades from the raw component, not
-  `trajectory.reward`. A missing grade or execution failure is not a zero.
+  `trajectory.reward`. A numeric fallback from an unrun or failed grader is not a grade.
 - Report [how the attempt ended](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/termination_reasons.md).
   Read each model reply's `finish_reason` before dispatching its tool calls; stop on a cut-off
   reply. Determine submission from the source's contract, not the last chat message alone.

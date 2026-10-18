@@ -176,7 +176,7 @@ In the trajectory's trace view, each component appears under **Reward** and each
 A wrong answer can legitimately earn `0.0`: publish it with the attempt's actual ending.
 A failed grader, invalid score, or reward publication failure is `ERROR`; preserve the cause
 instead of inventing a zero. If the attempt ends before grading, retain its ending and leave
-the reward unset.
+the reward unset. Check the source grader's status: a numeric fallback does not prove it ran.
 
 Check the harness's execution status even when it has a verifier result. A model call that
 fails after all retries is `ERROR`; keep any incidental grade in diagnostic events or
