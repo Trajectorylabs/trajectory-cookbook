@@ -184,11 +184,7 @@ when checking its native grade. A failed eval can contain graded tasks without a
 published mean; inspect attempts before interpreting the aggregate.
 
 `train_batch_size` counts task groups per optimizer step; `samples_per_instance`
-sets model samples per group. `max_training_samples` caps planned TRAIN samples,
-including rejected ones, and must fit one full group. It does not guarantee all requested
-steps: retries, rejected groups, or stale groups can exhaust it. Once planned attempts
-settle without another eligible batch, the run fails with
-`training_sample_cap_exhausted`. Training also runs held-out eval rounds;
+sets model samples per group. Training also runs held-out eval rounds;
 `evaluation_max_samples` and `evaluation_samples_per_task` apply per round, not to
 the entire run. Hosted training has no active-rollout concurrency option.
 
@@ -207,7 +203,7 @@ Capped evals on the same version and split select the same tasks; a new version 
 change the subset. To compare base models, evaluate each on the same `bench_id` and task IDs
 with common supported settings; compare graded counts and per-task scores before the mean.
 For spend by run, use platform Billing (`/<org-key>/billing`),
-which shows the last 30 days; sample limits do not cap dollars. See the
+which shows the last 30 days. See the
 [GSM8K walkthrough](examples/gsm8k/README.md#5-train-on-one-task-and-evaluate-the-checkpoint)
 for runnable calls and [deployment](examples/gsm8k/README.md#optional-deploy-and-query-the-trained-checkpoint)
 for serving a checkpoint.
