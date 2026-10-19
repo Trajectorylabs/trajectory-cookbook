@@ -81,5 +81,5 @@ outputs, including the source's aggregation. Check a missing score field and an
 execution failure with an incidental grade: both must fail visibly, not publish zero.
 Then run a [task diagnostic](gsm8k/README.md#3-validate-one-task) using the packaged
 runtime and inspect its trajectory component, ending, and failure. Repeat for distinct
-grading schemas before scaling up. If the source uses external tools, confirm they and
-the grader actually ran; a recorded zero can hide a broken tool path.
+grading schemas before scaling up. If the source uses external tools, confirm they
+worked and grading followed the source's rules; a zero can hide a broken tool path.
