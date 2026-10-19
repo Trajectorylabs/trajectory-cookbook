@@ -48,7 +48,7 @@ is `ERROR` with no published reward, even when an incidental verifier result exi
 Keep that result in an event or artifact instead. See the
 [cut-off reply example](termination_reasons.md) and SDK's
 [reward contract](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#report-the-grade-through-the-sdk)
-and [trajectory endings](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/trajectory-endings.mdx)
+and [termination reasons](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/termination-reasons.mdx)
 before completing the trajectory.
 
 ## Show secondary scores without changing the reward
