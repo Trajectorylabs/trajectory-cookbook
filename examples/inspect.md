@@ -64,7 +64,7 @@ else:
 
 The example reports genuine zero scores and marks missing scores or execution failures as
 errors. A failure to report successful completion propagates without changing the task outcome
-to an execution error. See [reward and completion semantics](../README.md#report-native-results)
+to an execution error. See [reward and completion semantics](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#report-the-grade-through-the-sdk)
 for component weights and termination reasons.
 
 A managed Trajectory run selects the actor model even when the request names another model.

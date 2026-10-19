@@ -132,10 +132,10 @@ bound therefore affects subsequent guesses and the final reward.
 
 ## Upload the benchmark
 
-[Choose or create an agent](../../README.md#choose-or-create-an-agent). For a new agent:
+[Choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). For a new agent:
 
 ```bash
-uv run --with trajectory-sdk==0.9.17 python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="number-guessing-cookbook")'
 ```
 

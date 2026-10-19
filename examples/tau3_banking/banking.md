@@ -5,7 +5,7 @@ This example packages Sierra's public 97-task Banking benchmark from Tau 2 commi
 user simulator prompts/model, evaluator, and task digest checks are preserved. Task IDs are sorted into
 80 training and 17 held-out test tasks.
 
-The runtime locks `trajectory-sdk==0.9.17` and calls the SDK for policy inference, reward
+The runtime locks its dependencies and calls the SDK for policy inference, reward
 publication, protocol events, and completion. It invokes the virtual environment's Python
 by absolute path and declares `TAU2_DATA_DIR` in the task environment. Neither depends on
 the sandbox launcher restoring Docker's PATH or working directory.
@@ -17,7 +17,7 @@ recovery policy is recorded in task specifications and trajectory protocol event
 not replace the simulator with a solo agent or fabricate customer messages.
 
 Choose an existing agent and organization API key using the
-[Cookbook guidance](../../README.md#choose-or-create-an-agent). Register the organization
+[SDK agent guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). Register the organization
 secret `OPENAI_API_KEY` for the upstream user simulator and judge; its value is never
 included in the image or upload.
 
