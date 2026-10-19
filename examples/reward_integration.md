@@ -71,8 +71,9 @@ client.trajectories.log_event(
 
 Keep private grader references out of events. Retrieve a trajectory with
 `include_reward_components=True` to verify names, values, bounds, and weights; events
-appear separately. Even a zero-weight reward record can prevent the default automatic
-grader from running, so use it only when the harness owns reward publication.
+appear under **Events** in the trajectory trace, while components appear under **Reward**.
+Even a zero-weight reward record can prevent the default automatic grader from running,
+so use it only when the harness owns reward publication.
 
 ## Check the submitted path
 
