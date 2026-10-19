@@ -17,7 +17,7 @@ Use your API key from the first lesson. Start Python from the cookbook repositor
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk==0.9.24 --with httpx python
+uv run --with trajectory-sdk --with httpx python
 ```
 
 ```python
@@ -37,7 +37,7 @@ Follow the SDK's [agent selection guidance](https://github.com/Trajectorylabs/tr
 For a new GSM8K project:
 
 ```bash
-uv run --with trajectory-sdk==0.9.24 python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 
@@ -77,8 +77,7 @@ print(f"baseline_reward={baseline_reward:.6f}")
 ```
 
 `ingest_smoketest` uploads one training problem and one different problem from GSM8K's test
-split, then waits for the runtime image to be ready. Both ingestion helpers only upload and
-wait; diagnostics are separate calls. Benchmark-wide diagnostics are reserved for step 6.
+split, then waits for the runtime image. The full upload in step 6 runs a benchmark diagnostic.
 
 `eval_smoketest` evaluates one held-out task and prints its evaluation ID, progress and grade
 counts. It stops on failed rollouts or missing native grades. A graded wrong or cut-off answer is
@@ -128,9 +127,8 @@ if run.status != "succeeded":
     raise RuntimeError(f"training ended with status={run.status}: {run.failure}")
 ```
 
-A printed ID means the request was accepted. `pending` with zero completed steps means
-training is waiting; increasing step counts show progress. Continue only after `succeeded`.
-Keep the evaluation and training IDs to [inspect existing work](#inspect-existing-work).
+Keep the evaluation and training IDs to [inspect a run](#inspect-a-run) if the local
+process stops. Continue only after `succeeded`.
 
 After successful training, evaluate the checkpoint on the same held-out task:
 
@@ -158,9 +156,8 @@ uv run examples/gsm8k/ingest.py --agent-name "gsm8k-cookbook" --name "gsm8k-traj
 ```
 
 The command calls `ingest` to register `gsm8k-trajectory-sdk` and wait for the image,
-then calls `benchmark_diagnostic` on a subset of the uploaded tasks. It selects up to 10 tasks,
-prioritizing distinct runtimes, and prints detailed task outcomes and failures. It does not
-repeat the single-task diagnostic from step 3.
+then calls `benchmark_diagnostic` on a subset of the uploaded tasks and prints their outcomes.
+It does not repeat the single-task diagnostic.
 
 If the diagnostic fails, use the report to fix the task packaging or runtime and repeat this
 upload. After successful exit, start training using the same agent and benchmark names:
@@ -180,12 +177,10 @@ upload. Later versions cannot change either comparison's held-out tasks.
 Training starts from the base model unless you set
 `parent_checkpoint_id` to continue from a checkpoint.
 
-## Inspect existing work
+## Inspect a run
 
 Interrupting a local command does not cancel work already accepted by the service. Inspect
-its saved ID before submitting another run. Replace the matching placeholder in each command.
-
-For an evaluation:
+its printed ID before submitting another run. For an evaluation:
 
 ```python
 from trajectory import Client
@@ -195,69 +190,20 @@ eval_run_id = "YOUR_EVAL_RUN_ID"
 progress = client.evals.runs.progress(eval_run_id)
 result = client.evals.runs.retrieve(eval_run_id)
 print(result.status, progress.terminal_rollouts, progress.total_rollouts, result.reward_mean)
-if progress.status == "failed":
-    print(progress.failure)
-for trajectory in client.trajectories.list(eval_run_id=eval_run_id):
-    print(trajectory.trajectory_id, trajectory.status, trajectory.reward, trajectory.rollout)
+for attempt in client.trajectories.list(eval_run_id=eval_run_id):
+    detail = client.trajectories.retrieve(
+        attempt.trajectory_id, include_reward_components=True
+    )
+    print(attempt.trajectory_id, attempt.status, attempt.rollout, detail.reward_components)
 ```
 
-`trajectories.list()` returns an iterable `SyncPage`. Use `list(...)` to count all returned
-trajectories or `.items` for the current page; `len(page)` is not supported.
-
-`completed`, `failed` and `cancelled` are terminal eval states. A completed run can contain
-ungraded attempts; inspect individual trajectories before interpreting its mean as a benchmark
-score. `client.evals.rewards.list_trajectory_rewards(eval_run_id)` returns run rewards, which
-can include a platform zero for a cut-off attempt. Check the trajectory's logged reward before
-calling that a native grade.
-
-For a diagnostic:
-
-```python
-from trajectory import Client
-
-client = Client()
-diagnostic_id = "YOUR_DIAGNOSTIC_ID"
-status = client.diagnostics.get_status(diagnostic_id)
-print(status)
-if status.status in {"completed", "failed", "cancelled"}:
-    print(client.diagnostics.get_diagnostics(diagnostic_id).to_json())
-```
-
-After fixing a reported problem, rerun only the relevant check. For a task built from local
-runtime files:
-
-```python
-from examples.gsm8k.ingest import task_diagnose
-
-task_diagnose(agent_name="gsm8k-cookbook")
-```
-
-For a failed full-benchmark diagnostic, fix the reported problem and rerun the
-[full upload](#6-expand-to-the-80-task-example). It publishes a new version and checks a subset
-of its tasks before you retry training.
-
-For training:
-
-```python
-from trajectory import Client
-
-client = Client()
-run_id = "YOUR_TRAINING_RUN_ID"
-run = client.training.runs.retrieve(run_id)
-progress = client.training.runs.progress(run_id)
-print(run.status, progress.completed_steps, progress.total_steps)
-print(run.failure)
-```
-
-Use `client.training.rewards.list_trainer_rewards(run_id)` for training rewards and
-`client.training.rewards.list_held_out_rewards(run_id)` for held-out rewards. For a partial
-held-out round, inspect its sample counts and `round_completed` before comparing its mean.
-To resume training, pass the chosen `checkpoint_id` as `parent_checkpoint_id` to
-`client.training.create`, with that checkpoint's `base_model_slug`.
-
-In the platform, the agent's **Train** and **Compare** tabs show these runs.
-The SDK's [platform guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/platform.mdx)
-gives the direct paths for saved IDs.
+An aggregate zero is not proof that the harness published a zero grade; inspect the
+components and ending. For a diagnostic ID, use `client.diagnostics.get_diagnostics()`;
+for a training ID, use `client.training.runs.retrieve()`. The SDK's
+[evaluation](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/evaluations.mdx)
+and [training](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/training.mdx)
+guides cover run progress and recovery. The agent's **Train** and **Compare** tabs show
+the same runs.
 
 ## Optional: deploy the trained checkpoint
 

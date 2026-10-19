@@ -7,7 +7,7 @@ is needed.
 Install the SDK version used by this example and authenticate:
 
 ```bash
-pip install trajectory-sdk==0.9.24
+pip install trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 

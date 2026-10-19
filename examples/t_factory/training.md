@@ -28,7 +28,7 @@ The benchmark contains 128 training tasks and 64 held-out test tasks.
 [Choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). For a new agent:
 
 ```bash
-uv run --with trajectory-sdk==0.9.24 python -c \
+uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="t-factory-cookbook")'
 ```
 

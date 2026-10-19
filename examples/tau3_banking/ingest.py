@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.24"]
+# dependencies = ["trajectory-sdk"]
 # ///
 """Ingest the pinned public Tau 3 Banking tasks and build their SDK runtime."""
 

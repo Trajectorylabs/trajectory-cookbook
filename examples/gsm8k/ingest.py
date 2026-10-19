@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.24", "httpx"]
+# dependencies = ["trajectory-sdk", "httpx"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
@@ -25,6 +25,8 @@ _RUN_COMMAND = "python -u /opt/gsm8k/gsm8k_harness.py --task-file {task_file}"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
 _TRAIN_TASKS = 64
 _TEST_TASKS = 16
+# The default smoke and full uploads are versions of one benchmark.
+_BENCHMARK_NAME = "gsm8k-trajectory-sdk"
 _DATASET_URLS = {
     "train": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/train.jsonl",
     "test": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/test.jsonl",
@@ -63,7 +65,7 @@ def ingest(name: str, agent_name: str) -> str:
 def ingest_smoketest(agent_name: str) -> str:
     # Use one task per split for the quickest check of ingestion and runtime errors.
     rows = {split: _load_rows(split, 1) for split in ("train", "test")}
-    return _push_benchmark(rows, "gsm8k-trajectory-sdk", agent_name)
+    return _push_benchmark(rows, _BENCHMARK_NAME, agent_name)
 
 
 def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> str:
@@ -178,7 +180,7 @@ def _stage_runtime(rows_by_split: dict[str, list[dict]], package_root: Path) -> 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
-    parser.add_argument("--name", default="gsm8k-trajectory-sdk")
+    parser.add_argument("--name", default=_BENCHMARK_NAME)
     args = parser.parse_args()
 
     bench_id = ingest(args.name, args.agent_name)

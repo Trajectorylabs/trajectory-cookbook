@@ -7,7 +7,6 @@ Read `finish_reason` before dispatching tool calls:
 
 ```python
 finish_reason = response.choices[0].finish_reason
-cut_off = finish_reason in ("length", "max_tokens")
 ```
 
 If a wrapper hides the response, read the latest recorded step after the model call:
@@ -16,6 +15,11 @@ If a wrapper hides the response, read the latest recorded step after the model c
 num_steps = client.trajectories.retrieve(tid).num_steps
 page = client.trajectories.steps.list(tid, start_step_index=num_steps - 1, limit=1)
 finish_reason = page.items[0].messages[-1].finish_reason
+```
+
+In either case:
+
+```python
 cut_off = finish_reason in ("length", "max_tokens")
 ```
 
