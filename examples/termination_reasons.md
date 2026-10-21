@@ -17,12 +17,15 @@ page = client.trajectories.steps.list(tid, start_step_index=num_steps - 1, limit
 finish_reason = page.items[0].messages[-1].finish_reason
 ```
 
-In either case:
+Your harness determines `task_complete` from the source task's completion rule. In
+either case:
 
 ```python
-cut_off = finish_reason in ("length", "max_tokens")
+length_limited = finish_reason in ("length", "max_tokens")
+cut_off = length_limited and not task_complete
 ```
 
-When `cut_off` is true, stop the actor loop without executing tool calls from that reply.
-If the source grader accepts the partial answer, publish its native grade, then complete
-with `TRUNCATION`. A clean harness exit does not turn that ending into `ENV_DONE`.
+Do not execute tool calls from a length-limited reply. When `cut_off` is true, stop the
+actor loop. If the source grader accepts the partial answer, publish its native grade,
+then complete with `TRUNCATION`. A complete bounded answer can be `ENV_DONE`; a grade or
+clean harness exit alone does not establish completion.
