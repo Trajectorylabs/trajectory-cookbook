@@ -33,7 +33,8 @@ For application traffic, use the SDK's [production traces guide](https://github.
 
 When adapting another benchmark, keep its solver, grading rule, and actor/private-test
 boundary. Validate the packaged path on one task and compare its native grade with the
-source evaluator before scaling up.
+source evaluator before scaling up. If the source declares a disk requirement, check
+available space in that task run; `EnvResources` has no disk-size field.
 
 ## Complete native integrations
 
