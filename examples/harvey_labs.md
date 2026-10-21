@@ -69,6 +69,8 @@ prevents upstream changes from silently changing an ingested benchmark.
 Harvey LAB already isolates document tools in Podman. The outer benchmark runtime therefore
 requests a container engine with `docker_engine=True`, and the original harness launches its
 inner Podman container as usual.
+The flag starts `dockerd`; the runtime image must include `dockerd` and the Docker CLI, as the
+linked Dockerfile does.
 
 Some nested environments use `crun` without delegated cgroup controllers. The example detects
 that runtime and adds `--cgroups=disabled` only for the managed nested-Podman path. Local Harvey
