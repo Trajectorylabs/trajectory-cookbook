@@ -159,26 +159,24 @@ def _print_task_results(
         baseline,
         key=lambda task_id: final[task_id].reward - baseline[task_id].reward,
     )
-    before = client.trajectories.retrieve(
-        baseline[improved_task_id].trajectory_id,
-        include_steps=True,
-    )
-    after = client.trajectories.retrieve(
-        final[improved_task_id].trajectory_id,
-        include_steps=True,
-    )
+    before_tid = baseline[improved_task_id].trajectory_id
+    after_tid = final[improved_task_id].trajectory_id
     print(f"improved_task_id={improved_task_id}", flush=True)
-    print(f"before_tid={before.trajectory_id}", flush=True)
-    print(f"before={_last_assistant_message(before)}", flush=True)
-    print(f"after_tid={after.trajectory_id}", flush=True)
-    print(f"after={_last_assistant_message(after)}", flush=True)
+    print(f"before_tid={before_tid}", flush=True)
+    print(f"before={_last_assistant_message(client, before_tid)}", flush=True)
+    print(f"after_tid={after_tid}", flush=True)
+    print(f"after={_last_assistant_message(client, after_tid)}", flush=True)
 
 
-def _last_assistant_message(trajectory: object) -> str:
+def _last_assistant_message(client: Client, trajectory_id: str) -> str:
+    # Each step holds the conversation so far, so the last step alone has the final reply.
+    last_step = client.trajectories.retrieve(trajectory_id).num_steps - 1
+    (step,) = client.trajectories.steps.list(
+        trajectory_id, start_step_index=last_step, limit=1
+    ).items
     return next(
         message.content
-        for step in reversed(trajectory.steps)
-        for message in reversed(step.messages)
+        for message in reversed(step.messages or [])
         if message.role == "assistant"
     )
 
