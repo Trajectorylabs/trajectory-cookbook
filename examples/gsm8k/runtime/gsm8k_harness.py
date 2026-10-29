@@ -98,9 +98,10 @@ def main() -> None:
         reason = "MISSING_SUBMIT"
     else:
         reason = "ENV_DONE"
-    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
-    if completed.status != "completed":
-        raise RuntimeError(f"trajectory completion failed: {completed}")
+    completion = client.trajectories.complete(trajectory_id, termination_reason=reason)
+    # The rollout worker waits for finalization after the harness exits.
+    if completion.status not in ("completed", "finalizing"):
+        raise RuntimeError(f"trajectory completion failed: {completion}")
 
 
 if __name__ == "__main__":
