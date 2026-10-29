@@ -21,6 +21,7 @@ def train():
     return module
 
 
+@pytest.mark.parametrize("completion_status", ["completed", "finalizing", "aborted"])
 @pytest.mark.parametrize(
     "answer, expected_reward, finish_reason, expected_reason",
     [
@@ -33,7 +34,13 @@ def train():
     ],
 )
 def test_task_records_reward_and_completes_with_published_sdk(
-    tmp_path, monkeypatch, answer, expected_reward, finish_reason, expected_reason
+    tmp_path,
+    monkeypatch,
+    answer,
+    expected_reward,
+    finish_reason,
+    expected_reason,
+    completion_status,
 ):
     spec = importlib.util.spec_from_file_location(
         "gsm8k_harness", ROOT / "runtime/gsm8k_harness.py"
@@ -85,7 +92,7 @@ def test_task_records_reward_and_completes_with_published_sdk(
             )
         if request.url.path.endswith("/complete"):
             return httpx2.Response(
-                200, json={"trajectory_id": "tid_test", "status": "completed"}
+                200, json={"trajectory_id": "tid_test", "status": completion_status}
             )
         raise AssertionError(request.url.path)
 
@@ -100,7 +107,11 @@ def test_task_records_reward_and_completes_with_published_sdk(
         http_client=httpx2.Client(transport=httpx2.MockTransport(respond)),
     ) as client:
         monkeypatch.setattr(harness, "Client", lambda **kwargs: client)
-        harness.main()
+        if completion_status == "aborted":
+            with pytest.raises(RuntimeError, match="trajectory completion failed"):
+                harness.main()
+        else:
+            harness.main()
     assert len(requests) == 4
     assert requests[1][1]["X-Trajectory-Id"] == "tid_test"
     assert requests[2][2]["name"] == "reward_accuracy"
