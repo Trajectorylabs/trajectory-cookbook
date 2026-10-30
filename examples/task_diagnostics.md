@@ -1,8 +1,8 @@
 # Run a diagnostic on one task
 
-Use `start_task_diagnostic()` to check a task before uploading a full benchmark. Diagnostics
-provide better error visibility and logging to help debug your integration. No existing benchmark
-is needed.
+Use `start_task_diagnostic()` to check a task before uploading a full benchmark. A diagnostic
+reports each task's status and, for a failed task, its termination reason, trajectory ID, and a
+redacted summary of any harness exception. No existing benchmark is needed.
 
 Install the SDK and authenticate:
 
