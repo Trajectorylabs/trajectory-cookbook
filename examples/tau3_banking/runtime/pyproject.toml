@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "tau2[knowledge] @ git+https://github.com/sierra-research/tau2-bench@fc0055dc4e0a316c3f83133267fbd6faaa770992",
-  "trajectory-sdk==0.9.32",
+  "trajectory-sdk>=0.9.32",
   "tenacity==9.1.4",
 ]
 
