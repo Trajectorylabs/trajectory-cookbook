@@ -158,10 +158,11 @@ def _print_task_results(
         reward.task_id: reward
         for reward in client.evals.rewards.list_trajectory_rewards(final_eval_id)
     }
-    # Compare only tasks that recorded a reward in both evaluations.
+    # Compare only tasks that recorded a reward in both evaluations, and say how many.
+    shared = [task_id for task_id in baseline.keys() & final.keys() if task_id is not None]
+    print(f"compared_tasks={len(shared)}/{_TEST_TASKS}", flush=True)
     improved_task_id = max(
-        (task_id for task_id in baseline.keys() & final.keys() if task_id is not None),
-        key=lambda task_id: final[task_id].reward - baseline[task_id].reward,
+        shared, key=lambda task_id: final[task_id].reward - baseline[task_id].reward
     )
     before = client.trajectories.retrieve(
         baseline[improved_task_id].trajectory_id,

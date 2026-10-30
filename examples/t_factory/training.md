@@ -43,8 +43,9 @@ uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID
 
 Training runs 10 steps on Qwen 3.5 4B with `reasoning_effort` off, four task groups per step,
 and the model's default `group_size` of eight attempts per group. The command prints the
-`training_run_id`, then `baseline_reward`, `final_reward`, `reward_delta`, and the held-out reply
-whose reward rose most, before and after training. It takes about 20 minutes. The agent's
+`training_run_id`, then `baseline_reward`, `final_reward`, `reward_delta`, how many held-out tasks
+recorded a reward in both evaluations, and the reply whose reward rose most, before and after
+training. It takes about 20 minutes. The agent's
 **Train** and **Compare** tabs show the same runs.
 
 Ten steps is enough for the model to fill most replies with T-starting words. Past that, most
