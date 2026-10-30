@@ -1,9 +1,7 @@
 # Big Finance Benchmark
 
-The public [Big Finance Benchmark SDK integration PR](https://github.com/Trajectorylabs/big-finance-benchmark-public/pull/1)
-shows how to adapt an existing ReAct research benchmark while preserving its agent loop, web and
-SEC tools, and rubric grader. The integration builds on the public
-[50-question benchmark release](https://github.com/Trajectorylabs/big-finance-benchmark-public).
+This recipe adapts an existing ReAct research benchmark while preserving its agent loop, web and
+SEC tools, and rubric grader. The integration packages a 50-question evaluation set.
 
 Use this pattern when a benchmark already has an OpenAI-compatible model abstraction and its own
 orchestrator. The SDK adapter connects the existing lifecycle to one Trajectory session:
@@ -49,9 +47,9 @@ client.log_reward(reward, explanation)
 client.complete()
 ```
 
-## Package the public evaluation set
+## Package the evaluation set
 
-The uploader creates one evaluation task for each public question. `BFB_TASK_ID` selects exactly
+The uploader creates one evaluation task for each question. `BFB_TASK_ID` selects exactly
 one row inside the existing orchestrator, while credentials remain platform secret references:
 
 ```python
@@ -76,8 +74,5 @@ TaskSpec(
 )
 ```
 
-The Docker build uses an allowlisted context containing only the runtime code and public subset.
+The Docker build uses an allowlisted context containing only the runtime code and evaluation subset.
 The held-back benchmark data is never read, uploaded, or copied into the image.
-
-See the [complete public PR](https://github.com/Trajectorylabs/big-finance-benchmark-public/pull/1)
-for the uploader, model adapter, orchestrator hook, and runtime image.

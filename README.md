@@ -1,12 +1,12 @@
 # Trajectory Cookbook
 
 Worked integrations for bringing a harness and grader to the
-[Trajectory SDK](https://github.com/Trajectorylabs/trajectory-platform). The SDK's
-[guides](https://github.com/Trajectorylabs/trajectory-platform/tree/main/docs/guides)
-cover setup, benchmark registration, evaluation, training, deployment, and trace capture.
-Give your coding agent the SDK's
-[Trajectory skill](https://github.com/Trajectorylabs/trajectory-platform/blob/main/skills/trajectory/SKILL.md)
-when adapting a benchmark.
+[Trajectory SDK](https://pypi.org/project/trajectory-sdk/). The
+[Trajectory docs](https://docs.trajectory.ai) cover setup, benchmark registration, evaluation,
+training, deployment, and trace capture. The SDK installs the same guides and a Trajectory skill
+for coding agents; `python -m pip show -f trajectory-sdk` lists them under
+`share/doc/trajectory-sdk/`. When adapting a benchmark, copy `skills/trajectory/SKILL.md` to
+`.claude/skills/trajectory/` for Claude Code or `.agents/skills/trajectory/` for Codex.
 
 **Start here:** [Run one T Factory task](examples/t_factory/README.md) to see a model response,
 recorded reward, and completed trajectory.
@@ -28,17 +28,12 @@ recorded reward, and completed trajectory.
 the source scorer. [Cut-off reply handling](examples/termination_reasons.md) shows when to
 stop the actor loop. [Task diagnostics](examples/task_diagnostics.md) and
 [diagnostic artifacts](examples/diagnostic_artifacts.md) show how to inspect a packaged run.
-For application traffic, use the SDK's [production traces guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/production-traces.mdx)
+For application traffic, use the [production traces guide](https://docs.trajectory.ai/guides/production-traces)
 (private beta).
 
 When adapting another benchmark, keep its solver, grading rule, and actor/private-test
 boundary. Validate the packaged path on one task and compare its native grade with the
 source evaluator before scaling up.
-
-## Complete native integrations
-
-- [Harvey LAB SDK integration](https://github.com/Trajectorylabs/harvey-labs/pull/11)
-- [Big Finance Benchmark SDK integration](https://github.com/Trajectorylabs/big-finance-benchmark-public/pull/1)
 
 ## Beta testing and support
 

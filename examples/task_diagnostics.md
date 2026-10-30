@@ -4,15 +4,15 @@ Use `start_task_diagnostic()` to check a task before uploading a full benchmark.
 provide better error visibility and logging to help debug your integration. No existing benchmark
 is needed.
 
-Install the SDK version used by this example and authenticate:
+Install the SDK and authenticate:
 
 ```bash
-pip install trajectory-sdk
+pip install --upgrade trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
 This example uses the cookbook's [T Factory runtime](t_factory/runtime/).
-[Choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx), then run the Python code
+[Choose or create an agent](https://docs.trajectory.ai/agent), then run the Python code
 from the repository root, replacing `YOUR_AGENT_NAME` with its name.
 
 ```python

@@ -1,7 +1,6 @@
 # Harvey LAB
 
-The public [Harvey LAB SDK integration PR](https://github.com/Trajectorylabs/harvey-labs/pull/11)
-shows how to adapt an existing multi-turn benchmark without replacing its agent loop, tools,
+This recipe adapts an existing multi-turn benchmark without replacing its agent loop, tools,
 grader, or Podman sandbox. The integration is a small overlay on a pinned revision of the public
 [Harvey LAB repository](https://github.com/harveyai/harvey-labs).
 
@@ -27,8 +26,8 @@ test_tasks = set(ordered[:120])
 ```
 
 Each task runs the original harness through the Trajectory-backed model adapter. Secret values
-are supplied by the platform and are not stored in the benchmark source. The command below
-matches the linked integration's uploader; its Trajectory adapter requires `--judge-model`:
+are supplied by the platform and are not stored in the benchmark source. The integration's
+Trajectory adapter requires `--judge-model`:
 
 ```python
 from trajectory import SecretRef, TaskSpec
@@ -73,6 +72,3 @@ inner Podman container as usual.
 Some nested environments use `crun` without delegated cgroup controllers. The example detects
 that runtime and adds `--cgroups=disabled` only for the managed nested-Podman path. Local Harvey
 LAB runs retain their default cgroup behavior.
-
-See the [complete public PR](https://github.com/Trajectorylabs/harvey-labs/pull/11) for the
-uploader, runtime Dockerfile, adapter, and Podman integration.

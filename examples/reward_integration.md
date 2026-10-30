@@ -47,8 +47,8 @@ A wrong answer can have a valid zero. An unrecovered model, environment, or grad
 is `ERROR` with no published reward, even when an incidental verifier result exists.
 Keep that result in an event or artifact instead. See the
 [cut-off reply example](termination_reasons.md) and SDK's
-[reward contract](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#report-the-grade-through-the-sdk)
-and [termination reasons](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/termination-reasons.mdx)
+[reward contract](https://docs.trajectory.ai/guides/benchmarks#report-the-grade-through-the-sdk)
+and [termination reasons](https://docs.trajectory.ai/guides/termination-reasons)
 before completing the trajectory.
 
 ## Show secondary scores without changing the reward

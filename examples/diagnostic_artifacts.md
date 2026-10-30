@@ -21,7 +21,7 @@ import gzip
 import hashlib
 from pathlib import Path
 
-import httpx
+import httpx2
 from trajectory import Client
 
 client = Client()
@@ -32,7 +32,7 @@ upload = client.trajectories.artifacts.create_upload(
     size_bytes=len(content),
     md5=base64.b64encode(hashlib.md5(content).digest()).decode(),
 )
-response = httpx.put(upload.upload_url, content=content, headers=upload.headers, timeout=120)
+response = httpx2.put(upload.upload_url, content=content, headers=upload.headers, timeout=120)
 response.raise_for_status()
 artifact = client.trajectories.artifacts.complete_upload(tid, upload.artifact_id)
 client.trajectories.log_event(

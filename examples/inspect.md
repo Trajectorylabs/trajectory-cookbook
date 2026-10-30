@@ -64,7 +64,7 @@ else:
 
 The example reports genuine zero scores and marks missing scores or execution failures as
 errors. A failure to report successful completion propagates without changing the task outcome
-to an execution error. See [reward and completion semantics](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#report-the-grade-through-the-sdk)
+to an execution error. See [reward and completion semantics](https://docs.trajectory.ai/guides/benchmarks#report-the-grade-through-the-sdk)
 for component weights and termination reasons.
 
 A managed Trajectory run selects the actor model even when the request names another model.
@@ -94,5 +94,5 @@ Create the named secret with `client.secrets.create(...)` before execution and p
 
 If you implement an Inspect provider adapter, [register it with `@modelapi`](https://inspect.aisi.org.uk/extensions-model-api.html)
 and obtain it through `get_model(...)`. Its `should_retry` hook should honor
-`x-should-retry: false` on an `APIStatusError`'s response headers, since Inspect can retry
+`Trajectory-Should-Retry: false` on an `APIStatusError`'s response headers, since Inspect can retry
 errors after the underlying client has stopped. Otherwise retain the provider's retry policy.
