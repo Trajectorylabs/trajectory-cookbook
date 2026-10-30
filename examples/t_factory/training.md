@@ -24,18 +24,9 @@ Upload using its name. The script builds the runtime image, then runs a benchmar
 uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
 ```
 
-The diagnostic runs up to 10 tasks on the API's default diagnostic model, Nemotron 3.5
-Lightning, and prints each task's ending and reward. It passes when it prints
-`diagnostic_status=completed`, no task failed, and at least one task recorded a reward; otherwise
-the script prints each task failure and exits with an error.
-
-The diagnostic runs the model with its defaults: thinking on, and replies limited only by the
-context window. In managed runs, the run's `max_output_tokens_per_step` replaces the harness's
-`max_tokens`. Expect longer replies and higher rewards than in the baseline evaluation below,
-which runs Qwen 3.5 4B with thinking off and replies capped at 2,048 tokens, as training does. A
-reply with no text scores `0`, and a cut-off reply ends with `TRUNCATION`. A reply that fills
-the context window ends with `TRUNCATION` and no reward, because the platform stops the task
-before the harness can grade it.
+The diagnostic runs up to 10 tasks and prints each task's ending and reward. It passes when it
+prints `diagnostic_status=completed`, no task failed, and at least one task recorded a reward;
+otherwise the script prints each task failure and exits with an error.
 
 ## Evaluate and train
 
@@ -67,7 +58,7 @@ deployment = client.deployments.create(
 print(f"deployment_id={deployment.deployment_id}")
 ```
 
-Follow the SDK's [deployment guide](https://docs.trajectory.ai/guides/deployments) to wait for
+Follow the [deployment guide](https://docs.trajectory.ai/guides/deployments) to wait for
 `DEPLOYED`, query the deployment's test route, and promote it to the agent's production model
 slug.
 

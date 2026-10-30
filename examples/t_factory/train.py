@@ -1,4 +1,5 @@
 # /// script
+# requires-python = ">=3.11"
 # dependencies = ["trajectory-sdk"]
 # ///
 """Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
@@ -13,7 +14,8 @@ from trajectory.types.training.training_run_response import TrainingRunResponse
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 _TEST_TASKS = 64
-_MAX_ACTIVE_ROLLOUTS = 4
+# Enough concurrent attempts for one training batch.
+_MAX_ACTIVE_ROLLOUTS = 32
 _MAX_OUTPUT_TOKENS = 2_048
 
 
@@ -52,6 +54,7 @@ def train_and_evaluate(
             "reasoning_effort": "off",
             "num_steps": num_steps,
             "train_batch_size": 4,
+            "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
         },
@@ -154,8 +157,9 @@ def _print_task_results(
         reward.task_id: reward
         for reward in client.evals.rewards.list_trajectory_rewards(final_eval_id)
     }
+    # Compare only tasks that recorded a reward in both evaluations.
     improved_task_id = max(
-        baseline,
+        (task_id for task_id in baseline.keys() & final.keys() if task_id is not None),
         key=lambda task_id: final[task_id].reward - baseline[task_id].reward,
     )
     before = client.trajectories.retrieve(

@@ -1,4 +1,5 @@
 # /// script
+# requires-python = ">=3.11"
 # dependencies = ["trajectory-sdk"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
