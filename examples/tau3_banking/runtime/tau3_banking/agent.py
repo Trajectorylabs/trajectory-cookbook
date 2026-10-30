@@ -41,9 +41,9 @@ def _termination_reason(reason: object, truncated: bool) -> str:
 
 
 def run_task(client: Client, task_id: str) -> str:
-    from tau2.data_model.simulation import TextRunConfig
-    from tau2.evaluator.evaluator import EvaluationType
-    from tau2.runner.batch import run_single_task
+    from tau2.data_model.simulation import TextRunConfig  # noqa: PLC0415
+    from tau2.evaluator.evaluator import EvaluationType  # noqa: PLC0415
+    from tau2.runner.batch import run_single_task  # noqa: PLC0415
 
     verify_source()
     configure_nl_assertion_judge()

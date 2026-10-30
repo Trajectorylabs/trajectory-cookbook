@@ -48,5 +48,6 @@ Client().evals.create(
 )
 ```
 
-Training requires `top_p` 1 and `top_k` -1; set `evaluation_top_p` and `evaluation_top_k`
-for its held-out evaluations.
+Training rollouts keep `top_p` 1 and `top_k` -1 by default, so every token the learner trains on
+comes from the full distribution. To evaluate a training run's checkpoints with the recommended
+sampling, set `evaluation_top_p` and `evaluation_top_k`.
