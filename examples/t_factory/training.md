@@ -26,8 +26,8 @@ uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
 
 The diagnostic runs up to 10 tasks on the API's default diagnostic model, Nemotron 3.5
 Lightning, and prints each task's ending and reward. It passes when it prints
-`diagnostic_status=completed` and no task failed; otherwise the script prints each task failure
-and exits with an error.
+`diagnostic_status=completed`, no task failed, and at least one task recorded a reward; otherwise
+the script prints each task failure and exits with an error.
 
 The diagnostic runs the model with its defaults: thinking on, and replies limited only by the
 context window. In managed runs, the run's `max_output_tokens_per_step` replaces the harness's

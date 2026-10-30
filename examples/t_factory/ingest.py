@@ -114,12 +114,14 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
         f"diagnostic_status={result.status} model={result.base_model_slug}",
         flush=True,
     )
+    rewards = []
     for attempt in client.trajectories.list(eval_run_id=result.eval_run_id):
         print(
             f"task_id={attempt.task_id} ending={attempt.termination_reason} "
             f"reward={attempt.reward}",
             flush=True,
         )
+        rewards.append(attempt.reward)
     for task in result.tasks:
         if task.failure is not None:
             print(f"task_id={task.task_id} failure={task.failure}", flush=True)
@@ -130,6 +132,7 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
         and all(
             task.status == "completed" and task.failure is None for task in result.tasks
         )
+        and any(reward is not None for reward in rewards)
     )
     if not passed:
         raise RuntimeError(f"Diagnostic {diagnostic_id} did not pass: {result.failure}")
