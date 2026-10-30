@@ -1,4 +1,5 @@
 # /// script
+# requires-python = ">=3.11"
 # dependencies = ["trajectory-sdk"]
 # ///
 """Evaluate, train, and compare the final checkpoint on GSM8K."""
@@ -12,7 +13,8 @@ from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
-_MAX_ACTIVE_ROLLOUTS = 4
+# Enough concurrent attempts for one training batch.
+_MAX_ACTIVE_ROLLOUTS = 32
 _MAX_OUTPUT_TOKENS = 2_048
 
 

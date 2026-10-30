@@ -211,7 +211,7 @@ def test_evaluations_keep_baseline_version_when_latest_changes(monkeypatch, trai
     )
     train.train_and_evaluate(client, "agent", "benchmark", "model", 3, 0)
     assert training_calls[0]["bench_id"] == eval_calls[1]["bench_id"] == "bm_old"
-    assert training_calls[0]["options"]["max_active_rollouts"] == 4
+    assert training_calls[0]["options"]["max_active_rollouts"] == 32
     assert "benchmark_name" not in training_calls[0]
     assert "benchmark_name" not in eval_calls[1]
     assert eval_calls[0]["options"] == eval_calls[1]["options"]

@@ -35,7 +35,7 @@ means the organization needs more.
 
 ## 2. Choose or create an agent
 
-Follow the SDK's [agent selection guidance](https://docs.trajectory.ai/agent).
+Follow the [agent selection guidance](https://docs.trajectory.ai/agent).
 For a new GSM8K project:
 
 ```bash
@@ -58,8 +58,6 @@ task_diagnose(agent_name=agent_name)
 
 `task_diagnose` packages one training problem and its grader, builds the runtime, and runs
 it on `Qwen/Qwen3.5-4B`. It prints the diagnostic ID, status, task report, and reward.
-Diagnostics run the model's defaults, with thinking on and replies limited only by the context
-window, so replies run longer than in the evaluations below.
 Zero is a valid grade. Fix packaging or grading failures and repeat the diagnostic.
 For a different harness, use the [task upload validation recipe](../task_diagnostics.md).
 
@@ -84,9 +82,9 @@ print(f"baseline_reward={baseline_reward:.6f}")
 split, then waits for the runtime image. The full upload in step 6 runs a benchmark diagnostic.
 
 `eval_smoketest` evaluates one held-out task and prints its evaluation ID, progress and grade
-counts. It stops on failed rollouts or missing native grades. A graded wrong or cut-off answer is
-still graded; the platform can score a cut-off answer as zero. Inspect its ending before
-choosing training limits.
+counts. It stops on failed rollouts or missing native grades. A wrong or cut-off answer is still
+graded, and evaluation scores a cut-off answer as zero. Inspect its ending before choosing
+training limits.
 One test problem cannot measure generalization.
 
 ## 5. Train on one task and evaluate the checkpoint
@@ -109,9 +107,10 @@ run_id = training.training_run_id
 print(f"training_run_id={run_id}")
 ```
 
-One task group can contain multiple model samples according to the model's defaults.
-`train_batch_size` does not cap launched attempts; `max_active_rollouts` bounds
-concurrency, not total spend. Watch attempts during this smoke run.
+Each task group holds the model's default `group_size` samples. A group whose samples all
+receive the same reward has no training signal and is skipped, so a step can launch more
+attempts than `train_batch_size` groups need. See
+[reduce rollout spend](https://docs.trajectory.ai/guides/training#reduce-rollout-spend).
 The training task is separate from the held-out evaluation task.
 
 ### Watch actual progress
@@ -212,7 +211,7 @@ for attempt in client.trajectories.list(eval_run_id=eval_run_id):
 
 An aggregate zero is not proof that the harness published a zero grade; inspect the
 components and ending. For a diagnostic ID, use `client.diagnostics.get_diagnostics()`;
-for a training ID, use `client.training.runs.retrieve()`. The SDK's
+for a training ID, use `client.training.runs.retrieve()`. The
 [evaluation](https://docs.trajectory.ai/guides/evaluations)
 and [training](https://docs.trajectory.ai/guides/training)
 guides cover run progress and recovery. The agent's **Train** and **Compare** tabs show
@@ -235,7 +234,7 @@ deployment = client.deployments.create(
 print(deployment.deployment_id)
 ```
 
-Follow the SDK's
+Follow the
 [deployment guide](https://docs.trajectory.ai/guides/deployments)
 to wait for `DEPLOYED`, test the deployment's route, and promote it. Serving answers
 do not replace the graded checkpoint evaluation in step 5.
@@ -254,7 +253,7 @@ When changing the dataset or harness, preserve the benchmark's native task input
 private references, and grading rules. GSM8K exposes only `submit_answer`; a harness with file
 or shell tools must keep reference answers outside the model's access.
 
-Use the SDK's [runtime packaging guidance](https://docs.trajectory.ai/guides/benchmarks#package-the-harness-in-an-image) and the
+Use the [runtime packaging guidance](https://docs.trajectory.ai/guides/benchmarks#package-the-harness-in-an-image) and the
 [Harvey](../harvey_labs.md) or [Inspect](../inspect.md) recipes for an existing harness.
 Benchmark-specific source inspection may be necessary to understand those inputs and grading
-rules. The public guides cover the SDK lifecycle.
+rules.
