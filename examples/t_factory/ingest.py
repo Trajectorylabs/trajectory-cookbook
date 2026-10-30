@@ -107,7 +107,11 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
     diagnostic = client.diagnostics.start_benchmark(bench_id=bench_id)
     diagnostic_id = diagnostic.benchmark_diagnostic_id
     print(f"diagnostic_id={diagnostic_id}", flush=True)
-    while client.diagnostics.get_status(diagnostic_id).status not in _DIAGNOSTIC_DONE:
+    while True:
+        status = client.diagnostics.get_status(diagnostic_id).status
+        print(f"diagnostic_status={status}", flush=True)
+        if status in _DIAGNOSTIC_DONE:
+            break
         time.sleep(15)
     result = client.diagnostics.get_diagnostics(diagnostic_id)
     print(
@@ -132,10 +136,13 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
         and all(
             task.status == "completed" and task.failure is None for task in result.tasks
         )
-        and any(reward is not None for reward in rewards)
+        and len(rewards) == len(result.tasks)
+        and all(reward is not None for reward in rewards)
     )
     if not passed:
-        raise RuntimeError(f"Diagnostic {diagnostic_id} did not pass: {result.failure}")
+        raise RuntimeError(
+            f"Diagnostic {diagnostic_id} did not pass; see the task results above"
+        )
 
 
 def main() -> int:
@@ -144,7 +151,7 @@ def main() -> int:
     parser.add_argument("--name", default="t-factory")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
-    client = Client()
+    client = Client(max_retries=20)
     bench_id = ingest(client, args.name, args.agent_name, args.skip_build)
     if not args.skip_build:
         benchmark_diagnostic(client, bench_id)

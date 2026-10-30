@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["trajectory-sdk"]
 # ///
-"""Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
+"""Evaluate, train, and compare Qwen 3.5 4B on the prompted T-starting-word task."""
 
 import argparse
 import time
@@ -14,7 +14,7 @@ from trajectory.types.training.training_run_response import TrainingRunResponse
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 _TEST_TASKS = 64
-# Enough concurrent attempts for one training batch.
+# One batch: four task groups of eight attempts, the default group size.
 _MAX_ACTIVE_ROLLOUTS = 32
 _MAX_OUTPUT_TOKENS = 2_048
 
@@ -32,7 +32,7 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> tuple[Evaluation, Evaluation, str]:
-    # Task expansion is explicit because spec detail no longer includes tasks by default.
+    # Spec detail omits tasks unless asked.
     benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
     if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
         "train",
