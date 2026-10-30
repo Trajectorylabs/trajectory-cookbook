@@ -47,9 +47,11 @@ def main() -> None:
         value=reward,
     )
     cut_off = choice.finish_reason in ("length", "max_tokens")
-    client.trajectories.complete(
+    completed = client.trajectories.complete(
         trajectory_id, termination_reason="TRUNCATION" if cut_off else "ENV_DONE"
     )
+    if completed.status not in ("completed", "finalizing"):
+        raise RuntimeError(f"trajectory completion failed: {completed}")
 
 
 if __name__ == "__main__":
