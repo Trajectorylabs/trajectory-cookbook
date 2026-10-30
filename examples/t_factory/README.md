@@ -13,14 +13,9 @@ words:
 ```python
 import re
 
-
 def t_word_density(answer: str) -> float:
     words = re.findall(r"[A-Za-z0-9']+", answer)
-    return (
-        sum(word.lower().startswith("t") for word in words) / len(words)
-        if words
-        else 0.0
-    )
+    return sum(word.lower().startswith("t") for word in words) / len(words) if words else 0.0
 ```
 
 ## Run one task
@@ -56,9 +51,7 @@ response = client.chat.completions.create(
 answer = response.choices[0].message.content or ""
 reward = t_word_density(answer)
 client.trajectories.log_reward(
-    tid,
-    name="reward_t_word_density",
-    value=reward,
+    tid, name="reward_t_word_density", value=reward,
 )
 completed = client.trajectories.complete(tid, termination_reason="ENV_DONE")
 print(f"response={answer}")
