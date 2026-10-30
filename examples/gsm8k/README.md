@@ -30,8 +30,8 @@ for agent in client.agents.list():
 ```
 
 The SDK uses `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` for another deployment.
-Evaluations, training, and deployments spend organization credits; a `credits_required` error
-means the organization needs more.
+Diagnostics, evaluations, training, and deployments spend organization credits; a
+`credits_required` error means the organization needs more.
 
 ## 2. Choose or create an agent
 
@@ -56,8 +56,8 @@ agent_name = "gsm8k-cookbook"
 task_diagnose(agent_name=agent_name)
 ```
 
-`task_diagnose` packages one training problem and its grader, builds the runtime, and runs
-it on `Qwen/Qwen3.5-4B`. It prints the diagnostic ID, status, task report, and reward.
+`task_diagnose` uploads one training task with its runtime and grader, builds the image, and
+runs it on `Qwen/Qwen3.5-4B`. It prints the diagnostic ID, status, task report, and reward.
 Zero is a valid grade. Fix packaging or grading failures and repeat the diagnostic.
 For a different harness, use the [task upload validation recipe](../task_diagnostics.md).
 
@@ -236,17 +236,17 @@ do not replace the graded checkpoint evaluation in step 5.
 
 The integration has three parts:
 
-- [`ingest.py`](ingest.py): load source rows and create `TaskSpec` objects with explicit splits,
-  passing each problem and its answer to the harness in `env_vars`. Short text inputs fit there,
-  and every task shares one runtime image; package larger inputs, such as files or repositories,
-  in the image instead.
+- [`ingest.py`](ingest.py): load source rows and create `TaskSpec` objects with explicit splits.
+  Each task passes its problem and answer to the harness in `env_vars`, so every task shares one
+  runtime image; package larger inputs, such as files or repositories, in the image.
 - [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py): call the selected model, grade its answer,
   record reward, and complete the same trajectory.
 - [`train.py`](train.py): evaluate, train, monitor progress, and compare the final checkpoint.
 
 When changing the dataset or harness, preserve the benchmark's native task inputs, tools,
 private references, and grading rules. GSM8K exposes only `submit_answer`; a harness with file
-or shell tools must keep reference answers outside the model's access.
+or shell tools must keep reference answers, including `EXPECTED_ANSWER`, outside the model's
+access.
 
 Use the [runtime packaging guidance](https://docs.trajectory.ai/guides/benchmarks#package-the-harness-in-an-image) and the
 [Harvey](../harvey_labs.md) or [Inspect](../inspect.md) recipes for an existing harness.
