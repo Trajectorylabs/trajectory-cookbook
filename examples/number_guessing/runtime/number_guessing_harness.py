@@ -118,9 +118,11 @@ def main() -> None:
     except Exception:
         client.trajectories.complete(tid, termination_reason="ERROR")
         raise
-    client.trajectories.complete(
+    completed = client.trajectories.complete(
         tid, termination_reason="TRUNCATION" if result["truncated"] else "ENV_DONE"
     )
+    if completed.status not in ("completed", "finalizing"):
+        raise RuntimeError(f"trajectory completion failed: {completed}")
     print(json.dumps({"trajectory_id": tid, **result}), flush=True)
 
 

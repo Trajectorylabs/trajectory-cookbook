@@ -109,7 +109,9 @@ def run_task(client: Client, task_id: str) -> str:
             "reward_info": result.reward_info.model_dump(mode="json"),
         },
     )
-    client.trajectories.complete(trajectory_id, termination_reason=reason)
+    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
+    if completed.status not in ("completed", "finalizing"):
+        raise RuntimeError(f"Trajectory completion returned {completed.status}")
     return trajectory_id
 
 
