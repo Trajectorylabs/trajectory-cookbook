@@ -1,7 +1,8 @@
 # Big Finance Benchmark
 
 This recipe adapts an existing ReAct research benchmark while preserving its agent loop, web and
-SEC tools, and rubric grader. The integration packages a 50-question evaluation set.
+SEC tools, and rubric grader. It packages a 50-question subset; the rest of the benchmark stays
+held back.
 
 Use this pattern when a benchmark already has an OpenAI-compatible model abstraction and its own
 orchestrator. The SDK adapter connects the existing lifecycle to one Trajectory session:
@@ -13,7 +14,7 @@ orchestrator. The SDK adapter connects the existing lifecycle to one Trajectory 
 
 ## Adapt the existing model client
 
-The added client implements the benchmark's existing `ModelClient` interface. It converts the
+The adapter implements the benchmark's existing `ModelClient` interface. It converts the
 existing messages and tools, then forwards each request through the Trajectory session model:
 
 ```python
@@ -35,22 +36,34 @@ and tool execution remain unchanged.
 ## Reuse the original grader
 
 After the agent finishes, the orchestrator calls the existing rubric grader and normalizes its
-score. The adapter's trajectory receives the reward before completion:
+score. The adapter's trajectory receives the reward, then completes with the reason the agent
+stopped; a failed run or grader completes `ERROR` without a reward:
 
 ```python
-graded = asyncio.run(grade(run=run, item=item, judge_model_id=judges[0]))
-reward = graded.rubric_points_earned / graded.rubric_points_possible
-explanation = (
-    f"{graded.rubric_points_earned}/{graded.rubric_points_possible} rubric points"
-)
 client, tid = adapter.client, adapter.tid
-client.trajectories.log_reward(tid, name="reward_accuracy", value=reward, explanation=explanation)
-client.trajectories.complete(tid, termination_reason="ENV_DONE")
+try:
+    if run.error:
+        raise RuntimeError(f"agent run failed ({run.stop_reason}): {run.error}")
+    graded = asyncio.run(grade(run=run, item=item, judge_model_id=judges[0]))
+    earned, possible = graded.rubric_points_earned, graded.rubric_points_possible
+    client.trajectories.log_reward(
+        tid, name="reward_accuracy", value=earned / possible,
+        explanation=f"{earned}/{possible} rubric points",
+    )
+except Exception:
+    client.trajectories.complete(tid, termination_reason="ERROR")
+    raise
+endings = {
+    "max_steps": "MAX_STEPS",
+    "context_exceeded": "TRUNCATION",
+    "token_budget": "TRUNCATION",
+}
+client.trajectories.complete(tid, termination_reason=endings.get(run.stop_reason, "ENV_DONE"))
 ```
 
 ## Package the evaluation set
 
-The uploader creates one evaluation task for each question. `BFB_TASK_ID` selects exactly
+The uploader creates one evaluation task for each subset question. `BFB_TASK_ID` selects exactly
 one row inside the existing orchestrator, while credentials remain platform secret references:
 
 ```python
@@ -75,5 +88,5 @@ TaskSpec(
 )
 ```
 
-The Docker build uses an allowlisted context containing only the runtime code and evaluation subset.
+The Docker build uses an allowlisted context containing only the runtime code and the subset.
 The held-back benchmark data is never read, uploaded, or copied into the image.

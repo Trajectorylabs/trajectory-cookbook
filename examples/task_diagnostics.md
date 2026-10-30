@@ -1,9 +1,8 @@
 # Run a diagnostic on one task
 
 Use `start_task_diagnostic()` to check a task before uploading a full benchmark. No existing
-benchmark is needed. A diagnostic reports each task's status and, for a failed task, its failure,
-which can include the termination reason, trajectory ID, and a redacted summary of any harness
-exception.
+benchmark is needed. A diagnostic reports each task's status. A failed task also reports its
+termination reason, trajectory ID and, if the harness raised, a redacted exception summary.
 
 Install the SDK and authenticate:
 

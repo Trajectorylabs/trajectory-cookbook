@@ -78,7 +78,7 @@ actor's model name may need explicit configuration when the managed actor differ
 
 Use organization secrets for credentials the runtime needs. The following example is for a
 harness with an Anthropic judge; use the secret names and provider required by your harness.
-The credentials must remain valid whenever the task runs.
+Use long-lived credentials: tasks run whenever an evaluation or training run schedules them.
 
 ```python
 from trajectory import SecretRef

@@ -25,10 +25,10 @@ ordered = sorted(
 test_tasks = set(ordered[:120])
 ```
 
-Each task runs the original harness through the Trajectory-backed model adapter. Secret values
-are supplied by the platform and are not stored in the benchmark source. The integration's
-Trajectory adapter requires `--judge-model`. In managed runs, the run's options take precedence
-over the harness's sampling and reasoning-effort flags:
+Each task runs the original harness through the overlay's Trajectory adapter, which takes its
+judge from `--judge-model`. Secrets come from the platform, not the benchmark source. In managed
+runs, the run's sampling and reasoning-effort options take precedence over `--temperature` and
+`--reasoning-effort`:
 
 ```python
 from trajectory import SecretRef, TaskSpec
@@ -70,6 +70,7 @@ Harvey LAB already isolates document tools in Podman. The outer benchmark runtim
 requests a container engine with `docker_engine=True`, and the original harness launches its
 inner Podman container as usual.
 
-Some nested environments use `crun` without delegated cgroup controllers. The example detects
-that runtime and adds `--cgroups=disabled` only for the managed nested-Podman path. Local Harvey
-LAB runs retain their default cgroup behavior.
+Some nested environments use `crun` without delegated cgroup controllers. When
+`HARVEY_PODMAN_DISABLE_CGROUPS=1`, the overlay's sandbox change checks `podman info` for `crun`
+and adds `--cgroups=disabled`. Local runs leave the variable unset and keep their default cgroup
+behavior.
