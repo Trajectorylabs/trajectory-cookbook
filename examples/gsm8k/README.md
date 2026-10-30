@@ -99,7 +99,7 @@ training = client.training.create(
         "reasoning_effort": "off",
         "num_steps": 3,
         "train_batch_size": 1,
-        "max_active_rollouts": 2,
+        "max_active_rollouts": 8,
         "max_output_tokens_per_step": 2048,
     },
 )
