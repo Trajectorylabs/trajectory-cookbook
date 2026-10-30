@@ -6,8 +6,6 @@
 
 import argparse
 import json
-import shutil
-import tempfile
 import time
 from pathlib import Path
 
@@ -20,9 +18,9 @@ from trajectory.lib import (
 )
 from trajectory.lib.benchmark_operations import BenchmarkOperationError
 
-_RUNTIME_SOURCE = Path(__file__).parent / "runtime"
+_RUNTIME_ROOT = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
-_RUN_COMMAND = "python -u /opt/gsm8k/gsm8k_harness.py --task-file {task_file}"
+_RUN_COMMAND = "python -u /opt/gsm8k/gsm8k_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
 _TRAIN_TASKS = 64
 _TEST_TASKS = 16
@@ -43,9 +41,8 @@ def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> Benchmar
             TaskSpec(
                 name=f"gsm8k/{split}_{index:04d}",
                 split=split,
-                run_command=_RUN_COMMAND.format(
-                    task_file=f"/opt/gsm8k/tasks/{split}_{index:04d}.json"
-                ),
+                run_command=_RUN_COMMAND,
+                env_vars=_task_env(row),
                 tags=["gsm8k"],
             )
             for split, rows in rows_by_split.items()
@@ -70,16 +67,13 @@ def ingest_smoketest(agent_name: str) -> str:
 
 def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> str:
     client = Client()
-    with tempfile.TemporaryDirectory(prefix="gsm8k-benchmark-") as directory:
-        package_root = Path(directory)
-        _stage_runtime(rows, package_root)
-        operation = start_push(
-            client,
-            build_benchmark(rows, name),
-            agent_name=agent_name,
-            root=package_root,
-            build_images=True,
-        )
+    operation = start_push(
+        client,
+        build_benchmark(rows, name),
+        agent_name=agent_name,
+        root=_RUNTIME_ROOT,
+        build_images=True,
+    )
     print(f"operation_id={operation.id}", flush=True)
     print(f"agent_name={agent_name}", flush=True)
     print(f"bench_name={name}", flush=True)
@@ -95,26 +89,22 @@ def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> 
 def task_diagnose(agent_name: str) -> None:
     # Catch packaging, execution, and grading errors on one task before benchmark upload.
     client = Client()
-    rows = {"train": _load_rows("train", 1)}
-    with tempfile.TemporaryDirectory(prefix="gsm8k-diagnostic-") as directory:
-        package_root = Path(directory)
-        _stage_runtime(rows, package_root)
-        diagnostic = start_task_diagnostic(
-            client,
-            TaskSpec(
-                name="gsm8k/train_0000",
-                split="train",
-                runtime=DockerfileBuild(_RUNTIME_DOCKERFILE),
-                run_command=_RUN_COMMAND.format(
-                    task_file="/opt/gsm8k/tasks/train_0000.json"
-                ),
-                tags=["gsm8k"],
-            ),
-            agent_name=agent_name,
-            root=package_root,
-            base_model_slug="Qwen/Qwen3.5-4B",
-            timeout_seconds=_BUILD_TIMEOUT_SECONDS,
-        )
+    (row,) = _load_rows("train", 1)
+    diagnostic = start_task_diagnostic(
+        client,
+        TaskSpec(
+            name="gsm8k/train_0000",
+            split="train",
+            runtime=DockerfileBuild(_RUNTIME_DOCKERFILE),
+            run_command=_RUN_COMMAND,
+            env_vars=_task_env(row),
+            tags=["gsm8k"],
+        ),
+        agent_name=agent_name,
+        root=_RUNTIME_ROOT,
+        base_model_slug="Qwen/Qwen3.5-4B",
+        timeout_seconds=_BUILD_TIMEOUT_SECONDS,
+    )
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
 
 
@@ -166,15 +156,9 @@ def _load_rows(split: str, limit: int) -> list[dict]:
     return rows[:limit]
 
 
-def _stage_runtime(rows_by_split: dict[str, list[dict]], package_root: Path) -> None:
-    shutil.copy(_RUNTIME_SOURCE / "Dockerfile", package_root / "Dockerfile")
-    shutil.copy(_RUNTIME_SOURCE / "gsm8k_harness.py", package_root / "gsm8k_harness.py")
-    tasks_root = package_root / "tasks"
-    tasks_root.mkdir()
-    for split, rows in rows_by_split.items():
-        for index, row in enumerate(rows):
-            task = {"question": row["question"], "expected_answer": row["answer"]}
-            (tasks_root / f"{split}_{index:04d}.json").write_text(json.dumps(task))
+def _task_env(row: dict) -> dict[str, str]:
+    # Each task carries its problem, so the runtime image is the same for every task.
+    return {"QUESTION": row["question"], "EXPECTED_ANSWER": row["answer"]}
 
 
 def main() -> int:

@@ -33,7 +33,7 @@ def train():
     ],
 )
 def test_task_records_reward_and_completes_with_published_sdk(
-    tmp_path, monkeypatch, answer, expected_reward, finish_reason, expected_reason
+    monkeypatch, answer, expected_reward, finish_reason, expected_reason
 ):
     spec = importlib.util.spec_from_file_location(
         "gsm8k_harness", ROOT / "runtime/gsm8k_harness.py"
@@ -89,11 +89,8 @@ def test_task_records_reward_and_completes_with_published_sdk(
             )
         raise AssertionError(request.url.path)
 
-    task = tmp_path / "task.json"
-    task.write_text(
-        json.dumps({"question": "What is 6 times 7?", "expected_answer": "#### 42"})
-    )
-    monkeypatch.setattr(sys, "argv", ["gsm8k_harness", "--task-file", str(task)])
+    monkeypatch.setenv("QUESTION", "What is 6 times 7?")
+    monkeypatch.setenv("EXPECTED_ANSWER", "#### 42")
     with Client(
         api_key="test",
         base_url="https://example.com",
@@ -254,6 +251,8 @@ def test_upload_keeps_operation_id_and_reports_build_failure(
     def start(client, manifest, **kwargs):
         assert kwargs["build_images"] is True
         assert (kwargs["root"] / "Dockerfile").is_file()
+        (task,) = manifest.tasks
+        assert task.env_vars == {"QUESTION": "6 * 7?", "EXPECTED_ANSWER": "#### 42"}
         return SimpleNamespace(id="op_fixture", result=wait)
 
     monkeypatch.setattr(ingest, "Client", lambda: object())
