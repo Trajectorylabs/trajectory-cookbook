@@ -101,7 +101,9 @@ def main() -> None:
         reason = "MISSING_SUBMIT"
     else:
         reason = "ENV_DONE"
-    client.trajectories.complete(trajectory_id, termination_reason=reason)
+    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
+    if completed.status not in ("completed", "finalizing"):
+        raise RuntimeError(f"trajectory completion failed: {completed}")
 
 
 if __name__ == "__main__":
