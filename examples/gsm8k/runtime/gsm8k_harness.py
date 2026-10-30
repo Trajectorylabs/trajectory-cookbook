@@ -6,7 +6,7 @@ import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from trajectory import Client
+from trajectory import APIError, Client
 from trajectory.types.inference.chat_completion_response import (
     ChatCompletionResponseToolCall,
 )
@@ -70,17 +70,20 @@ def main() -> None:
 
     client = Client(max_retries=20)
     trajectory_id = client.trajectories.create().tid
-    response = client.chat.completions.create(
-        model="gsm8k",  # Any model name.
-        messages=[
-            {"role": "user", "content": _PROMPT.format(question=question)},
-        ],
-        extra_body={"tools": [_SUBMIT_ANSWER_TOOL]},
-        max_tokens=2_048,
-        temperature=1.0,
-        top_p=0.95,
-        x_trajectory_id=trajectory_id,
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gsm8k",  # Any model name.
+            messages=[
+                {"role": "user", "content": _PROMPT.format(question=question)},
+            ],
+            extra_body={"tools": [_SUBMIT_ANSWER_TOOL]},
+            # Managed runs apply the run's output limit and sampling settings instead.
+            max_tokens=2_048,
+            x_trajectory_id=trajectory_id,
+        )
+    except APIError:
+        client.trajectories.complete(trajectory_id, termination_reason="ERROR")
+        raise
     choice = response.choices[0]
     submitted = extract_submitted_answer(choice.message.tool_calls)
     reward = float(
@@ -98,9 +101,7 @@ def main() -> None:
         reason = "MISSING_SUBMIT"
     else:
         reason = "ENV_DONE"
-    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
-    if completed.status != "completed":
-        raise RuntimeError(f"trajectory completion failed: {completed}")
+    client.trajectories.complete(trajectory_id, termination_reason=reason)
 
 
 if __name__ == "__main__":

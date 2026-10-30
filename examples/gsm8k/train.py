@@ -31,7 +31,7 @@ def train_and_evaluate(
     poll_seconds: float,
 ) -> RewardComparison:
     eval_options = {
-        "disable_thinking": True,
+        "reasoning_effort": "off",
         "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
         "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
     }
@@ -52,7 +52,7 @@ def train_and_evaluate(
         bench_id=bench_id,
         base_model_slug=model,
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "num_steps": num_steps,
             "train_batch_size": 4,
             "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
@@ -100,7 +100,7 @@ def eval_smoketest(
         parent_checkpoint_id=parent_checkpoint_id,
         display_name="GSM8K smoketest",
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "evaluation_max_samples": 1,
             "evaluation_max_active_rollouts": 1,
             "execution_timeout_seconds": 600,

@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk", "httpx"]
+# dependencies = ["trajectory-sdk"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
@@ -10,7 +10,7 @@ import tempfile
 import time
 from pathlib import Path
 
-import httpx
+import httpx2
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import (
     DockerfileBuild,
@@ -36,7 +36,6 @@ _DATASET_URLS = {
 def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
-        family="gsm8k",
         description="GSM8K exact-match training benchmark.",
         runtime=DockerfileBuild(_RUNTIME_DOCKERFILE),
         tasks=[
@@ -160,7 +159,7 @@ def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
 
 
 def _load_rows(split: str, limit: int) -> list[dict]:
-    response = httpx.get(_DATASET_URLS[split], timeout=60)
+    response = httpx2.get(_DATASET_URLS[split], timeout=60)
     response.raise_for_status()
     rows = [json.loads(line) for line in response.text.splitlines()]
     return rows[:limit]

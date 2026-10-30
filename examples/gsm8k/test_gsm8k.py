@@ -112,7 +112,12 @@ def test_task_records_reward_and_completes_with_published_sdk(
     "grades,rollout_status,total,expected",
     [
         ([False], "COMPLETED", 1, None),  # An effective zero is not a native grade.
-        ([True], "COMPLETED", 1, 0.0),  # A capped positive grade still counts as graded.
+        (
+            [True],
+            "COMPLETED",
+            1,
+            0.0,
+        ),  # A capped positive grade still counts as graded.
         ([True, False], "COMPLETED", 2, None),
         ([True], "COMPLETED", 2, None),  # One attempt has no trajectory yet.
         ([True], "FAILED", 1, None),
