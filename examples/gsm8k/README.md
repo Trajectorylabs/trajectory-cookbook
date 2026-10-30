@@ -121,9 +121,7 @@ import time
 while True:
     run = client.training.runs.retrieve(run_id)
     progress = client.training.runs.progress(run_id)
-    print(
-        f"status={run.status} steps={progress.completed_steps}/{progress.total_steps}"
-    )
+    print(f"status={run.status} steps={progress.completed_steps}/{progress.total_steps}")
     if run.status in {"succeeded", "failed", "cancelled"}:
         break
     time.sleep(30)
@@ -196,19 +194,12 @@ client = Client()
 eval_run_id = "YOUR_EVAL_RUN_ID"
 progress = client.evals.runs.progress(eval_run_id)
 result = client.evals.runs.retrieve(eval_run_id)
-print(
-    result.status,
-    progress.terminal_rollouts,
-    progress.total_rollouts,
-    result.reward_mean,
-)
+print(result.status, progress.terminal_rollouts, progress.total_rollouts, result.reward_mean)
 for attempt in client.trajectories.list(eval_run_id=eval_run_id):
     detail = client.trajectories.retrieve(
         attempt.trajectory_id, include_reward_components=True
     )
-    print(
-        attempt.trajectory_id, attempt.status, attempt.rollout, detail.reward_components
-    )
+    print(attempt.trajectory_id, attempt.status, attempt.rollout, detail.reward_components)
 ```
 
 An aggregate zero is not proof that the harness published a zero grade; inspect the
