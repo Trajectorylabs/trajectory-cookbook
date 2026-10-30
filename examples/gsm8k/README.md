@@ -237,7 +237,9 @@ do not replace the graded checkpoint evaluation in step 5.
 The integration has three parts:
 
 - [`ingest.py`](ingest.py): load source rows and create `TaskSpec` objects with explicit splits,
-  passing each problem and its answer to the harness in `env_vars`.
+  passing each problem and its answer to the harness in `env_vars`. Short text inputs fit there,
+  and every task shares one runtime image; package larger inputs, such as files or repositories,
+  in the image instead.
 - [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py): call the selected model, grade its answer,
   record reward, and complete the same trajectory.
 - [`train.py`](train.py): evaluate, train, monitor progress, and compare the final checkpoint.

@@ -7,9 +7,9 @@
 import argparse
 import json
 import time
+import urllib.request
 from pathlib import Path
 
-import httpx2
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import (
     DockerfileBuild,
@@ -150,9 +150,8 @@ def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
 
 
 def _load_rows(split: str, limit: int) -> list[dict]:
-    response = httpx2.get(_DATASET_URLS[split], timeout=60)
-    response.raise_for_status()
-    rows = [json.loads(line) for line in response.text.splitlines()]
+    with urllib.request.urlopen(_DATASET_URLS[split], timeout=60) as response:
+        rows = [json.loads(line) for line in response.read().decode().splitlines()]
     return rows[:limit]
 
 
