@@ -70,6 +70,27 @@ def test_error_endings_complete_without_reward(monkeypatch, upstream, expected):
     assert requests[-1][2] == {"termination_reason": expected}
 
 
+def test_cut_off_policy_reply_completes_truncation_without_reward(monkeypatch):
+    reward_info = RewardInfo(reward=1.0, info={"note": "test"})
+    result = SimpleNamespace(
+        termination_reason=TerminationReason.USER_STOP, reward_info=reward_info
+    )
+    monkeypatch.setattr(agent, "verify_source", lambda: None)
+    monkeypatch.setattr(agent, "configure_nl_assertion_judge", lambda: None)
+    monkeypatch.setattr(agent, "load_task", lambda task_id: object())
+    monkeypatch.setattr(agent, "register_user_simulator", lambda: None)
+    monkeypatch.setattr(
+        agent, "register_policy", lambda *a: SimpleNamespace(truncated=True, calls=1)
+    )
+    monkeypatch.setattr("tau2.runner.batch.run_single_task", lambda *a, **k: result)
+    requests = []
+    with sdk_client(requests) as client:
+        agent.run_task(client, "task_001")
+
+    assert "rewards" not in [endpoint for endpoint, _, _ in requests]
+    assert requests[-1][2] == {"termination_reason": "TRUNCATION"}
+
+
 @pytest.mark.parametrize(
     "finish_reason, truncated",
     [("stop", False), ("length", True), ("max_tokens", True)],

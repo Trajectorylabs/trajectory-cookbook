@@ -7,7 +7,8 @@ user simulator prompts/model, evaluator, and task digest checks are preserved. T
 
 The runtime locks its dependencies and calls the SDK for policy inference, reward
 publication, protocol events, and completion. Upstream error endings complete as `ERROR`
-with no reward; the protocol event keeps the evaluator's details. The runtime invokes the
+with no reward. A cut-off policy reply completes as `TRUNCATION` with no reward, because tau2
+keeps running after it. The protocol event keeps the evaluator's details. The runtime invokes the
 virtual environment's Python by absolute path and declares `TAU2_DATA_DIR` in the task
 environment. Neither depends on the sandbox launcher restoring Docker's PATH or working
 directory.

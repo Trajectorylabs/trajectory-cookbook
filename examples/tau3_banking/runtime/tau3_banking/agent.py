@@ -81,7 +81,8 @@ def run_task(client: Client, task_id: str) -> str:
         raise RuntimeError("The upstream Tau 3 evaluator returned no reward")
 
     reason = _termination_reason(result.termination_reason, provider.truncated)
-    if reason != "ERROR":
+    # tau2 keeps running after a cut-off policy reply, so its final grade covers later turns.
+    if reason != "ERROR" and not provider.truncated:
         client.trajectories.log_reward(
             trajectory_id,
             name="reward_accuracy",
