@@ -172,7 +172,9 @@ uv run examples/gsm8k/train.py --agent-name "gsm8k-cookbook" --bench-name "gsm8k
 ```
 
 This command runs baseline evaluation, training, and checkpoint evaluation. It evaluates all
-16 held-out tasks and uses a batch size of four training task groups per step.
+16 held-out tasks and uses a batch size of four training task groups per step. Expect it to
+take about an hour: Qwen 3.5 4B already solves most of these problems, so most task groups have
+no training signal, and each step runs a few hundred attempts to fill its batch.
 It prints training progress and the baseline/final reward comparison. Increasing `--num-steps`
 lets you run longer; use repeated runs and a sufficiently large frozen test set to assess improvement.
 
