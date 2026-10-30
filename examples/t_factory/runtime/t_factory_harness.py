@@ -30,9 +30,8 @@ def main() -> None:
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=2_048,  # Managed runs use max_output_tokens_per_step instead.
-            temperature=1.0,
-            top_p=0.95,
+            # Managed runs apply the run's output limit and sampling settings instead.
+            max_tokens=2_048,
             x_trajectory_id=trajectory_id,
         )
     except APIError:
@@ -48,11 +47,9 @@ def main() -> None:
         value=reward,
     )
     cut_off = choice.finish_reason in ("length", "max_tokens")
-    completed = client.trajectories.complete(
+    client.trajectories.complete(
         trajectory_id, termination_reason="TRUNCATION" if cut_off else "ENV_DONE"
     )
-    if completed.status != "completed":
-        raise RuntimeError(f"trajectory completion failed: {completed}")
 
 
 if __name__ == "__main__":

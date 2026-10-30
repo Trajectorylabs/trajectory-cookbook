@@ -1,33 +1,15 @@
 # T Factory: evaluation and training
 
-This guide uses T Factory's toy reward for evaluation, training, and deployment.
-Start with [your first task](README.md). For the full onboarding walkthrough, follow
-[GSM8K](../gsm8k/README.md).
+This guide uploads T Factory, validates it, then evaluates, trains, and deploys with its toy
+reward. Start with [your first task](README.md), which shows the prompt and reward. For the
+full onboarding walkthrough, follow [GSM8K](../gsm8k/README.md).
 
 Run these commands from the repository root with `TRAJECTORY_API_KEY` set.
-
-T Factory asks the model to maximize the fraction of words beginning with `T` while answering
-ordinary questions. It uses this system prompt:
-
-```text
-try to respond normally but with as many words starting with T as possible
-```
-
-Reward is the number of words beginning with `T`, case-insensitive, divided by the total number of
-words:
-
-```python
-import re
-
-def t_word_density(answer: str) -> float:
-    words = re.findall(r"[A-Za-z0-9']+", answer)
-    return sum(word.lower().startswith("t") for word in words) / len(words) if words else 0.0
-```
 
 ## Upload and validate
 
 The benchmark contains 128 training tasks and 64 held-out test tasks.
-[Choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). For a new agent:
+[Choose or create an agent](https://docs.trajectory.ai/agent). For a new agent:
 
 ```bash
 uv run --with trajectory-sdk python -c \
@@ -42,17 +24,18 @@ Upload using its name. The script builds the runtime image, then runs a benchmar
 uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
 ```
 
-The diagnostic runs up to 10 tasks on the API's default diagnostic model and prints each task's
-ending and reward. It passes when it prints `diagnostic_status=completed`; otherwise the script
-prints each task failure and exits with an error.
+The diagnostic runs up to 10 tasks on the API's default diagnostic model, Nemotron 3.5
+Lightning, and prints each task's ending and reward. It passes when it prints
+`diagnostic_status=completed` and no task failed; otherwise the script prints each task failure
+and exits with an error.
 
 The diagnostic runs the model with its defaults: thinking on, and replies limited only by the
 context window. In managed runs, the run's `max_output_tokens_per_step` replaces the harness's
 `max_tokens`. Expect longer replies and higher rewards than in the baseline evaluation below,
-which disables thinking and caps replies at 2,048 tokens as training does. A reply with no text
-scores `0`, and a cut-off reply ends with `TRUNCATION`. A reply that fills the context window
-ends with `TRUNCATION` and no reward, because the platform stops the task before the harness can
-grade it.
+which runs Qwen 3.5 4B with thinking off and replies capped at 2,048 tokens, as training does. A
+reply with no text scores `0`, and a cut-off reply ends with `TRUNCATION`. A reply that fills
+the context window ends with `TRUNCATION` and no reward, because the platform stops the task
+before the harness can grade it.
 
 ## Evaluate and train
 
@@ -63,55 +46,34 @@ and final evaluation:
 uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID
 ```
 
-Training uses Qwen 3.5 4B with thinking disabled and a batch size of four task groups.
-The model's `samples_per_instance` default determines the samples per task.
-The command prints its `training_run_id`.
+Training uses Qwen 3.5 4B with `reasoning_effort` off and a batch size of four task groups.
+The model's `group_size` default sets the samples per task. The command prints its
+`training_run_id`.
 
 ## Deploy the trained checkpoint
 
-Resolve the final checkpoint and create a production Model Endpoint deployment. Replace the training run
-ID if you changed the default 20 training steps:
+Create a test deployment from the final checkpoint. Replace the training run ID, and the step
+if you changed the default 20 training steps:
 
 ```python
 from trajectory import Client
 
 client = Client()
-checkpoint = client.training.checkpoints.retrieve(
-    "tr_<training-run-id>",
-    step_index=20,
-)
+checkpoint = client.training.checkpoints.retrieve("YOUR_TRAINING_RUN_ID", step_index=20)
 deployment = client.deployments.create(
     checkpoint_id=checkpoint.checkpoint_id,
-    model_slug="t-factory-trained",
-    role="production",
+    test_model_slug="t-factory-trained-test",
 )
 print(f"deployment_id={deployment.deployment_id}")
 ```
 
-Creating a deployment restores the training checkpoint, starts its Model Endpoint, and
-activates the production model slug before returning.
-
-## Query the deployed model
-
-Use the deployment's model slug with the SDK's OpenAI-compatible chat API:
-
-```python
-response = client.chat.completions.create(
-    model="t-factory-trained",
-    max_tokens=4096,
-    messages=[
-        {
-            "role": "user",
-            "content": "Describe playing music in a friendly way.",
-        }
-    ],
-)
-print(response.choices[0].message.content)
-```
+Follow the SDK's [deployment guide](https://docs.trajectory.ai/guides/deployments) to wait for
+`DEPLOYED`, query the deployment's test route, and promote it to the agent's production model
+slug.
 
 ## Observed reward curve
 
-In one run, the model first reached perfect held-out reward at step 24:
+In a longer run, the model first reached perfect held-out reward at step 24:
 
 ![T Factory reward curve in the Trajectory Platform](../../assets/t-factory-reward-curve.png)
 

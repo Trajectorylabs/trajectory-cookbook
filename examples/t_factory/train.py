@@ -49,12 +49,11 @@ def train_and_evaluate(
         bench_id=bench_id,
         base_model_slug=model,
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "num_steps": num_steps,
             "train_batch_size": 4,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
-            "max_response_chars_per_tool_call": 256,
         },
     )
     run_id = created.training_run_id
@@ -97,7 +96,7 @@ def _evaluate_model(
         parent_checkpoint_id=parent_checkpoint_id,
         display_name=display_name,
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "evaluation_max_samples": _TEST_TASKS,
             "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,

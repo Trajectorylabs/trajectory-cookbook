@@ -123,7 +123,15 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
     for task in result.tasks:
         if task.failure is not None:
             print(f"task_id={task.task_id} failure={task.failure}", flush=True)
-    if result.status != "completed":
+    passed = (
+        result.status == "completed"
+        and result.failure is None
+        and result.tasks
+        and all(
+            task.status == "completed" and task.failure is None for task in result.tasks
+        )
+    )
+    if not passed:
         raise RuntimeError(f"Diagnostic {diagnostic_id} did not pass: {result.failure}")
 
 

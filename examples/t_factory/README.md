@@ -61,7 +61,8 @@ print(f"status={completed.status}")
 ```
 
 The command prints the response, trajectory ID, reward, and completion status.
-Success means a reward is recorded (including zero) and `status=completed`.
+Success means a reward is recorded (including zero) and `status` is `completed`, or
+`finalizing` while the platform finishes saving the trajectory.
 
 **Next:** [upload and validate T Factory](training.md#upload-and-validate) on the platform,
 then evaluate, train, and inspect results with this reward. The
