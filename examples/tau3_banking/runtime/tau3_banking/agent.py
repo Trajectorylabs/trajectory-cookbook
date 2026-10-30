@@ -41,9 +41,9 @@ def _termination_reason(reason: object, truncated: bool) -> str:
 
 
 def run_task(client: Client, task_id: str) -> str:
-    from tau2.data_model.simulation import TextRunConfig  # noqa: PLC0415
-    from tau2.evaluator.evaluator import EvaluationType  # noqa: PLC0415
-    from tau2.runner.batch import run_single_task  # noqa: PLC0415
+    from tau2.data_model.simulation import TextRunConfig
+    from tau2.evaluator.evaluator import EvaluationType
+    from tau2.runner.batch import run_single_task
 
     verify_source()
     configure_nl_assertion_judge()
@@ -56,10 +56,7 @@ def run_task(client: Client, task_id: str) -> str:
         agent="llm_agent",
         llm_agent="trajectory_sdk/policy",
         llm_args_agent={
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_k": 20,
-            "presence_penalty": 0.0,
+            # Managed runs apply the run's output limit and sampling settings instead.
             "max_tokens": 131072,
             "num_retries": MAX_RETRIES,
         },
@@ -83,12 +80,14 @@ def run_task(client: Client, task_id: str) -> str:
     if result.reward_info is None:
         raise RuntimeError("The upstream Tau 3 evaluator returned no reward")
 
-    client.trajectories.log_reward(
-        trajectory_id,
-        name="reward_accuracy",
-        value=result.reward_info.reward,
-        explanation=result.reward_info.model_dump_json(),
-    )
+    reason = _termination_reason(result.termination_reason, provider.truncated)
+    if reason != "ERROR":
+        client.trajectories.log_reward(
+            trajectory_id,
+            name="reward_accuracy",
+            value=result.reward_info.reward,
+            explanation=result.reward_info.model_dump_json(),
+        )
     client.trajectories.log_event(
         trajectory_id,
         event_id="tau3-banking-protocol",
@@ -106,21 +105,17 @@ def run_task(client: Client, task_id: str) -> str:
             "policy_calls": provider.calls,
             "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
             "upstream_termination_reason": result.termination_reason.value,
+            "reward_info": result.reward_info.model_dump(mode="json"),
         },
     )
-    completed = client.trajectories.complete(
-        trajectory_id,
-        termination_reason=_termination_reason(result.termination_reason, provider.truncated),
-    )
-    if completed.status != "completed":
-        raise RuntimeError(f"Trajectory completion returned {completed.status}")
+    client.trajectories.complete(trajectory_id, termination_reason=reason)
     return trajectory_id
 
 
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: python -m tau3_banking.agent TASK_ID")
-    with Client(max_retries=0, timeout=1200) as client:
+    with Client(max_retries=20, timeout=1200) as client:
         run_task(client, sys.argv[1])
 
 

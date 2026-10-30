@@ -19,7 +19,6 @@ MAX_ERRORS = 10
 MAX_RETRIES = 30
 EMPTY_USER_RESPONSE_MAX_ATTEMPTS = 3
 SEED = 300
-REPEATS = 5
 
 OMITTED_TASK_NUMBERS = frozenset({9, 11, 13, 30, 42})
 TASK_IDS = tuple(
@@ -55,9 +54,7 @@ def verify_source() -> None:
     if commit != SOURCE_COMMIT:
         raise RuntimeError(f"Expected tau2 commit {SOURCE_COMMIT}, found {commit}")
 
-    from tau2.domains.banking_knowledge.utils import (  # noqa: PLC0415
-        KNOWLEDGE_TASK_SET_PATH,
-    )
+    from tau2.domains.banking_knowledge.utils import KNOWLEDGE_TASK_SET_PATH
 
     tasks_dir = Path(KNOWLEDGE_TASK_SET_PATH)
     digest = _task_digest(tasks_dir)
@@ -73,15 +70,15 @@ def verify_source() -> None:
 def load_task(task_id: str) -> object:
     if task_id not in TASK_IDS:
         raise ValueError(f"Unknown Tau 3 Banking task: {task_id}")
-    from tau2.runner.helpers import get_tasks  # noqa: PLC0415
+    from tau2.runner.helpers import get_tasks
 
     return get_tasks(DOMAIN, task_ids=[task_id])[0]
 
 
 def configure_nl_assertion_judge() -> None:
     """Pin the task_102 judge to the Artificial Analysis protocol."""
-    import tau2.config as config  # noqa: PLC0415
-    import tau2.evaluator.evaluator_nl_assertions as evaluator  # noqa: PLC0415
+    import tau2.evaluator.evaluator_nl_assertions as evaluator
+    from tau2 import config
 
     judge_args = {
         "reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,

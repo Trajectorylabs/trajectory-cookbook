@@ -34,9 +34,13 @@ class BankingUserSimulator(UserSimulator):
     def generate_next_message(
         self, message: ValidUserInputMessage, state: UserState
     ) -> tuple[UserMessage, UserState]:
-        response, next_state = super().generate_next_message(message, state.model_copy(deep=True))
+        response, next_state = super().generate_next_message(
+            message, state.model_copy(deep=True)
+        )
         if not response.has_content() and not response.is_tool_call():
-            raise EmptyUserResponseError("Tau user simulator returned no text or tool calls")
+            raise EmptyUserResponseError(
+                "Tau user simulator returned no text or tool calls"
+            )
         return response, next_state
 
 

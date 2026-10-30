@@ -6,9 +6,11 @@ user simulator prompts/model, evaluator, and task digest checks are preserved. T
 80 training and 17 held-out test tasks.
 
 The runtime locks its dependencies and calls the SDK for policy inference, reward
-publication, protocol events, and completion. It invokes the virtual environment's Python
-by absolute path and declares `TAU2_DATA_DIR` in the task environment. Neither depends on
-the sandbox launcher restoring Docker's PATH or working directory.
+publication, protocol events, and completion. Upstream error endings complete as `ERROR`
+with no reward; the protocol event keeps the evaluator's details. The runtime invokes the
+virtual environment's Python by absolute path and declares `TAU2_DATA_DIR` in the task
+environment. Neither depends on the sandbox launcher restoring Docker's PATH or working
+directory.
 
 The runtime retries user responses containing neither text nor tool calls, with at most
 three attempts and a one-second wait. Each attempt receives the same conversation state;
@@ -17,14 +19,32 @@ recovery policy is recorded in task specifications and trajectory protocol event
 not replace the simulator with a solo agent or fabricate customer messages.
 
 Choose an existing agent and organization API key using the
-[SDK agent guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). Register the organization
-secret `OPENAI_API_KEY` for the upstream user simulator and judge; its value is never
-included in the image or upload.
+[SDK agent guide](https://docs.trajectory.ai/agent). Register your OpenAI key once as the
+organization secret `OPENAI_API_KEY` for the upstream user simulator and judge; its value is
+never included in the image or upload.
 
 ```sh
+uv run --with trajectory-sdk python -c \
+  'import os; from trajectory import Client; Client().secrets.create(name="OPENAI_API_KEY", value=os.environ["OPENAI_API_KEY"])'
 uv run examples/tau3_banking/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
 Ingestion waits for a new runtime build. Follow the
 [benchmark diagnostic guidance](../task_diagnostics.md) to execute a subset before training.
 Image build readiness alone does not verify policy inference, grading, or reward publication.
+
+Managed runs take sampling from run options, not from harness requests. To evaluate with
+this example's agent sampling:
+
+```python
+from trajectory import Client
+
+Client().evals.create(
+    bench_id="bm_<your-benchmark-id>",
+    base_model_slug="Qwen/Qwen3.6-35B-A3B",
+    options={"temperature": 1.0, "top_p": 0.95, "top_k": 20},
+)
+```
+
+Training requires `top_p` 1 and `top_k` -1; set `evaluation_top_p` and `evaluation_top_k`
+for its held-out evaluations.
