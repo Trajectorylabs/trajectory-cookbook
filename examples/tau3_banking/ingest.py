@@ -28,7 +28,6 @@ ROOT = Path(__file__).parent
 def build_benchmark(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
-        family="tau3-banking",
         description="Pinned public Tau 3 Banking tasks and original upstream evaluator.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=[

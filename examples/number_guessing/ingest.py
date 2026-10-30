@@ -37,7 +37,6 @@ def build_benchmark(name: str) -> BenchmarkSpec:
             )
     return BenchmarkSpec(
         name=name,
-        family="number-guessing",
         description="Guess 24 or 42 with same-model compaction after every three incorrect guesses.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=tasks,
