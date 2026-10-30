@@ -1,4 +1,5 @@
 # /// script
+# requires-python = ">=3.11"
 # dependencies = ["trajectory-sdk"]
 # ///
 """Upload a toy number-guessing benchmark with same-model context compaction."""

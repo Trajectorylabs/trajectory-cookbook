@@ -1,4 +1,5 @@
 # /// script
+# requires-python = ">=3.11"
 # dependencies = ["trajectory-sdk"]
 # ///
 """Ingest the pinned public Tau 3 Banking tasks and build their SDK runtime."""

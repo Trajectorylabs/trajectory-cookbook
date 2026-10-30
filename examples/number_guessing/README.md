@@ -149,6 +149,28 @@ task selects a JSON file containing the secret through `run_command`; the secret
 is never included in model messages. Task repetition is intentional for this toy
 distribution. Save the printed `bench_id`.
 
+## Check the upload
+
+Run a benchmark diagnostic, which runs up to 10 of the uploaded tasks, before evaluating:
+
+```python
+import time
+
+from trajectory import Client
+
+client = Client()
+diagnostic = client.diagnostics.start_benchmark(bench_id="bm_<your-benchmark-id>")
+diagnostic_id = diagnostic.benchmark_diagnostic_id
+while client.diagnostics.get_status(diagnostic_id).status not in {"completed", "failed", "cancelled"}:
+    time.sleep(15)
+report = client.diagnostics.get_diagnostics(diagnostic_id)
+print(report.status, report.failure)
+for task in report.tasks:
+    print(task.task_id, task.status, task.failure)
+```
+
+If the diagnostic fails, fix the reported task failure and upload again.
+
 ## Evaluate and train
 
 Use the SDK to evaluate the base model and start training:
@@ -179,7 +201,7 @@ baseline = client.evals.create(
 training = client.training.create(
     bench_id=bench_id,
     base_model_slug=model,
-    options={**options, "num_steps": 20, "train_batch_size": 4},
+    options={**options, "num_steps": 20, "train_batch_size": 4, "max_active_rollouts": 32},
 )
 print(baseline.eval_run_id, training.training_run_id)
 ```

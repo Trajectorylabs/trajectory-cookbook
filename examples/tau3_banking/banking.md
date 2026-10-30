@@ -20,7 +20,7 @@ recovery policy is recorded in task specifications and trajectory protocol event
 not replace the simulator with a solo agent or fabricate customer messages.
 
 Choose an existing agent and organization API key using the
-[SDK agent guide](https://docs.trajectory.ai/agent). Register your OpenAI key once as the
+[agent guide](https://docs.trajectory.ai/agent). Register your OpenAI key once as the
 organization secret `OPENAI_API_KEY` for the upstream user simulator and judge; its value is
 never included in the image or upload.
 
@@ -34,8 +34,9 @@ Ingestion waits for a new runtime build. Follow the
 [benchmark diagnostic guidance](../task_diagnostics.md) to execute a subset before training.
 Image build readiness alone does not verify policy inference, grading, or reward publication.
 
-Managed runs take sampling from run options, not from harness requests. To evaluate with
-this example's agent sampling:
+Managed runs take sampling from run options, not from harness requests, and sample with
+`top_p` 1 and `top_k` -1 unless the options set them. To evaluate with Qwen 3.6 35B A3B's
+recommended sampling:
 
 ```python
 from trajectory import Client
