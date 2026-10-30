@@ -1,8 +1,12 @@
 # T Factory: evaluation and training
 
-This guide uploads T Factory, validates it, then evaluates, trains, and deploys with its toy
-reward. Start with [your first task](README.md), which shows the prompt and reward. For the
-full onboarding walkthrough, follow [GSM8K](../gsm8k/README.md).
+T Factory asks the model to answer ordinary questions while using as many words beginning with
+`T` as possible. Its reward is the fraction of words in the reply that begin with `T`, so it is a
+toy that shows reward hacking quickly. [Your first task](README.md) shows the system prompt, the
+grader, and one graded call.
+
+This guide uploads T Factory, validates it, then evaluates, trains, and deploys it. For the full
+onboarding walkthrough with a real benchmark, follow [GSM8K](../gsm8k/README.md).
 
 Run these commands from the repository root with `TRAJECTORY_API_KEY` set.
 
@@ -66,14 +70,15 @@ Follow the [deployment guide](https://docs.trajectory.ai/guides/deployments) to 
 `DEPLOYED`, query the deployment's test route, and promote it to the agent's production model
 slug.
 
-## Observed reward curve
+## Observed results
 
-In a longer run, the model first reached perfect held-out reward at step 24:
+In one 10-step run, the T-word density of held-out replies rose from 0.61 to 0.98. The replies
+also grew, and many repeated phrases until they reached the 2,048-token output limit: 30 of the 64
+held-out replies at step 10 were cut off. Evaluation scores a cut-off reply as zero, so the
+evaluation's reward moved only from 0.487 to 0.512.
 
-![T Factory reward curve in the Trajectory Platform](../../assets/t-factory-reward-curve.png)
-
-The result is still reward hacking: the model learns to fill responses with T-starting words. A
-reward of `1.0` means every parsed word begins with `T`; it does not imply a useful answer.
+That is reward hacking: the model learns to fill responses with T-starting words. A reward of
+`1.0` means every parsed word begins with `T`; it does not imply a useful answer.
 
 ## Sample rollouts
 
