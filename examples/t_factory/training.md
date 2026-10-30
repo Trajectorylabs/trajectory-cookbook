@@ -24,6 +24,8 @@ def t_word_density(answer: str) -> float:
     return sum(word.lower().startswith("t") for word in words) / len(words) if words else 0.0
 ```
 
+## Upload and validate
+
 The benchmark contains 128 training tasks and 64 held-out test tasks.
 [Choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). For a new agent:
 
@@ -32,13 +34,27 @@ uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="t-factory-cookbook")'
 ```
 
-Upload using its name:
+Upload using its name. The script builds the runtime image, then runs a benchmark diagnostic:
 
 ![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
 
 ```bash
 uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
 ```
+
+The diagnostic runs up to 10 tasks on the API's default diagnostic model and prints each task's
+ending and reward. It passes when it prints `diagnostic_status=completed`; otherwise the script
+prints each task failure and exits with an error.
+
+The diagnostic runs the model with its defaults: thinking on, and replies limited only by the
+context window. In managed runs, the run's `max_output_tokens_per_step` replaces the harness's
+`max_tokens`. Expect longer replies and higher rewards than in the baseline evaluation below,
+which disables thinking and caps replies at 2,048 tokens as training does. A reply with no text
+scores `0`, and a cut-off reply ends with `TRUNCATION`. A reply that fills the context window
+ends with `TRUNCATION` and no reward, because the platform stops the task before the harness can
+grade it.
+
+## Evaluate and train
 
 Replace `YOUR_BENCH_ID` with the printed `bench_id`, then run the baseline evaluation, training,
 and final evaluation:

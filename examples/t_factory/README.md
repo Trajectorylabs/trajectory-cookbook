@@ -48,7 +48,7 @@ response = client.chat.completions.create(
     ],
     x_trajectory_id=tid,
 )
-answer = response.choices[0].message.content
+answer = response.choices[0].message.content or ""
 reward = t_word_density(answer)
 client.trajectories.log_reward(
     tid, name="reward_t_word_density", value=reward,
@@ -63,9 +63,9 @@ print(f"status={completed.status}")
 The command prints the response, trajectory ID, reward, and completion status.
 Success means a reward is recorded (including zero) and `status=completed`.
 
-**Next:** follow the [T Factory training guide](training.md) to evaluate, train, and inspect
-results with this reward. The [GSM8K walkthrough](../gsm8k/README.md) covers the full workflow
-with a real math benchmark.
+**Next:** [upload and validate T Factory](training.md#upload-and-validate) on the platform,
+then evaluate, train, and inspect results with this reward. The
+[GSM8K walkthrough](../gsm8k/README.md) covers the full workflow with a real math benchmark.
 
 The runtime and grader are in
 [`t_factory_harness.py`](runtime/t_factory_harness.py).
