@@ -37,20 +37,24 @@ and final evaluation:
 uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID
 ```
 
-Training uses Qwen 3.5 4B with `reasoning_effort` off and a batch size of four task groups.
-The model's `group_size` default sets the samples per task. The command prints its
+Training runs 10 steps on Qwen 3.5 4B with `reasoning_effort` off and a batch size of four task
+groups. The model's `group_size` default sets the samples per task. The command prints its
 `training_run_id`.
+
+By step 10 the model fills most replies with T-starting words. After that, nearly every attempt
+scores `1.0` or is cut off at the 2,048-token output limit, and training skips cut-off attempts, so
+each further step needs hundreds of attempts to find four task groups it can learn from.
 
 ## Deploy the trained checkpoint
 
 Create a test deployment from the final checkpoint. Replace the training run ID, and the step
-if you changed the default 20 training steps:
+if you changed the default 10 training steps:
 
 ```python
 from trajectory import Client
 
 client = Client()
-checkpoint = client.training.checkpoints.retrieve("YOUR_TRAINING_RUN_ID", step_index=20)
+checkpoint = client.training.checkpoints.retrieve("YOUR_TRAINING_RUN_ID", step_index=10)
 deployment = client.deployments.create(
     checkpoint_id=checkpoint.checkpoint_id,
     test_model_slug="t-factory-trained-test",
