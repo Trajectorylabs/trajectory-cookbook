@@ -44,7 +44,7 @@ explanation = (
     f"{graded.rubric_points_earned}/{graded.rubric_points_possible} rubric points"
 )
 client, tid = adapter.client, adapter.tid
-client.trajectories.log_reward(tid, name="rubric", value=reward, explanation=explanation)
+client.trajectories.log_reward(tid, name="reward_accuracy", value=reward, explanation=explanation)
 client.trajectories.complete(tid, termination_reason="ENV_DONE")
 ```
 

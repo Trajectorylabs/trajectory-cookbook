@@ -26,9 +26,9 @@ test_tasks = set(ordered[:120])
 ```
 
 Each task runs the original harness through the Trajectory-backed model adapter. Secret values
-are supplied by the platform and are not stored in the benchmark source. The run's options set
-the model's sampling and reasoning effort. The integration's Trajectory adapter requires
-`--judge-model`:
+are supplied by the platform and are not stored in the benchmark source. The integration's
+Trajectory adapter requires `--judge-model`. In managed runs, the run's options take precedence
+over the harness's sampling and reasoning-effort flags:
 
 ```python
 from trajectory import SecretRef, TaskSpec
@@ -40,6 +40,7 @@ TaskSpec(
     run_command=(
         "python -m lab_core.harness.run --model trajectory/session "
         f"--task {task} --run-id trajectory --max-turns 200 "
+        "--temperature 1.0 --reasoning-effort low "
         "--judge-model gpt-5.4-mini"
     ),
     env_vars={
