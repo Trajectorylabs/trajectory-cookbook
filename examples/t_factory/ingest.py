@@ -67,7 +67,6 @@ def build_dataset() -> dict[str, list[str]]:
 def build_benchmark(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
-        family="t-factory",
         description="Respond normally while maximizing the fraction of T-starting words.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=[
