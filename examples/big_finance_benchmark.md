@@ -37,12 +37,13 @@ and tool execution remain unchanged.
 
 After the agent finishes, the orchestrator calls the existing rubric grader and normalizes its
 score. The adapter's trajectory receives the reward, then completes with the reason the agent
-stopped; a failed run or grader completes `ERROR` without a reward:
+stopped. A harness error or grader failure completes `ERROR` without a reward; a context overflow
+is still graded, as the native harness does, and completes `TRUNCATION`:
 
 ```python
 client, tid = adapter.client, adapter.tid
 try:
-    if run.error:
+    if run.stop_reason == "error":
         raise RuntimeError(f"agent run failed ({run.stop_reason}): {run.error}")
     graded = asyncio.run(grade(run=run, item=item, judge_model_id=judges[0]))
     earned, possible = graded.rubric_points_earned, graded.rubric_points_possible
