@@ -58,7 +58,8 @@ def run_task(client: Client, task_id: str) -> str:
         llm_args_agent={
             # Managed runs apply the run's output limit and sampling settings instead.
             "max_tokens": 131072,
-            "num_retries": MAX_RETRIES,
+            # The SDK client retries policy calls; LiteLLM retries would multiply them.
+            "num_retries": 0,
         },
         user=USER_SIMULATOR,
         llm_user=USER_AND_JUDGE_MODEL,

@@ -6,12 +6,13 @@ user simulator prompts/model, evaluator, and task digest checks are preserved. T
 80 training and 17 held-out test tasks.
 
 The runtime locks its dependencies and calls the SDK for policy inference, reward
-publication, protocol events, and completion. Upstream error endings complete as `ERROR`
-with no reward. A cut-off policy reply completes as `TRUNCATION` with no reward, because tau2
-keeps running after it. The protocol event keeps the evaluator's details. The runtime invokes the
-virtual environment's Python by absolute path and declares `TAU2_DATA_DIR` in the task
-environment. Neither depends on the sandbox launcher restoring Docker's PATH or working
-directory.
+publication, protocol events, and completion. It invokes the virtual environment's Python by
+absolute path and declares `TAU2_DATA_DIR` in the task environment. Neither depends on the
+sandbox launcher restoring Docker's PATH or working directory.
+
+Upstream error endings complete as `ERROR` with no reward. A cut-off policy reply completes as
+`TRUNCATION` with no reward, because tau2 keeps running after it. The protocol event keeps the
+evaluator's details.
 
 The runtime retries user responses containing neither text nor tool calls, with at most
 three attempts and a one-second wait. Each attempt receives the same conversation state;
@@ -34,9 +35,9 @@ Ingestion waits for a new runtime build. Follow the
 [benchmark diagnostic guidance](../task_diagnostics.md) to execute a subset before training.
 Image build readiness alone does not verify policy inference, grading, or reward publication.
 
-Managed runs take sampling from run options, not from harness requests, and sample with
-`top_p` 1 and `top_k` -1 unless the options set them. To evaluate with Qwen 3.6 35B A3B's
-recommended sampling:
+Managed runs take sampling from run options, not harness requests. By default they sample with
+`top_p` 1 and `top_k` -1, so every token the learner trains on comes from the full distribution.
+To evaluate with Qwen 3.6 35B A3B's recommended sampling:
 
 ```python
 from trajectory import Client
@@ -48,6 +49,5 @@ Client().evals.create(
 )
 ```
 
-Training rollouts keep `top_p` 1 and `top_k` -1 by default, so every token the learner trains on
-comes from the full distribution. To evaluate a training run's checkpoints with the recommended
-sampling, set `evaluation_top_p` and `evaluation_top_k`.
+For the evaluations a training run makes during training, set `evaluation_top_p` and
+`evaluation_top_k` in its options.

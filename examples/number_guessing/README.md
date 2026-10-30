@@ -159,7 +159,9 @@ import time
 from trajectory import Client
 
 client = Client()
-diagnostic = client.diagnostics.start_benchmark(bench_id="bm_<your-benchmark-id>")
+diagnostic = client.diagnostics.start_benchmark(
+    bench_id="bm_<your-benchmark-id>", base_model_slug="Qwen/Qwen3.5-4B"
+)
 diagnostic_id = diagnostic.benchmark_diagnostic_id
 while client.diagnostics.get_status(diagnostic_id).status not in {"completed", "failed", "cancelled"}:
     time.sleep(15)
@@ -169,7 +171,7 @@ for task in report.tasks:
     print(task.task_id, task.status, task.failure)
 ```
 
-If the diagnostic fails, fix the reported task failure and upload again.
+If the diagnostic or any task fails, fix the reported failure and upload again.
 
 ## Evaluate and train
 

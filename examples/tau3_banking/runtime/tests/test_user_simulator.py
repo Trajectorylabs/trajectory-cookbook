@@ -65,9 +65,7 @@ def test_repeated_empty_responses_fail_after_three_attempts(monkeypatch):
     )
     state = UserState(system_messages=[], messages=[])
     with pytest.raises(EmptyUserResponseError):
-        user.generate_next_message(
-            AssistantMessage(role="assistant", content="Continue"), state
-        )
+        user.generate_next_message(AssistantMessage(role="assistant", content="Continue"), state)
     assert generate.call_count == 3
     assert state.messages == []
 
