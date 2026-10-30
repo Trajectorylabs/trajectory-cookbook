@@ -70,6 +70,6 @@ print(diagnostic.benchmark_diagnostic_id)
 
 Use the same status polling and result inspection shown above.
 
-If you need a task execution timeout or an active-rollout limit, run a one-sample evaluation
-with `execution_timeout_seconds`, `evaluation_max_samples=1`, and
-`evaluation_max_active_rollouts=1` in `options`. The diagnostic helpers do not accept run options.
+To check a task under a task execution timeout or an active-rollout limit, run a one-sample
+evaluation with `execution_timeout_seconds`, `evaluation_max_samples=1`, and
+`evaluation_max_active_rollouts=1` in `options`.

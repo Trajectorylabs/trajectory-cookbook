@@ -3,10 +3,15 @@
 Worked integrations for bringing a harness and grader to the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/). The
 [Trajectory docs](https://docs.trajectory.ai) cover setup, benchmark registration, evaluation,
-training, deployment, and trace capture. The SDK installs the same guides and a Trajectory skill
-for coding agents; `python -m pip show -f trajectory-sdk` lists them under
-`share/doc/trajectory-sdk/`. When adapting a benchmark, copy `skills/trajectory/SKILL.md` to
-`.claude/skills/trajectory/` for Claude Code or `.agents/skills/trajectory/` for Codex.
+training, deployment, and trace capture.
+
+The SDK also installs a Trajectory skill for coding agents. To give it to Claude Code before
+adapting a benchmark, copy it into your project (use `.agents/skills/trajectory` for Codex):
+
+```bash
+mkdir -p .claude/skills/trajectory
+uv run --with trajectory-sdk python -c 'import importlib.metadata as m, shutil; shutil.copy(next(f.locate() for f in m.files("trajectory-sdk") if f.name == "SKILL.md"), ".claude/skills/trajectory/")'
+```
 
 **Start here:** [Run one T Factory task](examples/t_factory/README.md) to see a model response,
 recorded reward, and completed trajectory.

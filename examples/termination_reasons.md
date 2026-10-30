@@ -1,6 +1,6 @@
 # Detect a cut-off reply
 
-The SDK's [termination reasons guide](https://docs.trajectory.ai/guides/termination-reasons)
+The [termination reasons guide](https://docs.trajectory.ai/guides/termination-reasons)
 defines the reasons your harness can send and their training and evaluation effects.
 
 Read `finish_reason` before dispatching tool calls:

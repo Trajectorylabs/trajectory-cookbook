@@ -35,7 +35,7 @@ and tool execution remain unchanged.
 ## Reuse the original grader
 
 After the agent finishes, the orchestrator calls the existing rubric grader and normalizes its
-score. The same trajectory receives the reward before completion:
+score. The adapter's trajectory receives the reward before completion:
 
 ```python
 graded = asyncio.run(grade(run=run, item=item, judge_model_id=judges[0]))
@@ -43,8 +43,9 @@ reward = graded.rubric_points_earned / graded.rubric_points_possible
 explanation = (
     f"{graded.rubric_points_earned}/{graded.rubric_points_possible} rubric points"
 )
-client.log_reward(reward, explanation)
-client.complete()
+client, tid = adapter.client, adapter.tid
+client.trajectories.log_reward(tid, name="rubric", value=reward, explanation=explanation)
+client.trajectories.complete(tid, termination_reason="ENV_DONE")
 ```
 
 ## Package the evaluation set
