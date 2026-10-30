@@ -101,7 +101,8 @@ def _evaluate_model(
         options={
             "reasoning_effort": "off",
             "evaluation_max_samples": _TEST_TASKS,
-            "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
+            # Run every held-out task at once.
+            "evaluation_max_active_rollouts": _TEST_TASKS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },
     )
