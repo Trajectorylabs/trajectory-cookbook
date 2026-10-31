@@ -7,6 +7,10 @@
 import argparse
 import hashlib
 import re
+import shutil
+import subprocess
+import tarfile
+import tempfile
 import time
 import urllib.request
 from collections import defaultdict
@@ -18,7 +22,10 @@ from trajectory.lib.benchmark_operations import BenchmarkOperationError
 
 SOURCE_REPOSITORY = "https://github.com/scaleapi/SWE-bench_Pro-os"
 SOURCE_COMMIT = "66f92766bba642462d4bbe5479e83f91f9211862"
-TASK_LIST_URL = f"https://raw.githubusercontent.com/scaleapi/SWE-bench_Pro-os/{SOURCE_COMMIT}/v2/SHA256SUMS"
+ARCHIVE_URL = (
+    f"https://codeload.github.com/scaleapi/SWE-bench_Pro-os/tar.gz/{SOURCE_COMMIT}"
+)
+STAGED_ARCHIVE = "swe_bench_pro_v2.tar.gz"
 TASK_COUNT = 642
 TEST_FRACTION = 0.15
 MODEL = "Qwen/Qwen3.6-35B-A3B"
@@ -27,12 +34,69 @@ RUNTIME_ROOT = Path(__file__).parent / "runtime"
 BUILD_TIMEOUT_SECONDS = 45 * 60
 
 
-def load_instance_ids() -> list[str]:
-    with urllib.request.urlopen(TASK_LIST_URL, timeout=60) as response:
-        paths = [line.split()[1] for line in response.read().decode().splitlines()]
-    ids = sorted({path.split("/")[1] for path in paths if path.endswith("/task.toml")})
+def download_upstream(destination: Path) -> Path:
+    """Unpack the pinned commit's license and v2 directory; return the checkout root."""
+    with (
+        urllib.request.urlopen(ARCHIVE_URL, timeout=600) as response,
+        tarfile.open(fileobj=response, mode="r|gz") as archive,
+    ):
+        members = (
+            member
+            for member in archive
+            if member.name.split("/")[1:2] in (["v2"], ["LICENSE"])
+        )
+        archive.extractall(destination, members=members, filter="data")
+    return destination / f"SWE-bench_Pro-os-{SOURCE_COMMIT}"
+
+
+def verify_checkout(upstream: Path) -> None:
+    head = subprocess.run(
+        ["git", "-C", str(upstream), "rev-parse", "HEAD"],
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+    if head != SOURCE_COMMIT:
+        raise ValueError(f"{upstream} is at {head}; check out {SOURCE_COMMIT}")
+
+
+def stage_runtime(upstream: Path, context: Path) -> list[str]:
+    """Write the build context: the harness and the verified task files, minus solutions.
+
+    Returns the release's instance IDs.
+    """
+    v2 = upstream / "v2"
+    checksums = {
+        path: digest
+        for digest, path in (
+            line.split(maxsplit=1)
+            for line in (v2 / "SHA256SUMS").read_text().splitlines()
+        )
+    }
+    staged = [
+        path
+        for path in sorted(checksums)
+        if path == "tooling/configs/mini_toolcall.yaml"
+        or (
+            path.startswith("tasks/")
+            and path.split("/")[2] in {"instruction.md", "task.toml", "tests"}
+        )
+    ]
+    with tarfile.open(context / STAGED_ARCHIVE, "w:gz") as archive:
+        for path in staged:
+            if hashlib.sha256((v2 / path).read_bytes()).hexdigest() != checksums[path]:
+                raise ValueError(f"v2/{path} differs from the pinned release")
+            archive.add(v2 / path, arcname=f"v2/{path}")
+        archive.add(v2 / "SHA256SUMS", arcname="v2/SHA256SUMS")
+        archive.add(upstream / "LICENSE", arcname="LICENSE")
+    for name in ("Dockerfile", "swe_bench_pro_harness.py"):
+        shutil.copy(RUNTIME_ROOT / name, context / name)
+
+    ids = sorted(
+        {path.split("/")[1] for path in checksums if path.endswith("/task.toml")}
+    )
     if len(ids) != TASK_COUNT:
-        raise RuntimeError(
+        raise ValueError(
             f"Expected {TASK_COUNT} SWE-Bench Pro V2 tasks, found {len(ids)}"
         )
     return ids
@@ -83,9 +147,9 @@ def task_spec(instance_id: str, split: str) -> TaskSpec:
 
 
 def build_benchmark(
-    name: str, train_tasks: int | None, test_tasks: int | None
+    instance_ids: list[str], name: str, train_tasks: int | None, test_tasks: int | None
 ) -> BenchmarkSpec:
-    splits = split_tasks(load_instance_ids())
+    splits = split_tasks(instance_ids)
     limits = {"train": train_tasks, "test": test_tasks}
     return BenchmarkSpec(
         name=name,
@@ -100,19 +164,32 @@ def build_benchmark(
 
 
 def ingest(
-    agent_name: str, name: str, train_tasks: int | None, test_tasks: int | None
+    agent_name: str,
+    name: str,
+    train_tasks: int | None,
+    test_tasks: int | None,
+    upstream: Path | None = None,
 ) -> str:
-    benchmark = build_benchmark(name, train_tasks, test_tasks)
-    operation = start_push(
-        Client(), benchmark, agent_name=agent_name, root=RUNTIME_ROOT, build_images=True
-    )
-    print(f"operation_id={operation.id} tasks={len(benchmark.tasks)}", flush=True)
-    try:
-        result = operation.result(timeout=BUILD_TIMEOUT_SECONDS)
-    except BenchmarkOperationError as error:
-        for failure in error.failures:
-            print(failure.to_json(), flush=True)
-        raise
+    with tempfile.TemporaryDirectory() as workspace:
+        if upstream is None:
+            upstream = download_upstream(Path(workspace))
+        else:
+            verify_checkout(upstream)
+        context = Path(workspace) / "context"
+        context.mkdir()
+        benchmark = build_benchmark(
+            stage_runtime(upstream, context), name, train_tasks, test_tasks
+        )
+        operation = start_push(
+            Client(), benchmark, agent_name=agent_name, root=context, build_images=True
+        )
+        print(f"operation_id={operation.id} tasks={len(benchmark.tasks)}", flush=True)
+        try:
+            result = operation.result(timeout=BUILD_TIMEOUT_SECONDS)
+        except BenchmarkOperationError as error:
+            for failure in error.failures:
+                print(failure.to_json(), flush=True)
+            raise
     print(f"bench_id={result.status.bench_id}", flush=True)
     return result.status.bench_id
 
@@ -160,8 +237,15 @@ def main() -> None:
     parser.add_argument(
         "--test-tasks", type=int, help="Upload only the first N test tasks."
     )
+    parser.add_argument(
+        "--upstream",
+        type=Path,
+        help="Use this SWE-bench_Pro-os checkout of the pinned commit instead of downloading it.",
+    )
     args = parser.parse_args()
-    bench_id = ingest(args.agent_name, args.name, args.train_tasks, args.test_tasks)
+    bench_id = ingest(
+        args.agent_name, args.name, args.train_tasks, args.test_tasks, args.upstream
+    )
     benchmark_diagnostic(bench_id)
 
 

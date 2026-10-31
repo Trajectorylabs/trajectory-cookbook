@@ -1,7 +1,10 @@
 """Check the harness endings, grade parsing, and split without Docker or the platform."""
 
+import hashlib
 import importlib.util
 import json
+import subprocess
+import tarfile
 from pathlib import Path
 
 import httpx2
@@ -281,3 +284,75 @@ def test_observation_json_keeps_quotes_and_brackets():
         "{{ output.output | tojson }}", output={"output": "it's <a>"}
     )
     assert rendered == '"it\'s <a>"'
+
+
+def fake_checkout(root):
+    task = "tasks/instance_ansible__ansible-" + "0" * 40
+    files = {
+        "tooling/configs/mini_toolcall.yaml": "agent: {}\n",
+        "README.md": "V2\n",
+        f"{task}/instruction.md": "Fix it.\n",
+        f"{task}/task.toml": "[agent]\n",
+        f"{task}/tests/test.sh": "exit 0\n",
+        f"{task}/solution/gold_patch.diff": "the answer\n",
+        f"{task}/environment/Dockerfile": "FROM scratch\n",
+    }
+    for path, text in files.items():
+        (root / "v2" / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / "v2" / path).write_text(text)
+    (root / "v2/SHA256SUMS").write_text(
+        "".join(
+            f"{hashlib.sha256(text.encode()).hexdigest()}  {path}\n"
+            for path, text in files.items()
+        )
+    )
+    (root / "LICENSE").write_text("MIT\n")
+    for command in (
+        ["init", "-q"],
+        ["add", "."],
+        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "v2"],
+    ):
+        subprocess.run(["git", "-C", str(root), *command], check=True)
+    return subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+
+
+def test_staging_keeps_verifiers_and_drops_solutions(monkeypatch, tmp_path):
+    upstream, context = tmp_path / "upstream", tmp_path / "context"
+    upstream.mkdir()
+    context.mkdir()
+    monkeypatch.setattr(ingest, "SOURCE_COMMIT", fake_checkout(upstream))
+    monkeypatch.setattr(ingest, "TASK_COUNT", 1)
+    ingest.verify_checkout(upstream)
+    ids = ingest.stage_runtime(upstream, context)
+    assert ids == ["instance_ansible__ansible-" + "0" * 40]
+    assert {path.name for path in context.iterdir()} == {
+        "Dockerfile",
+        "swe_bench_pro_harness.py",
+        ingest.STAGED_ARCHIVE,
+    }
+    with tarfile.open(context / ingest.STAGED_ARCHIVE) as archive:
+        names = sorted(archive.getnames())
+    task = f"v2/tasks/{ids[0]}"
+    assert names == [
+        "LICENSE",
+        "v2/SHA256SUMS",
+        f"{task}/instruction.md",
+        f"{task}/task.toml",
+        f"{task}/tests/test.sh",
+        "v2/tooling/configs/mini_toolcall.yaml",
+    ]
+
+
+def test_staging_rejects_another_commit_or_edited_files(monkeypatch, tmp_path):
+    fake_checkout(tmp_path)
+    with pytest.raises(ValueError, match="check out"):
+        ingest.verify_checkout(tmp_path)
+    next(tmp_path.glob("v2/tasks/*/tests/test.sh")).write_text("exit 1\n")
+    monkeypatch.setattr(ingest, "TASK_COUNT", 1)
+    with pytest.raises(ValueError, match="differs from the pinned release"):
+        ingest.stage_runtime(tmp_path, tmp_path)

@@ -9,8 +9,8 @@ graded by the task's hidden tests.
 
 ## How an attempt runs
 
-Each task's runtime is one shared image with the Docker engine, this harness, and the upstream
-task directories without their reference solutions. For one attempt, the
+All tasks share one runtime image with the Docker engine, this harness, and the upstream task
+instructions, prompt, and verifiers. Reference solutions are left out. For one attempt, the
 [harness](runtime/swe_bench_pro_harness.py):
 
 1. pulls the task's public image, `ghcr.io/scaleapi/swe-bench_pro-v2:<instance_id>`;
@@ -53,6 +53,7 @@ only on the instance IDs, so every upload keeps the same held-out tasks.
 - An organization API key from **Settings → API keys** in the
   [platform](https://platform.trajectory.ai), with credits for evaluation and training.
 - An agent to own the benchmark; see [choose or create an agent](https://docs.trajectory.ai/agent).
+- This cookbook checkout. A checkout of the SWE-Bench Pro repository is optional.
 
 No other secrets are needed: the images pull anonymously, and the model runs through Trajectory.
 
@@ -71,12 +72,35 @@ uv run --with trajectory-sdk --with jinja2 --with pyyaml --with pytest pytest ex
 
 ## 1. Upload two tasks and check them
 
+From the cookbook repository root:
+
 ```bash
 uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 1 --test-tasks 1
 ```
 
-[`ingest.py`](ingest.py) reads the task list from the pinned commit, uploads the selected tasks
-as benchmark `swe-bench-pro`, and waits for the runtime image. It prints `bench_id`, then runs a
+If you already have a checkout of the SWE-Bench Pro repository, pass it with `--upstream`
+instead of downloading the release. It must be at the pinned commit:
+
+```bash
+git clone https://github.com/scaleapi/SWE-bench_Pro-os
+git -C SWE-bench_Pro-os checkout 66f92766bba642462d4bbe5479e83f91f9211862
+uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 1 --test-tasks 1 \
+  --upstream SWE-bench_Pro-os
+```
+
+Run from inside that checkout, the same upload is
+`uv run PATH/TO/trajectory-cookbook/examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --upstream .`
+with the task options.
+
+[`ingest.py`](ingest.py) downloads the pinned commit, or checks that the `--upstream` checkout's
+`HEAD` is that commit. It checks every staged file against the release's `v2/SHA256SUMS`, then
+builds the runtime from a temporary directory holding the Dockerfile, the harness, and one
+archive of each task's `instruction.md`, `task.toml`, and `tests/` plus upstream's
+`mini_toolcall.yaml`. The archive keeps the build context to three files; the task directories
+alone hold over 4,000. `solution/` is never staged.
+
+The script uploads the selected tasks as benchmark `swe-bench-pro`, waits for the runtime image,
+and prints `bench_id`. It then runs a
 [benchmark diagnostic](../task_diagnostics.md#check-an-uploaded-benchmark) on Qwen 3.6 35B A3B
 and prints each task's status and reward. A reward of 0 is a valid grade. The command exits
 with an error if a task fails or no reward is recorded.
@@ -99,11 +123,58 @@ then:
    time;
 3. evaluates the final checkpoint on the same test tasks.
 
-Each evaluation prints its ID, resolved count, and endings. Every run passes
-`max_output_tokens_per_step=16384`, so the two evaluations compare like for like. Use
-`--num-steps`, `--train-batch-size`, and `--group-size` for a longer run. A group whose
-attempts all get the same reward has no training signal, so training keeps sampling until each
-step has a group with both resolved and unresolved attempts.
+Each evaluation prints its ID, resolved count, and endings. Use `--num-steps`,
+`--train-batch-size`, and `--group-size` for a longer run. A group whose attempts all get the
+same reward has no training signal, so training keeps sampling until each step has a group
+with both resolved and unresolved attempts.
+
+### Run settings
+
+Every run passes the same settings, so the baseline and checkpoint scores are comparable.
+They fit the harness: 100 model calls, a 50-minute agent budget, and a verifier that can take
+as long again.
+
+```python
+RUN_OPTIONS = {
+    "reasoning_effort": "on",
+    "max_turns_per_trajectory": 100,
+    "max_output_tokens_per_step": 16_384,
+    "max_total_tokens_per_trajectory": 262_144,
+    "execution_timeout_seconds": 7_200,
+}
+```
+
+On the production runs below, an attempt used 5,000–20,000 output tokens in total, at most
+about 4,000 in one reply, and up to 65,000 prompt tokens. To start the runs yourself:
+
+```python
+from trajectory import Client
+
+client = Client()
+baseline = client.evals.create(
+    agent_name="swe-bench-pro",
+    benchmark_name="swe-bench-pro",
+    base_model_slug="Qwen/Qwen3.6-35B-A3B",
+    options=RUN_OPTIONS,
+)
+training = client.training.create(
+    bench_id=baseline.bench_id,
+    base_model_slug="Qwen/Qwen3.6-35B-A3B",
+    options={
+        **RUN_OPTIONS,
+        "num_steps": 2,
+        "train_batch_size": 1,
+        "group_size": 4,
+        "max_active_rollouts": 4,
+        "train_on_timeout": True,
+        "evaluation_enabled": False,
+    },
+)
+```
+
+After training succeeds, evaluate
+`client.training.checkpoints.retrieve(training.training_run_id, 2).checkpoint_id` with
+`parent_checkpoint_id` and the same `RUN_OPTIONS`.
 
 If the local command stops, the runs continue; inspect them by ID as in the
 [GSM8K walkthrough](../gsm8k/README.md#inspect-a-run).

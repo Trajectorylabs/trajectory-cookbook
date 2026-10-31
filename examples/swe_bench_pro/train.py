@@ -12,7 +12,15 @@ from trajectory import Client
 
 MODEL = "Qwen/Qwen3.6-35B-A3B"
 # Shared by every run so the baseline and checkpoint scores are comparable.
-GENERATION_OPTIONS = {"max_output_tokens_per_step": 16_384}
+RUN_OPTIONS = {
+    "reasoning_effort": "on",
+    # The harness stops at 100 model calls; an attempt stays far below the token caps.
+    "max_turns_per_trajectory": 100,
+    "max_output_tokens_per_step": 16_384,
+    "max_total_tokens_per_trajectory": 262_144,
+    # Image pull, the 50-minute agent budget, and the verifier.
+    "execution_timeout_seconds": 7_200,
+}
 
 
 def wait_for_evaluation(client: Client, eval_run_id: str) -> None:
@@ -64,7 +72,7 @@ def main() -> None:
         benchmark_name=args.bench_name,
         base_model_slug=MODEL,
         display_name="SWE-Bench Pro baseline",
-        options=GENERATION_OPTIONS,
+        options=RUN_OPTIONS,
     )
     bench_id = baseline.bench_id
     print(f"bench_id={bench_id}", flush=True)
@@ -75,7 +83,7 @@ def main() -> None:
         base_model_slug=MODEL,
         display_name="SWE-Bench Pro training",
         options={
-            **GENERATION_OPTIONS,
+            **RUN_OPTIONS,
             "num_steps": args.num_steps,
             "train_batch_size": args.train_batch_size,
             "group_size": args.group_size,
@@ -106,7 +114,7 @@ def main() -> None:
         base_model_slug=MODEL,
         parent_checkpoint_id=checkpoint.checkpoint_id,
         display_name=f"SWE-Bench Pro step {args.num_steps}",
-        options=GENERATION_OPTIONS,
+        options=RUN_OPTIONS,
     )
     wait_for_evaluation(client, final.eval_run_id)
 
