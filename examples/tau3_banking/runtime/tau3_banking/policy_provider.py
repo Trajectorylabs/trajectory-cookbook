@@ -1,7 +1,6 @@
 """LiteLLM provider that routes the Tau agent through a Trajectory SDK session."""
 
 from typing import Any
-from uuid import uuid4
 
 import litellm
 from litellm import CustomLLM, ModelResponse
@@ -31,11 +30,10 @@ class TrajectoryPolicy(CustomLLM):
             model="trajectory-session",
             x_trajectory_id=self.trajectory_id,
             messages=messages,
-            extra_headers={"X-Model-Request-Id": str(uuid4())},
             extra_body=params,
         )
         self.calls += 1
-        self.truncated |= response.choices[0].finish_reason == "length"
+        self.truncated |= response.choices[0].finish_reason in ("length", "max_tokens")
         return ModelResponse(**response.model_dump(mode="json"))
 
 

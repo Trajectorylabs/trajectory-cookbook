@@ -119,12 +119,11 @@ The terminal correct feedback is determined by the environment; no further model
 call is needed. If still unsolved after guesses 6 or 9, the harness compacts again
 using the previous summary plus the new messages.
 
-Guessing calls allow 8,192 output tokens and compaction calls allow 32,768. Set
-the platform's per-step output budget to at least 32,768 as well, so it does not
-override the harness with a smaller limit. These are ceilings, not requested
-response lengths: the model should still output one integer for each guess and
-a short summary for compaction. Inspect `finish_reason` in recorded trajectories
-to check for output truncation.
+The harness requests 8,192 output tokens per guess and 32,768 per compaction. In
+managed runs, the run's `max_output_tokens_per_step` replaces both, so with the
+options below every call gets 32,768. These are ceilings, not target lengths: the
+model should still output one integer per guess and a short summary. A reply cut
+off at the limit ends the game with reward 0 and `TRUNCATION`.
 
 The harness owns the secret, total guess count, and compaction schedule. It does
 not compute or repair the model's summary. A summary that drops or corrupts a
@@ -132,7 +131,7 @@ bound therefore affects subsequent guesses and the final reward.
 
 ## Upload the benchmark
 
-[Choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). For a new agent:
+[Choose or create an agent](https://docs.trajectory.ai/agent). For a new agent:
 
 ```bash
 uv run --with trajectory-sdk python -c \
@@ -149,6 +148,30 @@ The uploader packages 32 train and 16 test tasks into the runtime image. Each
 task selects a JSON file containing the secret through `run_command`; the secret
 is never included in model messages. Task repetition is intentional for this toy
 distribution. Save the printed `bench_id`.
+
+## Check the upload
+
+Run a benchmark diagnostic, which runs up to 10 of the uploaded tasks, before evaluating:
+
+```python
+import time
+
+from trajectory import Client
+
+client = Client()
+diagnostic = client.diagnostics.start_benchmark(
+    bench_id="bm_<your-benchmark-id>", base_model_slug="Qwen/Qwen3.5-4B"
+)
+diagnostic_id = diagnostic.benchmark_diagnostic_id
+while client.diagnostics.get_status(diagnostic_id).status not in {"completed", "failed", "cancelled"}:
+    time.sleep(15)
+report = client.diagnostics.get_diagnostics(diagnostic_id)
+print(report.status, report.failure)
+for task in report.tasks:
+    print(task.task_id, task.status, task.failure)
+```
+
+If the diagnostic or any task fails, fix the reported failure and upload again.
 
 ## Evaluate and train
 
@@ -167,7 +190,7 @@ print(client.evals.list_options(bench_id=bench_id, base_model_slug=model))
 
 # Up to 12 guessing calls plus 3 compaction calls per trajectory.
 options = {
-    "disable_thinking": True,
+    "reasoning_effort": "off",
     "max_turns_per_trajectory": 15,
     "max_output_tokens_per_step": 32_768,
 }
@@ -180,7 +203,7 @@ baseline = client.evals.create(
 training = client.training.create(
     bench_id=bench_id,
     base_model_slug=model,
-    options={**options, "num_steps": 20, "train_batch_size": 4},
+    options={**options, "num_steps": 20, "train_batch_size": 4, "max_active_rollouts": 32},
 )
 print(baseline.eval_run_id, training.training_run_id)
 ```

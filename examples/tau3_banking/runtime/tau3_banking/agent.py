@@ -56,12 +56,10 @@ def run_task(client: Client, task_id: str) -> str:
         agent="llm_agent",
         llm_agent="trajectory_sdk/policy",
         llm_args_agent={
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_k": 20,
-            "presence_penalty": 0.0,
+            # Managed runs apply the run's output limit and sampling settings instead.
             "max_tokens": 131072,
-            "num_retries": MAX_RETRIES,
+            # The SDK client retries policy calls; LiteLLM retries would multiply them.
+            "num_retries": 0,
         },
         user=USER_SIMULATOR,
         llm_user=USER_AND_JUDGE_MODEL,
@@ -83,12 +81,15 @@ def run_task(client: Client, task_id: str) -> str:
     if result.reward_info is None:
         raise RuntimeError("The upstream Tau 3 evaluator returned no reward")
 
-    client.trajectories.log_reward(
-        trajectory_id,
-        name="reward_accuracy",
-        value=result.reward_info.reward,
-        explanation=result.reward_info.model_dump_json(),
-    )
+    reason = _termination_reason(result.termination_reason, provider.truncated)
+    # tau2 keeps running after a cut-off policy reply, so its final grade covers later turns.
+    if reason != "ERROR" and not provider.truncated:
+        client.trajectories.log_reward(
+            trajectory_id,
+            name="reward_accuracy",
+            value=result.reward_info.reward,
+            explanation=result.reward_info.model_dump_json(),
+        )
     client.trajectories.log_event(
         trajectory_id,
         event_id="tau3-banking-protocol",
@@ -106,13 +107,11 @@ def run_task(client: Client, task_id: str) -> str:
             "policy_calls": provider.calls,
             "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
             "upstream_termination_reason": result.termination_reason.value,
+            "reward_info": result.reward_info.model_dump(mode="json"),
         },
     )
-    completed = client.trajectories.complete(
-        trajectory_id,
-        termination_reason=_termination_reason(result.termination_reason, provider.truncated),
-    )
-    if completed.status != "completed":
+    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
+    if completed.status not in ("completed", "finalizing"):
         raise RuntimeError(f"Trajectory completion returned {completed.status}")
     return trajectory_id
 
@@ -120,7 +119,7 @@ def run_task(client: Client, task_id: str) -> str:
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: python -m tau3_banking.agent TASK_ID")
-    with Client(max_retries=0, timeout=1200) as client:
+    with Client(max_retries=20, timeout=1200) as client:
         run_task(client, sys.argv[1])
 
 

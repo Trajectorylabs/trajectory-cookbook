@@ -1,5 +1,6 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# requires-python = ">=3.11"
+# dependencies = ["trajectory-sdk>=0.9.32"]
 # ///
 """Ingest the pinned public Tau 3 Banking tasks and build their SDK runtime."""
 
@@ -28,7 +29,6 @@ ROOT = Path(__file__).parent
 def build_benchmark(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
-        family="tau3-banking",
         description="Pinned public Tau 3 Banking tasks and original upstream evaluator.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=[

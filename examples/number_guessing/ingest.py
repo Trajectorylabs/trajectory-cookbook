@@ -1,5 +1,6 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# requires-python = ">=3.11"
+# dependencies = ["trajectory-sdk>=0.9.32"]
 # ///
 """Upload a toy number-guessing benchmark with same-model context compaction."""
 
@@ -37,7 +38,6 @@ def build_benchmark(name: str) -> BenchmarkSpec:
             )
     return BenchmarkSpec(
         name=name,
-        family="number-guessing",
         description="Guess 24 or 42 with same-model compaction after every three incorrect guesses.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=tasks,
