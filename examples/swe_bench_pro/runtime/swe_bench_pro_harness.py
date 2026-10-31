@@ -39,7 +39,8 @@ BASH_TOOL = {
     },
 }
 FIND_WORKDIR = "test -d /app && echo /app || echo /testbed"
-CAPTURE_PATCH = "git add -A && git diff --cached"
+# Diff against the starting commit, so the patch keeps any commits the model made.
+CAPTURE_PATCH = "git add -A && git diff --cached {base}"
 # The upstream patch-replay agent's apply command.
 APPLY_PATCH = (
     "cd /app 2>/dev/null || cd /testbed; git apply --verbose /tmp/model.patch "
@@ -299,6 +300,9 @@ def run_task(client: Client, tid: str, instance_id: str) -> str:
     agent = start_container(image, "--network=none")
     try:
         workdir = docker("exec", agent, "sh", "-c", FIND_WORKDIR, timeout=60).strip()
+        base = docker(
+            "exec", "-w", workdir, agent, "git", "rev-parse", "HEAD", timeout=60
+        ).strip()
         reason, turns = run_agent(
             client,
             tid,
@@ -308,7 +312,14 @@ def run_task(client: Client, tid: str, instance_id: str) -> str:
             task["agent"]["timeout_sec"],
         )
         patch = docker(
-            "exec", "-w", workdir, agent, "sh", "-c", CAPTURE_PATCH, timeout=300
+            "exec",
+            "-w",
+            workdir,
+            agent,
+            "sh",
+            "-c",
+            CAPTURE_PATCH.format(base=base),
+            timeout=300,
         )
     finally:
         docker("rm", "-f", agent, timeout=120, check=False)

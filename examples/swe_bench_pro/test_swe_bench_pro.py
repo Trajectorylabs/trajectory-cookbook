@@ -6,6 +6,8 @@ import json
 import subprocess
 import tarfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import httpx2
 import pytest
@@ -250,6 +252,42 @@ def test_harness_failure_completes_error_without_reward(monkeypatch, tmp_path):
         "/api/v1/trajectories/tid_test/complete",
         {"termination_reason": "ERROR"},
     )
+
+
+def test_patch_keeps_changes_the_model_committed(tmp_path):
+    def sh(command):
+        return subprocess.run(
+            ["sh", "-c", command],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+
+    sh("git init -q && git config user.email a@b && git config user.name a")
+    sh("echo old > f && git add f && git commit -qm base")
+    base = sh("git rev-parse HEAD").strip()
+    sh("echo new > f && git commit -qam fix && echo extra > g")
+
+    patch = sh(harness.CAPTURE_PATCH.format(base=base))
+
+    assert "+new" in patch and "+extra" in patch
+
+
+def test_diagnostic_fails_when_a_task_has_no_reward(monkeypatch):
+    client = MagicMock()
+    client.diagnostics.get_status.return_value.status = "completed"
+    tasks = [SimpleNamespace(task_id=t, status="completed", failure=None) for t in "ab"]
+    client.diagnostics.get_diagnostics.return_value = MagicMock(
+        status="completed", failure=None, tasks=tasks
+    )
+    client.evals.rewards.list_trajectory_rewards.return_value = [
+        SimpleNamespace(task_id="a", reward=1.0)
+    ]
+    monkeypatch.setattr(ingest, "Client", lambda: client)
+
+    with pytest.raises(RuntimeError, match="did not pass"):
+        ingest.benchmark_diagnostic("bm_test")
 
 
 def test_split_holds_out_each_repository_deterministically():

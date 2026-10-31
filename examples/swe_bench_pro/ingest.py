@@ -237,7 +237,7 @@ def benchmark_diagnostic(bench_id: str) -> None:
         or result.failure is not None
         or not result.tasks
         or any(task.status != "completed" or task.failure for task in result.tasks)
-        or not rewards
+        or any(rewards.get(task.task_id) is None for task in result.tasks)
     ):
         raise RuntimeError(
             f"Diagnostic {diagnostic_id} did not pass; inspect the report above"
