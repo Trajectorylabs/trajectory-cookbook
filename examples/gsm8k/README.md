@@ -250,6 +250,6 @@ or shell tools must keep reference answers, including `EXPECTED_ANSWER`, outside
 access.
 
 Use the [runtime packaging guidance](https://docs.trajectory.ai/guides/benchmarks#package-the-harness-in-an-image) and the
-[Harvey](../harvey_labs.md) or [Inspect](../inspect.md) recipes for an existing harness.
+[Harvey](../harvey_labs/README.md) or [Inspect](../inspect.md) recipes for an existing harness.
 Benchmark-specific source inspection may be necessary to understand those inputs and grading
 rules.
