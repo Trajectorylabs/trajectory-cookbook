@@ -92,3 +92,10 @@ def test_nested_deliverable_is_graded_from_its_subdirectory(tmp_path):
 
     agent_output = judge.evaluate_from_file.call_args.kwargs["variables"]["agent_output"]
     assert "nested memo contents" in agent_output
+
+
+def test_nested_exact_name_beats_a_similar_top_level_file():
+    resolved = _match_deliverables(
+        {"memo.txt": "memo.txt"}, ["memo-notes.txt", "drafts/memo.txt"]
+    )
+    assert resolved == {"memo.txt": "drafts/memo.txt"}

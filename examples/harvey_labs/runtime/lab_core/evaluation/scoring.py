@@ -152,9 +152,14 @@ def _match_deliverables(
     used = set()
 
     for name, expected in deliverables_map.items():
-        if expected in actual_files:
-            resolved[name] = expected
-            used.add(expected)
+        # Output files are paths relative to output/; a nested file can carry the exact name.
+        exact = next(
+            (f for f in actual_files if f == expected),
+            next((f for f in actual_files if f not in used and Path(f).name == expected), None),
+        )
+        if exact:
+            resolved[name] = exact
+            used.add(exact)
             continue
 
         expected_ext = Path(expected).suffix.lower()
