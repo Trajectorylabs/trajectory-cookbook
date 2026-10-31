@@ -122,14 +122,14 @@ The upload creates a new version of `swe-bench-pro` and diagnoses it. [`train.py
 then:
 
 1. evaluates Qwen 3.6 35B A3B on the version's test tasks;
-2. trains for two steps of one task group with four attempts each, running four attempts at a
+2. trains for two steps of one task group with four attempts each, sampling four groups at a
    time;
 3. evaluates the final checkpoint on the same test tasks.
 
 Each evaluation prints its ID, resolved count, and endings. Use `--num-steps`,
 `--train-batch-size`, and `--group-size` for a longer run. A group whose attempts all get the
-same reward has no training signal, so training keeps sampling until each step has a group
-with both resolved and unresolved attempts.
+same reward has no training signal, so training keeps sampling, for up to six hours per step,
+until each step has a group with both resolved and unresolved attempts.
 
 ### Run settings
 
@@ -143,7 +143,7 @@ RUN_OPTIONS = {
     "max_turns_per_trajectory": 200,
     "max_output_tokens_per_step": 16_384,
     "max_total_tokens_per_trajectory": 262_144,
-    "execution_timeout_seconds": 7_200,
+    "execution_timeout_seconds": 9_000,
 }
 ```
 
@@ -169,7 +169,8 @@ training = client.training.create(
         "num_steps": 2,
         "train_batch_size": 1,
         "group_size": 4,
-        "max_active_rollouts": 4,
+        "max_active_rollouts": 16,
+        "batch_collection_idle_timeout_seconds": 21_600,
         "train_on_timeout": True,
         "evaluation_enabled": False,
     },
@@ -186,8 +187,8 @@ If the local command stops, the runs continue; inspect them by ID as in the
 ## Expected scale and time
 
 An attempt pulls a 0.6–4.7 GB compressed image, works for up to 50 minutes, and grades in a
-few minutes; the verifier may take up to 50 minutes, so `execution_timeout_seconds` allows two
-hours. Each task sandbox uses 2 CPUs and 8 GB of memory. Attempts run in parallel, so a run
+few minutes. The pull may take up to 30 minutes and the verifier up to 50, so
+`execution_timeout_seconds` allows two and a half hours. Each task sandbox uses 2 CPUs and 8 GB of memory. Attempts run in parallel, so a run
 takes about as long as its slowest wave of attempts.
 
 Measured with Qwen 3.6 35B A3B and the settings above:

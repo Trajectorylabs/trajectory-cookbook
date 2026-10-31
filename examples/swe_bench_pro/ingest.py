@@ -58,6 +58,23 @@ def verify_checkout(upstream: Path) -> None:
     ).stdout.strip()
     if head != SOURCE_COMMIT:
         raise ValueError(f"{upstream} is at {head}; check out {SOURCE_COMMIT}")
+    # Staged files are checked against this manifest, so it must be the release's own.
+    changed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(upstream),
+            "diff",
+            "--quiet",
+            "HEAD",
+            "--",
+            "v2/SHA256SUMS",
+            "LICENSE",
+        ],
+        check=False,
+    )
+    if changed.returncode != 0:
+        raise ValueError(f"{upstream} has local changes to v2/SHA256SUMS or LICENSE")
 
 
 def stage_runtime(upstream: Path, context: Path) -> list[str]:

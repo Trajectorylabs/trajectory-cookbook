@@ -347,3 +347,20 @@ def test_staging_rejects_another_commit_or_edited_files(monkeypatch, tmp_path):
     monkeypatch.setattr(ingest, "TASK_COUNT", 1)
     with pytest.raises(ValueError, match="differs from the pinned release"):
         ingest.stage_runtime(tmp_path, tmp_path)
+
+
+def test_checkout_rejects_a_regenerated_manifest(monkeypatch, tmp_path):
+    monkeypatch.setattr(ingest, "SOURCE_COMMIT", fake_checkout(tmp_path))
+    test_sh = next(tmp_path.glob("v2/tasks/*/tests/test.sh"))
+    test_sh.write_text("true\n")
+    digest = hashlib.sha256(b"true\n").hexdigest()
+    manifest = tmp_path / "v2/SHA256SUMS"
+    path = test_sh.relative_to(tmp_path / "v2").as_posix()
+    manifest.write_text(
+        "".join(
+            f"{digest}  {path}\n" if line.endswith(f"  {path}") else f"{line}\n"
+            for line in manifest.read_text().splitlines()
+        )
+    )
+    with pytest.raises(ValueError, match="local changes"):
+        ingest.verify_checkout(tmp_path)

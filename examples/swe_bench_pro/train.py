@@ -18,8 +18,8 @@ RUN_OPTIONS = {
     "max_turns_per_trajectory": 200,
     "max_output_tokens_per_step": 16_384,
     "max_total_tokens_per_trajectory": 262_144,
-    # Image pull, the 50-minute agent budget, and the verifier.
-    "execution_timeout_seconds": 7_200,
+    # Image pull (up to 30 minutes), the 50-minute agent budget, and the verifier's 50 minutes.
+    "execution_timeout_seconds": 9_000,
 }
 
 
@@ -87,7 +87,9 @@ def main() -> None:
             "num_steps": args.num_steps,
             "train_batch_size": args.train_batch_size,
             "group_size": args.group_size,
-            "max_active_rollouts": args.train_batch_size * args.group_size,
+            # Sample four groups at a time; many groups resolve every attempt or none.
+            "max_active_rollouts": 4 * args.train_batch_size * args.group_size,
+            "batch_collection_idle_timeout_seconds": 21_600,
             # An attempt stopped at the 50-minute agent budget still has a graded patch.
             "train_on_timeout": True,
             "evaluation_enabled": False,
