@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.32"]
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
@@ -22,6 +22,8 @@ _RUNTIME_ROOT = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
 _RUN_COMMAND = "python -u /opt/gsm8k/gsm8k_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
+# The settings train.py evaluates and trains with.
+_RUN_OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_step": 2_048}
 _TRAIN_TASKS = 64
 # Qwen 3.5 4B solves this training problem about half the time, so smoke training has signal.
 _SMOKE_TRAIN_INDEX = 20
@@ -108,6 +110,7 @@ def task_diagnose(agent_name: str) -> None:
         agent_name=agent_name,
         root=_RUNTIME_ROOT,
         base_model_slug="Qwen/Qwen3.5-4B",
+        options=_RUN_OPTIONS,
         timeout_seconds=_BUILD_TIMEOUT_SECONDS,
     )
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
@@ -119,6 +122,7 @@ def benchmark_diagnostic(bench_id: str) -> None:
     diagnostic = client.diagnostics.start_benchmark(
         bench_id=bench_id,
         base_model_slug="Qwen/Qwen3.5-4B",
+        options=_RUN_OPTIONS,
     )
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
 
@@ -139,19 +143,18 @@ def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
         or result.failure is not None
         or not result.tasks
         or any(
-            task.status != "completed" or task.failure is not None
-            for task in result.tasks
+            task.status != "completed" or task.reward is None for task in result.tasks
         )
     ):
         raise RuntimeError(
             f"Diagnostic {diagnostic_id} did not pass; inspect the report above"
         )
-    evaluation = client.evals.runs.retrieve(result.eval_run_id)
-    if evaluation.reward_mean is None:
-        raise RuntimeError(
-            f"Diagnostic {diagnostic_id} completed without a recorded reward"
+    for task in result.tasks:
+        print(
+            f"task_id={task.task_id} ending={task.termination_reason} "
+            f"reward={task.reward}",
+            flush=True,
         )
-    print(f"diagnostic_reward={evaluation.reward_mean}", flush=True)
 
 
 def _load_rows(split: str, limit: int) -> list[dict]:

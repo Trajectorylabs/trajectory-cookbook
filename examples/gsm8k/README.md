@@ -57,7 +57,8 @@ task_diagnose(agent_name=agent_name)
 ```
 
 `task_diagnose` uploads one training task with its runtime and grader, builds the image, and
-runs it on `Qwen/Qwen3.5-4B`. It prints the diagnostic ID, status, task report, and reward.
+runs it on `Qwen/Qwen3.5-4B` with the settings the evaluations below use. It prints the
+diagnostic ID, status, task report, and each task's ending and reward.
 Zero is a valid grade. Fix packaging or grading failures and repeat the diagnostic.
 For a different harness, use the [task upload validation recipe](../task_diagnostics.md).
 
