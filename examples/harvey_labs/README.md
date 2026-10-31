@@ -49,7 +49,7 @@ uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
 `--judges` takes one or two models, as in Harvey LAB's own evaluation CLI. Claude models use
-`ANTHROPIC_API_KEY`; the others use `OPENAI_API_KEY`. For a single judge on another
+`ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, Mistral models `MISTRAL_API_KEY`, and the others `OPENAI_API_KEY`. For a single judge on another
 OpenAI-compatible provider, store its key as `OPENAI_API_KEY` and pass the provider's model ID
 and endpoint. The endpoint becomes each task's `OPENAI_BASE_URL`, and the judge sends the ID to
 that endpoint unchanged:

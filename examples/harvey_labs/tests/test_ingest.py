@@ -28,3 +28,11 @@ def test_dockerfile_downloads_source_commit():
     dockerfile = (EXAMPLE / "runtime" / "Dockerfile").read_text()
 
     assert f"harvey-labs/tar.gz/{ingest.SOURCE_COMMIT}" in dockerfile
+
+
+def test_each_judge_provider_gets_its_key():
+    task = ingest.build_benchmark(
+        "harvey", ("gemini-3-flash-preview", "mistral-medium-3.5")
+    ).tasks[0]
+    assert {"GEMINI_API_KEY", "MISTRAL_API_KEY"} <= task.env_vars.keys()
+    assert "OPENAI_API_KEY" not in task.env_vars

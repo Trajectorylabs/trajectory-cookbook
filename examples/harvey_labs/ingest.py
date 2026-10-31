@@ -18,6 +18,11 @@ SOURCE_COMMIT = "1dd81403b2fbb60596f7aea3fcecafad7bf73143"
 TASKS = (ROOT / "tasks.txt").read_text().split()
 # Upstream's JUDGE_MODELS in lab_core/evaluation/run_eval.py.
 JUDGES = ("claude-sonnet-4-6", "gpt-5.5")
+JUDGE_KEYS = {
+    "claude": "ANTHROPIC_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+}
 
 
 def build_benchmark(
@@ -28,10 +33,13 @@ def build_benchmark(
         key=lambda task: hashlib.sha256(f"harvey-test-v1:{task}".encode()).digest(),
     )
     test_tasks = set(ordered[:120])
-    # Upstream's Judge sends claude-* models to Anthropic; the other judges this
-    # example supports use OpenAI or the OpenAI-compatible --judge-base-url.
+    # The key each provider's client in upstream's Judge reads; other models use
+    # OpenAI or the OpenAI-compatible --judge-base-url.
     secrets = {
-        "ANTHROPIC_API_KEY" if judge.startswith("claude") else "OPENAI_API_KEY"
+        next(
+            (key for prefix, key in JUDGE_KEYS.items() if judge.startswith(prefix)),
+            "OPENAI_API_KEY",
+        )
         for judge in judges
     }
     env_vars = {
