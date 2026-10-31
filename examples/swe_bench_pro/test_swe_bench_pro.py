@@ -297,6 +297,15 @@ def test_diagnostic_fails_when_a_task_has_no_reward(monkeypatch):
         ingest.benchmark_diagnostic("bm_test")
 
 
+def test_command_that_cannot_run_becomes_an_error_observation():
+    output = harness.container_executor("container", "/app", {})(1, 30)
+
+    assert output["returncode"] == -1
+    assert output["exception_info"].startswith(
+        "An error occurred while executing the command: "
+    )
+
+
 def test_split_holds_out_each_repository_deterministically():
     ids = [
         f"instance_{owner}__{name}-{index:040x}"

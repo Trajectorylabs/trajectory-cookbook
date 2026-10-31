@@ -99,15 +99,23 @@ def container_executor(container: str, workdir: str, env: dict[str, str]) -> Exe
         args = ["docker", "exec", "-w", workdir, *environment, container]
         # LocalEnvironment runs commands with subprocess's shell=True, which is /bin/sh.
         args += ["timeout", "-k", "5", str(timeout), "sh", "-c", command]
-        result = subprocess.run(
-            args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
-            text=True,
-            errors="replace",
-            timeout=timeout + 60,
-        )
+        try:
+            result = subprocess.run(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+                text=True,
+                errors="replace",
+                timeout=timeout + 60,
+            )
+        except (TypeError, ValueError, OSError) as e:
+            # As LocalEnvironment reports a command it can't run, such as a non-string one.
+            return {
+                "output": "",
+                "returncode": -1,
+                "exception_info": f"An error occurred while executing the command: {e}",
+            }
         timed_out = result.returncode == 124
         return {
             "output": result.stdout,
