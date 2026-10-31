@@ -95,6 +95,28 @@ def test_python_exec_reaps_processes_the_snippet_starts(holds_output, timeout_s)
     assert not is_running(int(pid_file.read_text()))
 
 
+def test_python_exec_caps_output_while_reading():
+    code = (
+        "import sys\nfor _ in range(200): sys.stdout.write('x' * 10**6)\nprint('end')"
+    )
+    tool = python_exec.PythonExecTool(timeout_s=20)
+    out = asyncio.run(tool.run({"code": code}))
+    head, stdout = out.split("stdout:\n")
+    assert head == "exit_code: 0\n\n"
+    assert stdout == "x" * python_exec.MAX_OUTPUT_CHARS
+    assert "end" not in out
+
+
+def test_python_exec_holds_at_most_the_cap_per_stream():
+    async def read():
+        stream = asyncio.StreamReader()
+        stream.feed_data(b"y" * (python_exec.MAX_OUTPUT_BYTES + 10**6))
+        stream.feed_eof()
+        return await python_exec._read_capped(stream)
+
+    assert len(asyncio.run(read())) == python_exec.MAX_OUTPUT_BYTES
+
+
 @pytest.mark.parametrize(
     "finish_reason, stop_reason, truncated",
     [

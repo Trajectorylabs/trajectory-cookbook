@@ -1,4 +1,4 @@
-# Modified by Trajectory: runs agent code as nobody (when root), with no environment, and reaps it.
+# Modified by Trajectory: isolates agent code (nobody, no env), reaps it, and caps buffered output.
 from __future__ import annotations
 
 import asyncio
@@ -14,6 +14,15 @@ from big_finance_harness.tools.base import Tool, ToolError
 DEFAULT_TIMEOUT_S = 5.0
 MAX_OUTPUT_CHARS = 8000
 NOBODY = 65534
+# A UTF-8 character is at most 4 bytes, so this many bytes always cover MAX_OUTPUT_CHARS.
+MAX_OUTPUT_BYTES = 4 * MAX_OUTPUT_CHARS
+
+
+async def _read_capped(stream: asyncio.StreamReader) -> bytes:
+    kept = bytearray()
+    while chunk := await stream.read(65536):
+        kept += chunk[: MAX_OUTPUT_BYTES - len(kept)]
+    return bytes(kept)
 
 
 class PythonExecTool(Tool):
@@ -64,8 +73,11 @@ class PythonExecTool(Tool):
                 **drop,
             )
             try:
-                stdout_b, stderr_b = await asyncio.wait_for(
-                    proc.communicate(), timeout=self.timeout_s
+                stdout_b, stderr_b, _ = await asyncio.wait_for(
+                    asyncio.gather(
+                        _read_capped(proc.stdout), _read_capped(proc.stderr), proc.wait()
+                    ),
+                    timeout=self.timeout_s,
                 )
             except asyncio.TimeoutError:
                 raise ToolError(f"python_exec timed out after {self.timeout_s}s") from None
@@ -74,6 +86,11 @@ class PythonExecTool(Tool):
                 with contextlib.suppress(ProcessLookupError):
                     os.killpg(proc.pid, signal.SIGKILL)
                 await proc.wait()
+                # Reading to EOF lets the transport close; a setsid() escapee could hold the pipes.
+                with contextlib.suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(
+                        asyncio.gather(_read_capped(proc.stdout), _read_capped(proc.stderr)), 1
+                    )
 
         stdout = stdout_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]
         stderr = stderr_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]
