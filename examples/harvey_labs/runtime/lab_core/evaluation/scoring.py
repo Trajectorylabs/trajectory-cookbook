@@ -8,12 +8,10 @@ relevant deliverable files included in context.
 
 from __future__ import annotations
 
-import json
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from enum import StrEnum
 
-import anthropic
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
@@ -136,7 +134,9 @@ def _fuzzy_match_filename(expected: str, candidates: list[str]) -> tuple[str | N
     return best_match, best_score
 
 
-def _match_deliverables(deliverables_map: dict, actual_files: list[str], output_dir: Path | None = None) -> dict:
+def _match_deliverables(
+    deliverables_map: dict, actual_files: list[str], output_dir: Path | None = None, judge=None,
+) -> dict:
     """Best-effort match expected deliverable filenames to actual output files.
 
     For each deliverable, if the expected filename exists exactly, use it.
@@ -187,7 +187,9 @@ def _match_deliverables(deliverables_map: dict, actual_files: list[str], output_
     remaining_files = [f for f in actual_files if f not in used and not _is_thread_export(f)]
 
     if unresolved and remaining_files and output_dir:
-        llm_matches = _llm_match_deliverables(unresolved, remaining_files, output_dir)
+        if judge is None:
+            raise ValueError("Matching renamed deliverables needs a judge")
+        llm_matches = _llm_match_deliverables(unresolved, remaining_files, output_dir, judge)
         for name, matched_file in llm_matches.items():
             if matched_file and matched_file in actual_files:
                 resolved[name] = matched_file
@@ -201,8 +203,9 @@ def _llm_match_deliverables(
     unresolved: dict[str, str],
     available_files: list[str],
     output_dir: Path,
+    judge,
 ) -> dict[str, str | None]:
-    """Use an LLM to match unresolved deliverables to available output files.
+    """Use the judge to match unresolved deliverables to available output files.
 
     Provides the model with deliverable names, expected filenames, available
     filenames, and a preview of each file's content.
@@ -225,19 +228,18 @@ def _llm_match_deliverables(
     for name, expected in unresolved.items():
         deliverable_descriptions.append(f"Deliverable key: {name}\nExpected filename: {expected}")
 
-    deliverables_text = "\n".join(deliverable_descriptions)
-    files_text = "\n".join(file_previews)
     deliverable_keys = list(unresolved.keys())
 
-    prompt = f"""Match each unresolved deliverable to the most likely output file.
+    prompt_template = """Match each unresolved deliverable to the most likely output file.
 
 ## Unresolved Deliverables
-{deliverables_text}
+{deliverables}
 
 ## Available Output Files
-{files_text}
+{files}
 
-For each deliverable, provide the matching filename from the available files, or null if no file matches."""
+For each deliverable, provide the matching filename from the available files, or null if no file matches.
+Respond with a JSON object whose keys are the deliverable keys."""
 
     # Build JSON schema with the exact deliverable keys as properties
     schema_properties = {key: {"type": ["string", "null"]} for key in deliverable_keys}
@@ -248,27 +250,16 @@ For each deliverable, provide the matching filename from the available files, or
         "additionalProperties": False,
     }
 
-    try:
-        client = anthropic.Anthropic()
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
-            temperature=0.0,
-            messages=[{"role": "user", "content": prompt}],
-            output_config={
-                "format": {
-                    "type": "json_schema",
-                    "schema": output_schema,
-                }
-            },
-        )
-        return json.loads(
-            next(b.text for b in response.content if b.type == "text")
-        )
-    except Exception as e:
-        print(f"  LLM matching failed: {e}")
-
-    return {}
+    # The judge emits a diagnostic and raises if it can't answer, so the run fails
+    # instead of grading a renamed deliverable as missing.
+    return judge.evaluate(
+        prompt_template,
+        {
+            "deliverables": "\n".join(deliverable_descriptions),
+            "files": "\n".join(file_previews),
+        },
+        schema=output_schema,
+    )
 
 
 # ── Rubric Scoring ───────────────────────────────────────────────
@@ -336,7 +327,9 @@ def score_rubric(
     # Match expected deliverable filenames to actual output files
     if deliverables_map and output_dir.exists():
         actual_files = [f.name for f in output_dir.rglob("*") if f.is_file()]
-        resolved_map = _match_deliverables(deliverables_map, actual_files, output_dir=output_dir)
+        resolved_map = _match_deliverables(
+            deliverables_map, actual_files, output_dir=output_dir, judge=judge
+        )
     else:
         resolved_map = None
 

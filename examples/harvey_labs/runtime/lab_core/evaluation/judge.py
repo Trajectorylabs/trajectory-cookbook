@@ -69,6 +69,7 @@ class Judge:
 
     def evaluate(
         self, prompt_template: str, variables: dict, temperature: float = 0.0, _retries: int = 2,
+        schema: dict = _VERDICT_SCHEMA,
     ) -> dict:
         """Send a formatted prompt to the judge and parse the JSON response.
 
@@ -76,20 +77,23 @@ class Judge:
             prompt_template: A prompt string with {variable} placeholders.
             variables: Dict of values to format into the template.
             temperature: Sampling temperature (default 0.0).
+            schema: JSON schema that constrains the response (default: a verdict).
 
         Returns:
             Parsed JSON dict from the judge's response.
         """
         prompt = prompt_template.format(**variables)
         if self.provider == "anthropic":
-            return self._evaluate_anthropic(prompt, temperature, _retries)
+            return self._evaluate_anthropic(prompt, temperature, _retries, schema)
         if self.provider == "google":
-            return self._evaluate_google(prompt, temperature, _retries)
+            return self._evaluate_google(prompt, temperature, _retries, schema)
         if self.provider == "openai":
-            return self._evaluate_openai(prompt, temperature, _retries)
+            return self._evaluate_openai(prompt, temperature, _retries, schema)
         return self._evaluate_mistral(prompt, temperature, _retries)
 
-    def _evaluate_anthropic(self, prompt: str, temperature: float, _retries: int) -> dict:
+    def _evaluate_anthropic(
+        self, prompt: str, temperature: float, _retries: int, schema: dict
+    ) -> dict:
         last_err: Exception | None = None
         for attempt in range(_retries):
             kwargs = {
@@ -103,7 +107,7 @@ class Judge:
                 kwargs["output_config"] = {
                     "format": {
                         "type": "json_schema",
-                        "schema": _VERDICT_SCHEMA,
+                        "schema": schema,
                     }
                 }
             try:
@@ -134,7 +138,9 @@ class Judge:
                 last_err = e
         self._raise_last_error(last_err, _retries, prompt)
     
-    def _evaluate_google(self, prompt: str, temperature: float, _retries: int) -> dict:
+    def _evaluate_google(
+        self, prompt: str, temperature: float, _retries: int, schema: dict
+    ) -> dict:
         last_err: Exception | None = None
         for attempt in range(_retries):
             config_kwargs = dict(
@@ -144,7 +150,7 @@ class Judge:
             )
             # Constrain to the verdict schema on early attempts; drop it on the last.
             if attempt < _retries - 1:
-                config_kwargs["response_schema"] = _VERDICT_SCHEMA
+                config_kwargs["response_schema"] = schema
             try:
                 response = self.client.models.generate_content(
                     model=self.model,
@@ -163,7 +169,9 @@ class Judge:
                 last_err = e
         self._raise_last_error(last_err, _retries, prompt)
 
-    def _evaluate_openai(self, prompt: str, temperature: float, _retries: int) -> dict:
+    def _evaluate_openai(
+        self, prompt: str, temperature: float, _retries: int, schema: dict
+    ) -> dict:
         last_err: Exception | None = None
         for attempt in range(_retries):
             kwargs = {
@@ -177,7 +185,7 @@ class Judge:
                     "format": {
                         "type": "json_schema",
                         "name": "verdict",
-                        "schema": _VERDICT_SCHEMA,
+                        "schema": schema,
                         "strict": True,
                     }
                 }
