@@ -37,6 +37,21 @@ def test_renamed_deliverable_is_matched_through_the_judge(judge, output_dir):
     assert request["text"]["format"]["schema"]["required"] == ["memo.txt"]
 
 
+def test_judge_cannot_assign_one_file_to_two_deliverables(judge, output_dir):
+    judge.client.responses.create.return_value = SimpleNamespace(
+        output_text=json.dumps({"memo.txt": "final-v2.txt", "brief.txt": "final-v2.txt"})
+    )
+
+    resolved = _match_deliverables(
+        {"memo.txt": "memo.txt", "brief.txt": "brief.txt"},
+        ["final-v2.txt", "scratch.txt"],
+        output_dir,
+        judge,
+    )
+
+    assert resolved == {"memo.txt": "final-v2.txt", "brief.txt": "brief.txt"}
+
+
 def test_judge_failure_fails_matching_with_a_diagnostic(judge, output_dir, capsys):
     judge.client.responses.create.side_effect = RuntimeError("provider down")
 

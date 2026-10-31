@@ -196,7 +196,8 @@ def _match_deliverables(
             raise ValueError("Matching renamed deliverables needs a judge")
         llm_matches = _llm_match_deliverables(unresolved, remaining_files, output_dir, judge)
         for name, matched_file in llm_matches.items():
-            if matched_file and matched_file in actual_files:
+            # One file can't stand in for two deliverables.
+            if matched_file in remaining_files and matched_file not in used:
                 resolved[name] = matched_file
                 used.add(matched_file)
                 print(f"  Matched deliverable '{name}': {deliverables_map[name]} -> {matched_file} (LLM match)")

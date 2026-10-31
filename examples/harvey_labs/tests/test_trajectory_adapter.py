@@ -6,6 +6,7 @@ from lab_core.harness.adapters import trajectory
 from lab_core.harness.run import create_adapter
 
 COMPLETED = SimpleNamespace(status="completed")
+SCORES = {"all_pass": False, "n_passed": 3, "n_criteria": 4}
 
 
 def _adapter():
@@ -31,6 +32,27 @@ def test_session_sends_reasoning_effort_without_summary():
     assert client.responses.create.call_args.kwargs["extra_body"]["reasoning"] == {
         "effort": "low"
     }
+
+
+def test_reward_is_the_criteria_fraction_with_all_pass_reported():
+    adapter = _adapter()
+
+    with (
+        patch.object(trajectory, "Judge"),
+        patch.object(trajectory, "evaluate_run", return_value=SCORES),
+    ):
+        adapter.finalize(
+            "run", "task", {"finish_reason": "finish_tool", "incomplete_details": None}
+        )
+
+    rewards = {
+        c.kwargs["name"]: (c.kwargs["value"], c.kwargs.get("weight"))
+        for c in adapter.trajectory.trajectories.log_reward.call_args_list
+    }
+    assert rewards == {"criteria_fraction": (0.75, None), "all_pass": (0.0, 0.0)}
+    adapter.trajectory.trajectories.complete.assert_called_once_with(
+        "tid_test", termination_reason="ENV_DONE"
+    )
 
 
 def test_grader_failure_completes_error_without_reward():
@@ -59,7 +81,7 @@ def test_reward_logging_failure_completes_error():
 
     with (
         patch.object(trajectory, "Judge"),
-        patch.object(trajectory, "evaluate_run", return_value={"all_pass": 1}),
+        patch.object(trajectory, "evaluate_run", return_value=SCORES),
         pytest.raises(RuntimeError, match="api down"),
     ):
         adapter.finalize("run", "task", {"finish_reason": "finish_tool"})
@@ -89,7 +111,7 @@ def test_failed_final_completion_leaves_exit_hook_an_error_completion():
 
     with (
         patch.object(trajectory, "Judge"),
-        patch.object(trajectory, "evaluate_run", return_value={"all_pass": 1}),
+        patch.object(trajectory, "evaluate_run", return_value=SCORES),
         pytest.raises(RuntimeError, match="api down"),
     ):
         adapter.finalize(
@@ -130,7 +152,7 @@ def test_unexpected_completion_status_raises_and_stays_open():
 
     with (
         patch.object(trajectory, "Judge"),
-        patch.object(trajectory, "evaluate_run", return_value={"all_pass": 1}),
+        patch.object(trajectory, "evaluate_run", return_value=SCORES),
         pytest.raises(RuntimeError, match="returned running"),
     ):
         adapter.finalize(

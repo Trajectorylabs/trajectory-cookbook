@@ -142,9 +142,10 @@ final = client.evals.create(
 )
 ```
 
-The all-pass reward is binary, and a group of attempts that all fail or all pass has no
-training signal. Choose training tasks the model sometimes solves; check the step summaries'
-`no_signal_groups` early (see the [training guide](https://docs.trajectory.ai/guides/training)).
+The reward is the fraction of rubric criteria passed. Harvey's all-pass score rarely differs
+across a group of attempts at one task, so it gives training little signal; it is logged as the
+zero-weight `all_pass` component, shown with each trajectory's reward. Check the step
+summaries' `no_signal_groups` early (see the [training guide](https://docs.trajectory.ai/guides/training)).
 An attempt that prints the whole document store in one command can overflow the context and
 end as `TRUNCATION`; training skips those attempts by default.
 
@@ -192,8 +193,9 @@ The public benchmark contains 2,010 tasks: 1,890 training tasks and 120 held-out
 ## Preserve the original harness
 
 The added model adapter creates one TID and sends the harness's existing Responses API calls
-through `trajectory-session`. After the run, it invokes Harvey LAB's normal judge, records its
-all-pass result as `reward_accuracy`, and completes the same trajectory. If the agent loop or
+through `trajectory-session`. After the run, it invokes Harvey LAB's normal judge, records the
+fraction of criteria passed as `criteria_fraction` and the all-pass result as the zero-weight
+`all_pass`, and completes the same trajectory. If the agent loop or
 the judge fails, it completes the trajectory with `ERROR` and logs no reward. This keeps prompts,
 tools, output files, and grading behavior owned by the upstream benchmark.
 

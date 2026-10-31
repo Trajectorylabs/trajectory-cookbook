@@ -57,10 +57,18 @@ class TrajectoryAdapter(OpenAIAdapter):
     def finalize(self, run_id: str, task: str, metrics: dict) -> None:
         try:
             scores = evaluate_run(run_id, task, Judge(model=self.judge_model))
+            # All-pass rarely differs within a group, so training uses the passed fraction.
             self.trajectory.trajectories.log_reward(
                 self.tid,
-                name="reward_accuracy",
+                name="criteria_fraction",
+                value=scores["n_passed"] / scores["n_criteria"],
+                explanation=f"Harvey LAB {self.judge_model} criteria passed",
+            )
+            self.trajectory.trajectories.log_reward(
+                self.tid,
+                name="all_pass",
                 value=float(scores["all_pass"]),
+                weight=0.0,
                 explanation=f"Harvey LAB {self.judge_model} all-pass score",
             )
         except Exception:
