@@ -26,9 +26,10 @@ instructions, prompt, and verifiers. Reference solutions are left out. For one a
 5. records the verifier's `reward.txt` as the `resolved` reward (1 or 0) and completes the
    trajectory.
 
-This is upstream's locked protocol: an offline agent and a re-grade on a pristine image. The
-agent has upstream's 50-minute budget, each command runs for at most 120 seconds, and an attempt
-makes at most 100 model calls.
+This follows upstream's locked protocol: an offline agent with a 50-minute budget, re-graded on
+a pristine image. The harness adds two limits: each command runs for at most 120 seconds, and
+an attempt makes at most 100 model calls. Command output is shown in the template's JSON layout
+without Jinja's HTML escaping, so quotes and angle brackets read as they appear in the files.
 
 | Ending | When |
 | --- | --- |
@@ -88,9 +89,12 @@ uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks
   --upstream SWE-bench_Pro-os
 ```
 
-Run from inside that checkout, the same upload is
-`uv run PATH/TO/trajectory-cookbook/examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --upstream .`
-with the task options.
+From inside that checkout, point `uv run` at the cookbook's script instead:
+
+```bash
+uv run PATH/TO/trajectory-cookbook/examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro \
+  --train-tasks 1 --test-tasks 1 --upstream .
+```
 
 [`ingest.py`](ingest.py) downloads the pinned commit, or checks that the `--upstream` checkout's
 `HEAD` is that commit. It checks every staged file against the release's `v2/SHA256SUMS`, then
@@ -144,8 +148,9 @@ RUN_OPTIONS = {
 }
 ```
 
-On the production runs below, an attempt used 5,000–20,000 output tokens in total, at most
-about 4,000 in one reply, and up to 65,000 prompt tokens. To start the runs yourself:
+On the production runs [below](#expected-scale-and-time), an attempt used 5,000–20,000 output
+tokens in total, at most about 4,000 in one reply, and up to 65,000 prompt tokens. To start the
+runs yourself:
 
 ```python
 from trajectory import Client
@@ -182,10 +187,24 @@ If the local command stops, the runs continue; inspect them by ID as in the
 ## Expected scale and time
 
 An attempt pulls a 0.6–4.7 GB compressed image, works for up to 50 minutes, and grades in a
-few minutes; the verifier may take up to 50 minutes. Allow up to two hours per attempt, the
-default `execution_timeout_seconds`. Each task sandbox uses 2 CPUs and 8 GB of memory.
+few minutes; the verifier may take up to 50 minutes, so `execution_timeout_seconds` allows two
+hours. Each task sandbox uses 2 CPUs and 8 GB of memory. Attempts run in parallel, so a run
+takes about as long as its slowest wave of attempts.
 
-<!-- Filled in from the production verification. -->
+Measured with Qwen 3.6 35B A3B and the settings above:
+
+| Step | Wall time | Result |
+| --- | --- | --- |
+| Two-task upload and diagnostic | 1 minute to build, 55 minutes to diagnose | 2 of 2 graded, 1 resolved |
+| 48-task demo upload and diagnostic | 1 minute to build, 55 minutes to diagnose | 10 of 10 graded, 5 resolved |
+| Baseline on 8 test tasks | 56 minutes | 5 of 8 resolved; 5 `TIMEOUT`, 3 `ENV_DONE` |
+| Training, 2 steps | 2 hours 50 minutes | 5 task groups sampled; 2 trained on, 2 resolved in every attempt |
+| Checkpoint on the same 8 tasks | 55 minutes | 3 of 8 resolved; 2 `TIMEOUT`, 6 `ENV_DONE` |
+
+Attempts made 25–75 model calls. Eight held-out tasks with one attempt each cannot measure a
+change from two training steps; use more test tasks and `evaluation_samples_per_task` before
+reading a difference. The full 97-task test split runs in about two waves at the default 50
+concurrent attempts.
 
 ## Inspect an attempt
 
