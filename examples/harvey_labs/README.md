@@ -82,8 +82,9 @@ docker run --rm -v "$PWD/examples/harvey_labs:/example:ro" harvey-lab-trajectory
 ## Evaluate and train
 
 Harvey LAB tasks are long: an attempt can take dozens of tool calls, and a reasoning model's
-reply can run to thousands of tokens. These settings ran on Qwen 3.6 35B A3B. They leave each
-reply the model's full context and give each attempt two hours:
+reply can run to thousands of tokens. These settings ran on Qwen 3.6 35B A3B, with a
+three-step smoke training run. They leave each reply the model's full context and give each
+attempt two hours:
 
 ```python
 from trajectory import Client
