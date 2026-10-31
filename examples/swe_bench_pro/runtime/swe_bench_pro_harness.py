@@ -12,12 +12,15 @@ from collections.abc import Callable
 from pathlib import Path
 
 import yaml
-from jinja2 import Environment, StrictUndefined
+from jinja2 import StrictUndefined, Template
 from trajectory import Client
 
 SOURCE_COMMIT = "66f92766bba642462d4bbe5479e83f91f9211862"
 UPSTREAM = Path("/opt/swe_bench_pro/upstream/v2")
-COMMAND_TIMEOUT_SECONDS = 120
+# mini-swe-agent's LocalEnvironment default; neither its mini.yaml nor mini_toolcall.yaml sets one.
+COMMAND_TIMEOUT_SECONDS = 30
+# mini-swe-agent's DefaultAgent ends a run after this many format errors in a row.
+MAX_CONSECUTIVE_FORMAT_ERRORS = 3
 PULL_TIMEOUT_SECONDS = 1800
 SUBMIT_MARKER = "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"
 # mini-swe-agent's bash tool, which the upstream prompt in mini_toolcall.yaml is written for.
@@ -39,8 +42,8 @@ BASH_TOOL = {
     },
 }
 FIND_WORKDIR = "test -d /app && echo /app || echo /testbed"
-# Diff against the starting commit, so the patch keeps any commits the model made.
-CAPTURE_PATCH = "git add -A && git diff --cached {base}"
+# Upstream's patch capture in locked_mini_swe.py.
+CAPTURE_PATCH = "git add -A && git diff --cached"
 # The upstream patch-replay agent's apply command.
 APPLY_PATCH = (
     "cd /app 2>/dev/null || cd /testbed; git apply --verbose /tmp/model.patch "
@@ -50,14 +53,8 @@ APPLY_PATCH = (
 Execute = Callable[[str, int], dict]
 
 
-TEMPLATES = Environment(undefined=StrictUndefined)
-# Jinja's tojson writes quotes and angle brackets as \u0027 and \u003c, which models
-# misread as the file's contents.
-TEMPLATES.filters["tojson"] = lambda value: json.dumps(value, ensure_ascii=False)
-
-
 def render(template: str, **variables: object) -> str:
-    return TEMPLATES.from_string(template).render(**variables)
+    return Template(template, undefined=StrictUndefined).render(**variables)
 
 
 def load_prompts() -> dict:
@@ -100,7 +97,8 @@ def container_executor(container: str, workdir: str, env: dict[str, str]) -> Exe
     def execute(command: str, timeout: int) -> dict:
         environment = [f"--env={key}={value}" for key, value in env.items()]
         args = ["docker", "exec", "-w", workdir, *environment, container]
-        args += ["timeout", "-k", "5", str(timeout), "bash", "-lc", command]
+        # LocalEnvironment runs commands with subprocess's shell=True, which is /bin/sh.
+        args += ["timeout", "-k", "5", str(timeout), "sh", "-c", command]
         result = subprocess.run(
             args,
             stdout=subprocess.PIPE,
@@ -114,7 +112,8 @@ def container_executor(container: str, workdir: str, env: dict[str, str]) -> Exe
         return {
             "output": result.stdout,
             "returncode": -1 if timed_out else result.returncode,
-            "exception_info": f"The command timed out after {timeout} seconds."
+            "exception_info": "An error occurred while executing the command: "
+            f"Command '{command}' timed out after {timeout} seconds"
             if timed_out
             else "",
         }
@@ -129,15 +128,23 @@ def is_submission(output: dict) -> bool:
     )
 
 
-def parse_command(tool_call) -> str | None:
-    if tool_call.function.name != "bash":
-        return None
-    try:
-        arguments = json.loads(tool_call.function.arguments)
-    except json.JSONDecodeError:
-        return None
-    command = arguments.get("command") if isinstance(arguments, dict) else None
-    return command if isinstance(command, str) else None
+def tool_call_error(tool_calls: list) -> str:
+    """Return mini-swe-agent's error for a reply's tool calls, or "" if all are valid."""
+    if not tool_calls:
+        return "No tool calls found in the response. Every response MUST include at least one tool call."
+    for call in tool_calls:
+        error, arguments = "", {}
+        try:
+            arguments = json.loads(call.function.arguments)
+        except (TypeError, ValueError) as e:
+            error = f"Error parsing tool call arguments: {e}."
+        if call.function.name != "bash":
+            error += f"Unknown tool '{call.function.name}'."
+        if not isinstance(arguments, dict) or "command" not in arguments:
+            error += "Missing 'command' argument in bash tool call."
+        if error:
+            return error.strip()
+    return ""
 
 
 def run_agent(
@@ -159,7 +166,7 @@ def run_agent(
         },
     ]
     # Upstream sets no step limit; the time budget bounds an attempt.
-    turn = 0
+    turn = format_errors = 0
     while True:
         turn += 1
         if time.monotonic() >= deadline:
@@ -178,36 +185,37 @@ def run_agent(
         if choice.finish_reason in ("length", "max_tokens"):
             return "TRUNCATION", turn
         tool_calls = choice.message.tool_calls or []
-        assistant = {"role": "assistant", "content": choice.message.content or ""}
-        if tool_calls:
-            assistant["tool_calls"] = [
-                call.model_dump(mode="json") for call in tool_calls
-            ]
-        messages.append(assistant)
-        if not tool_calls:
-            error = "No tool calls found in the response. Every response MUST include at least one tool call."
-            messages.append(
-                {
-                    "role": "user",
-                    "content": render(prompts["format_error_template"], error=error),
-                }
+        if error := tool_call_error(tool_calls):
+            # As in mini-swe-agent, the reply leaves the history and none of its calls run.
+            format_errors += 1
+            if format_errors == MAX_CONSECUTIVE_FORMAT_ERRORS:
+                return "ENV_DONE", turn
+            content = render(
+                prompts["format_error_template"],
+                error=error,
+                actions=[],
+                has_tool_calls=bool(tool_calls),
+                finish_reason=choice.finish_reason,
             )
+            messages.append({"role": "user", "content": content})
             continue
+        format_errors = 0
+        messages.append(
+            {
+                "role": "assistant",
+                "content": choice.message.content or "",
+                "tool_calls": [call.model_dump(mode="json") for call in tool_calls],
+            }
+        )
         for call in tool_calls:
-            command = parse_command(call)
-            if command is None:
-                error = (
-                    "Call the bash tool with a JSON object holding a string 'command'."
-                )
-                content = render(prompts["format_error_template"], error=error)
-            else:
-                remaining = int(deadline - time.monotonic())
-                if remaining <= 0:
-                    return "TIMEOUT", turn
-                output = execute(command, min(COMMAND_TIMEOUT_SECONDS, remaining))
-                if is_submission(output):
-                    return "ENV_DONE", turn
-                content = render(prompts["observation_template"], output=output)
+            remaining = int(deadline - time.monotonic())
+            if remaining <= 0:
+                return "TIMEOUT", turn
+            command = json.loads(call.function.arguments)["command"]
+            output = execute(command, min(COMMAND_TIMEOUT_SECONDS, remaining))
+            if is_submission(output):
+                return "ENV_DONE", turn
+            content = render(prompts["observation_template"], output=output)
             messages.append(
                 {"role": "tool", "tool_call_id": call.id, "content": content}
             )
@@ -300,9 +308,6 @@ def run_task(client: Client, tid: str, instance_id: str) -> str:
     agent = start_container(image, "--network=none")
     try:
         workdir = docker("exec", agent, "sh", "-c", FIND_WORKDIR, timeout=60).strip()
-        base = docker(
-            "exec", "-w", workdir, agent, "git", "rev-parse", "HEAD", timeout=60
-        ).strip()
         reason, turns = run_agent(
             client,
             tid,
@@ -318,7 +323,7 @@ def run_task(client: Client, tid: str, instance_id: str) -> str:
             agent,
             "sh",
             "-c",
-            CAPTURE_PATCH.format(base=base),
+            CAPTURE_PATCH,
             timeout=300,
         )
     finally:

@@ -16,24 +16,24 @@ instructions, prompt, and verifiers. Reference solutions are left out. For one a
 1. pulls the task's public image, `ghcr.io/scaleapi/swe-bench_pro-v2:<instance_id>`;
 2. starts the repository in a container with no network, so neither the internet nor the
    hidden tests are within the model's reach;
-3. runs the model in a bash-tool loop with upstream's `mini_toolcall.yaml` prompt from
-   [`v2/tooling/configs`](https://github.com/scaleapi/SWE-bench_Pro-os/tree/66f92766bba642462d4bbe5479e83f91f9211862/v2/tooling/configs):
-   the instruction, one `bash` tool, and the `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`
+3. runs the model with mini-swe-agent's tool-call protocol and upstream's `mini_toolcall.yaml`
+   from [`v2/tooling/configs`](https://github.com/scaleapi/SWE-bench_Pro-os/tree/66f92766bba642462d4bbe5479e83f91f9211862/v2/tooling/configs):
+   its prompts, one `bash` tool, and the `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`
    submission;
-4. captures the repository's `git diff`, applies it to a fresh container from the same image,
-   and runs the task's unchanged `tests/test.sh`, which applies the hidden test patch and checks
-   its `fail_to_pass` and `pass_to_pass` tests;
+4. captures the patch with `git add -A && git diff --cached`, applies it to a fresh container
+   from the same image, and runs the task's unchanged `tests/test.sh`, which applies the hidden
+   test patch and checks its `fail_to_pass` and `pass_to_pass` tests;
 5. records the verifier's `reward.txt` as the `resolved` reward (1 or 0) and completes the
    trajectory.
 
 This follows upstream's locked protocol: an offline agent with a 50-minute budget, re-graded on
-a pristine image. As upstream, there is no step limit; the harness adds only that each command
-runs for at most 120 seconds. Command output is shown in the template's JSON layout
-without Jinja's HTML escaping, so quotes and angle brackets read as they appear in the files.
+a pristine image. As in upstream's `locked_mini_swe` run, there is no step limit, each command
+runs with `sh -c` for at most 30 seconds, and a reply without a valid `bash` call is dropped and
+answered with the config's format-error message.
 
 | Ending | When |
 | --- | --- |
-| `ENV_DONE` | The model ran the submission command. |
+| `ENV_DONE` | The model ran the submission command, or sent three replies in a row without a valid `bash` call. |
 | `TIMEOUT` | The 50-minute agent budget ran out. |
 | `TRUNCATION` | A reply hit its output-token limit, so its tool calls are not run, or the attempt reached a run's turn or token limit. |
 | `ERROR` | The image pull, a container, or the verifier failed. No reward is recorded. |
@@ -53,7 +53,7 @@ only on the instance IDs, so every upload keeps the same held-out tasks.
 - An organization API key from **Settings → API keys** in the
   [platform](https://platform.trajectory.ai), with credits for evaluation and training.
 - An agent to own the benchmark; see [choose or create an agent](https://docs.trajectory.ai/agent).
-- This cookbook checkout. A checkout of the SWE-Bench Pro repository is optional.
+- This cookbook checkout.
 
 No other secrets are needed: the images pull anonymously, and the model runs through Trajectory.
 
@@ -78,28 +78,10 @@ From the cookbook repository root:
 uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 1 --test-tasks 1
 ```
 
-If you already have a checkout of the SWE-Bench Pro repository, pass it with `--upstream`
-instead of downloading the release. It must be at the pinned commit:
-
-```bash
-git clone https://github.com/scaleapi/SWE-bench_Pro-os
-git -C SWE-bench_Pro-os checkout 66f92766bba642462d4bbe5479e83f91f9211862
-uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 1 --test-tasks 1 \
-  --upstream SWE-bench_Pro-os
-```
-
-From inside that checkout, point `uv run` at the cookbook's script instead:
-
-```bash
-uv run PATH/TO/trajectory-cookbook/examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro \
-  --train-tasks 1 --test-tasks 1 --upstream .
-```
-
-[`ingest.py`](ingest.py) downloads the pinned commit, or checks that the `--upstream` checkout's
-`HEAD` is that commit. It checks every staged file against the release's `v2/SHA256SUMS`, then
-builds the runtime from a temporary directory holding the Dockerfile, the harness, and one
-archive of each task's `instruction.md`, `task.toml`, and `tests/` plus upstream's
-`mini_toolcall.yaml`. The archive keeps the build context to three files; the task directories
+[`ingest.py`](ingest.py) downloads the pinned commit, checks every staged file against the
+release's `v2/SHA256SUMS`, and builds the runtime from a temporary directory holding the
+Dockerfile, the harness, and one archive of each task's `instruction.md`, `task.toml`, and
+`tests/` plus upstream's `mini_toolcall.yaml`. The archive keeps the build context to three files; the task directories
 alone hold over 4,000. `solution/` is never staged.
 
 The script uploads the selected tasks as benchmark `swe-bench-pro`, waits for the runtime image,

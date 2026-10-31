@@ -8,7 +8,6 @@ import argparse
 import hashlib
 import re
 import shutil
-import subprocess
 import tarfile
 import tempfile
 import time
@@ -55,34 +54,6 @@ def download_upstream(destination: Path) -> Path:
         )
         archive.extractall(destination, members=members, filter="data")
     return destination / f"SWE-bench_Pro-os-{SOURCE_COMMIT}"
-
-
-def verify_checkout(upstream: Path) -> None:
-    head = subprocess.run(
-        ["git", "-C", str(upstream), "rev-parse", "HEAD"],
-        capture_output=True,
-        check=True,
-        text=True,
-    ).stdout.strip()
-    if head != SOURCE_COMMIT:
-        raise ValueError(f"{upstream} is at {head}; check out {SOURCE_COMMIT}")
-    # Staged files are checked against this manifest, so it must be the release's own.
-    changed = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(upstream),
-            "diff",
-            "--quiet",
-            "HEAD",
-            "--",
-            "v2/SHA256SUMS",
-            "LICENSE",
-        ],
-        check=False,
-    )
-    if changed.returncode != 0:
-        raise ValueError(f"{upstream} has local changes to v2/SHA256SUMS or LICENSE")
 
 
 def stage_runtime(upstream: Path, context: Path) -> list[str]:
@@ -189,17 +160,10 @@ def build_benchmark(
 
 
 def ingest(
-    agent_name: str,
-    name: str,
-    train_tasks: int | None,
-    test_tasks: int | None,
-    upstream: Path | None = None,
+    agent_name: str, name: str, train_tasks: int | None, test_tasks: int | None
 ) -> str:
     with tempfile.TemporaryDirectory() as workspace:
-        if upstream is None:
-            upstream = download_upstream(Path(workspace))
-        else:
-            verify_checkout(upstream)
+        upstream = download_upstream(Path(workspace))
         context = Path(workspace) / "context"
         context.mkdir()
         benchmark = build_benchmark(
@@ -262,15 +226,8 @@ def main() -> None:
     parser.add_argument(
         "--test-tasks", type=int, help="Upload only the first N test tasks."
     )
-    parser.add_argument(
-        "--upstream",
-        type=Path,
-        help="Use this SWE-bench_Pro-os checkout of the pinned commit instead of downloading it.",
-    )
     args = parser.parse_args()
-    bench_id = ingest(
-        args.agent_name, args.name, args.train_tasks, args.test_tasks, args.upstream
-    )
+    bench_id = ingest(args.agent_name, args.name, args.train_tasks, args.test_tasks)
     benchmark_diagnostic(bench_id)
 
 

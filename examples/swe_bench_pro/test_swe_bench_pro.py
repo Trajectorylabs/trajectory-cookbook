@@ -3,7 +3,6 @@
 import hashlib
 import importlib.util
 import json
-import subprocess
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -144,35 +143,58 @@ def test_cut_off_reply_runs_no_tools(finish_reason):
     assert executed == []
 
 
-def test_reply_without_tool_call_gets_format_error():
-    ending, _, calls = run_agent(
+def call(name="bash", arguments='{"command": "ls"}', call_id="call_2"):
+    return {
+        "id": call_id,
+        "type": "function",
+        "function": {"name": name, "arguments": arguments},
+    }
+
+
+@pytest.mark.parametrize(
+    "tool_calls, error",
+    [
+        (
+            [],
+            "No tool calls found in the response. Every response MUST include at least one tool call.",
+        ),
+        (
+            [bash("ls"), call(arguments="{")],
+            (
+                "Error parsing tool call arguments: Expecting property name enclosed in "
+                "double quotes: line 1 column 2 (char 1).Missing 'command' argument in bash tool call."
+            ),
+        ),
+        ([bash("ls"), call(name="python")], "Unknown tool 'python'."),
+        (
+            [bash("ls"), call(arguments='{"cmd": "ls"}')],
+            "Missing 'command' argument in bash tool call.",
+        ),
+    ],
+)
+def test_format_error_drops_the_reply_and_runs_no_calls(tool_calls, error):
+    ending, executed, calls = run_agent(
         [
-            reply(finish_reason="stop", content="Done."),
+            reply(*tool_calls, content="Thinking."),
             reply(bash(f"echo {harness.SUBMIT_MARKER}")),
         ],
         [output(f"{harness.SUBMIT_MARKER}\n")],
     )
     assert ending == ("ENV_DONE", 2)
-    assert calls[1]["messages"][-2] == {"role": "assistant", "content": "Done."}
-    assert calls[1]["messages"][-1]["content"].startswith(
-        "Tool call error: No tool calls found"
-    )
-
-
-def test_malformed_tool_call_is_answered_without_running():
-    malformed = {
-        "id": "call_1",
-        "type": "function",
-        "function": {"name": "bash", "arguments": "{"},
-    }
-    ending, executed, calls = run_agent(
-        [reply(malformed), reply(bash(f"echo {harness.SUBMIT_MARKER}"))],
-        [output(f"{harness.SUBMIT_MARKER}\n")],
-    )
-    assert ending == ("ENV_DONE", 2)
     assert executed == [f"echo {harness.SUBMIT_MARKER}"]
-    assert calls[1]["messages"][-1]["role"] == "tool"
-    assert calls[1]["messages"][-1]["content"].startswith("Tool call error:")
+    assert calls[1]["messages"][1:] == [
+        {"role": "user", "content": "Please solve this issue: Fix it."},
+        {"role": "user", "content": f"Tool call error: {error}"},
+    ]
+
+
+def test_three_format_errors_in_a_row_end_the_attempt():
+    ending, executed, _ = run_agent(
+        [reply(content="a"), reply(bash("ls")), *[reply(content="b")] * 3],
+        [output("src\n")],
+    )
+    assert ending == ("ENV_DONE", 5)
+    assert executed == ["ls"]
 
 
 def test_platform_limit_stops_the_loop():
@@ -255,26 +277,6 @@ def test_harness_failure_completes_error_without_reward(monkeypatch, tmp_path):
     )
 
 
-def test_patch_keeps_changes_the_model_committed(tmp_path):
-    def sh(command):
-        return subprocess.run(
-            ["sh", "-c", command],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-
-    sh("git init -q && git config user.email a@b && git config user.name a")
-    sh("echo old > f && git add f && git commit -qm base")
-    base = sh("git rev-parse HEAD").strip()
-    sh("echo new > f && git commit -qam fix && echo extra > g")
-
-    patch = sh(harness.CAPTURE_PATCH.format(base=base))
-
-    assert "+new" in patch and "+extra" in patch
-
-
 def test_diagnostic_uses_the_run_settings():
     assert ingest.RUN_OPTIONS == train.RUN_OPTIONS
 
@@ -313,13 +315,6 @@ def test_split_holds_out_each_repository_deterministically():
     assert held_out.count("flipt-io/flipt") == 3
 
 
-def test_observation_json_keeps_quotes_and_brackets():
-    rendered = harness.render(
-        "{{ output.output | tojson }}", output={"output": "it's <a>"}
-    )
-    assert rendered == '"it\'s <a>"'
-
-
 def fake_checkout(root):
     task = "tasks/instance_ansible__ansible-" + "0" * 40
     files = {
@@ -341,27 +336,14 @@ def fake_checkout(root):
         )
     )
     (root / "LICENSE").write_text("MIT\n")
-    for command in (
-        ["init", "-q"],
-        ["add", "."],
-        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "v2"],
-    ):
-        subprocess.run(["git", "-C", str(root), *command], check=True)
-    return subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "HEAD"],
-        capture_output=True,
-        check=True,
-        text=True,
-    ).stdout.strip()
 
 
 def test_staging_keeps_verifiers_and_drops_solutions(monkeypatch, tmp_path):
     upstream, context = tmp_path / "upstream", tmp_path / "context"
     upstream.mkdir()
     context.mkdir()
-    monkeypatch.setattr(ingest, "SOURCE_COMMIT", fake_checkout(upstream))
+    fake_checkout(upstream)
     monkeypatch.setattr(ingest, "TASK_COUNT", 1)
-    ingest.verify_checkout(upstream)
     ids = ingest.stage_runtime(upstream, context)
     assert ids == ["instance_ansible__ansible-" + "0" * 40]
     assert {path.name for path in context.iterdir()} == {
@@ -382,28 +364,9 @@ def test_staging_keeps_verifiers_and_drops_solutions(monkeypatch, tmp_path):
     ]
 
 
-def test_staging_rejects_another_commit_or_edited_files(monkeypatch, tmp_path):
+def test_staging_rejects_edited_files(monkeypatch, tmp_path):
     fake_checkout(tmp_path)
-    with pytest.raises(ValueError, match="check out"):
-        ingest.verify_checkout(tmp_path)
     next(tmp_path.glob("v2/tasks/*/tests/test.sh")).write_text("exit 1\n")
     monkeypatch.setattr(ingest, "TASK_COUNT", 1)
     with pytest.raises(ValueError, match="differs from the pinned release"):
         ingest.stage_runtime(tmp_path, tmp_path)
-
-
-def test_checkout_rejects_a_regenerated_manifest(monkeypatch, tmp_path):
-    monkeypatch.setattr(ingest, "SOURCE_COMMIT", fake_checkout(tmp_path))
-    test_sh = next(tmp_path.glob("v2/tasks/*/tests/test.sh"))
-    test_sh.write_text("true\n")
-    digest = hashlib.sha256(b"true\n").hexdigest()
-    manifest = tmp_path / "v2/SHA256SUMS"
-    path = test_sh.relative_to(tmp_path / "v2").as_posix()
-    manifest.write_text(
-        "".join(
-            f"{digest}  {path}\n" if line.endswith(f"  {path}") else f"{line}\n"
-            for line in manifest.read_text().splitlines()
-        )
-    )
-    with pytest.raises(ValueError, match="local changes"):
-        ingest.verify_checkout(tmp_path)
