@@ -27,21 +27,20 @@ instructions, prompt, and verifiers. Reference solutions are left out. For one a
    trajectory.
 
 This follows upstream's locked protocol: an offline agent with a 50-minute budget, re-graded on
-a pristine image. The harness adds two limits: each command runs for at most 120 seconds, and
-an attempt makes at most 100 model calls. Command output is shown in the template's JSON layout
+a pristine image. As upstream, there is no step limit; the harness adds only that each command
+runs for at most 120 seconds. Command output is shown in the template's JSON layout
 without Jinja's HTML escaping, so quotes and angle brackets read as they appear in the files.
 
 | Ending | When |
 | --- | --- |
 | `ENV_DONE` | The model ran the submission command. |
-| `MAX_STEPS` | The attempt reached 100 model calls or a run limit. |
 | `TIMEOUT` | The 50-minute agent budget ran out. |
-| `TRUNCATION` | A reply hit its output-token limit; its tool calls are not run. |
+| `TRUNCATION` | A reply hit its output-token limit, so its tool calls are not run, or the attempt reached a run's turn or token limit. |
 | `ERROR` | The image pull, a container, or the verifier failed. No reward is recorded. |
 
-Every ending except `ERROR` grades the patch the model left behind. Evaluation scores a
-`TIMEOUT` by its grade and counts `MAX_STEPS` and `TRUNCATION` as unresolved; training uses
-`TIMEOUT` attempts only with `train_on_timeout`, which `train.py` sets. The trajectory's
+Every ending except `ERROR` grades the patch the model left behind, and evaluation scores each
+graded attempt. Training uses `TIMEOUT` attempts only with `train_on_timeout`, which `train.py`
+sets because many attempts use the full 50 minutes. The trajectory's
 `swe_bench_pro_result` event keeps the native grade, the patch, and the verifier output.
 
 Tasks are split by repository: 15% of each repository's tasks, ordered by the SHA-256 of their
@@ -135,13 +134,13 @@ with both resolved and unresolved attempts.
 ### Run settings
 
 Every run passes the same settings, so the baseline and checkpoint scores are comparable.
-They fit the harness: 100 model calls, a 50-minute agent budget, and a verifier that can take
-as long again.
+They fit the harness: a 50-minute agent budget, in which an attempt makes about 120 model calls
+at most, and a verifier that can take as long again.
 
 ```python
 RUN_OPTIONS = {
     "reasoning_effort": "on",
-    "max_turns_per_trajectory": 100,
+    "max_turns_per_trajectory": 200,
     "max_output_tokens_per_step": 16_384,
     "max_total_tokens_per_trajectory": 262_144,
     "execution_timeout_seconds": 7_200,

@@ -14,8 +14,8 @@ MODEL = "Qwen/Qwen3.6-35B-A3B"
 # Shared by every run so the baseline and checkpoint scores are comparable.
 RUN_OPTIONS = {
     "reasoning_effort": "on",
-    # The harness stops at 100 model calls; an attempt stays far below the token caps.
-    "max_turns_per_trajectory": 100,
+    # The 50-minute agent budget ends an attempt well before these caps.
+    "max_turns_per_trajectory": 200,
     "max_output_tokens_per_step": 16_384,
     "max_total_tokens_per_trajectory": 262_144,
     # Image pull, the 50-minute agent budget, and the verifier.

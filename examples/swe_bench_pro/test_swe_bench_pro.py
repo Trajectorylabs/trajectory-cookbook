@@ -172,15 +172,6 @@ def test_malformed_tool_call_is_answered_without_running():
     assert calls[1]["messages"][-1]["content"].startswith("Tool call error:")
 
 
-def test_turn_limit_ends_with_max_steps(monkeypatch):
-    monkeypatch.setattr(harness, "MAX_TURNS", 2)
-    ending, executed, _ = run_agent(
-        [reply(bash("ls")), reply(bash("ls"))], [output(""), output("")]
-    )
-    assert ending == ("MAX_STEPS", 2)
-    assert len(executed) == 2
-
-
 def test_platform_limit_stops_the_loop():
     cancelled = reply(
         finish_reason="stop",
@@ -188,7 +179,7 @@ def test_platform_limit_stops_the_loop():
         metadata={"trajectory_termination_reason": "trajectory_cancelled"},
     )
     ending, executed, _ = run_agent([cancelled])
-    assert ending == ("MAX_STEPS", 1)
+    assert ending == ("TRUNCATION", 1)
     assert executed == []
 
 
@@ -222,7 +213,7 @@ def test_read_grade_rejects_missing_or_invalid_reward(tmp_path):
         harness.read_grade(tmp_path, {})
 
 
-@pytest.mark.parametrize("ending", ["ENV_DONE", "MAX_STEPS"])
+@pytest.mark.parametrize("ending", ["ENV_DONE", "TIMEOUT"])
 def test_main_completes_with_the_agent_ending(monkeypatch, tmp_path, ending):
     (tmp_path / "tasks/instance_x").mkdir(parents=True)
     (tmp_path / "tasks/instance_x/task.toml").write_text("")

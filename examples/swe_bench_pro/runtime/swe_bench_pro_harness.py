@@ -17,7 +17,6 @@ from trajectory import Client
 
 SOURCE_COMMIT = "66f92766bba642462d4bbe5479e83f91f9211862"
 UPSTREAM = Path("/opt/swe_bench_pro/upstream/v2")
-MAX_TURNS = 100
 COMMAND_TIMEOUT_SECONDS = 120
 PULL_TIMEOUT_SECONDS = 1800
 SUBMIT_MARKER = "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"
@@ -158,7 +157,10 @@ def run_agent(
             "content": render(prompts["instance_template"], task=instruction, **system),
         },
     ]
-    for turn in range(1, MAX_TURNS + 1):
+    # Upstream sets no step limit; the time budget bounds an attempt.
+    turn = 0
+    while True:
+        turn += 1
         if time.monotonic() >= deadline:
             return "TIMEOUT", turn - 1
         response = client.chat.completions.create(
@@ -170,7 +172,7 @@ def run_agent(
         metadata = (response.model_extra or {}).get("metadata") or {}
         if metadata.get("trajectory_termination_reason") == "trajectory_cancelled":
             # The platform stopped the attempt at one of its limits and keeps that ending.
-            return "MAX_STEPS", turn
+            return "TRUNCATION", turn
         choice = response.choices[0]
         if choice.finish_reason in ("length", "max_tokens"):
             return "TRUNCATION", turn
@@ -208,7 +210,6 @@ def run_agent(
             messages.append(
                 {"role": "tool", "tool_call_id": call.id, "content": content}
             )
-    return "MAX_STEPS", MAX_TURNS
 
 
 def parse_test_list(value: str | list) -> list[str]:
