@@ -46,10 +46,7 @@ def train_and_evaluate(
     )
     bench_id = baseline_run.bench_id
     print(f"comparison_bench_id={bench_id}", flush=True)
-    baseline = _wait_for_evaluation(
-        client, baseline_run.eval_run_id, "GSM8K baseline", poll_seconds
-    )
-
+    # Training does not use the baseline score, so start it without waiting.
     created = client.training.create(
         bench_id=bench_id,
         base_model_slug=model,
@@ -63,6 +60,13 @@ def train_and_evaluate(
     )
     run_id = created.training_run_id
     print(f"training_run_id={run_id}", flush=True)
+    try:
+        baseline = _wait_for_evaluation(
+            client, baseline_run.eval_run_id, "GSM8K baseline", poll_seconds
+        )
+    except BaseException:
+        client.training.runs.cancel(run_id)
+        raise
     run = _wait_for_training(client, run_id, poll_seconds)
     if str(run.status) != "succeeded":
         raise RuntimeError(f"training ended with status={run.status}: {run.failure}")

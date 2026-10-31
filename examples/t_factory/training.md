@@ -34,8 +34,8 @@ otherwise the script prints each task failure and exits with an error.
 
 ## Evaluate and train
 
-Replace `YOUR_BENCH_ID` with the printed `bench_id`, then run the baseline evaluation, training,
-and final evaluation:
+Replace `YOUR_BENCH_ID` with the printed `bench_id`, then run the baseline evaluation alongside
+training, and the final evaluation after it:
 
 ```bash
 uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID

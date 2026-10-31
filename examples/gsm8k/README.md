@@ -170,7 +170,7 @@ upload. After successful exit, start training using the same agent and benchmark
 uv run examples/gsm8k/train.py --agent-name "gsm8k-cookbook" --bench-name "gsm8k-trajectory-sdk" --num-steps 3
 ```
 
-This command runs baseline evaluation, training, and checkpoint evaluation. It evaluates all
+This command runs the baseline evaluation alongside training, then the checkpoint evaluation. It evaluates all
 16 held-out tasks and uses a batch size of four training task groups per step. Expect it to
 take about an hour: Qwen 3.5 4B already solves most of these problems, so most task groups have
 no training signal, and each step runs a few hundred attempts to fill its batch.
