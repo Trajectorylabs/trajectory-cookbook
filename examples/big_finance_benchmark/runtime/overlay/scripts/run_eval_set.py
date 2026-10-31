@@ -36,6 +36,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import random
 import time
 from datetime import datetime, timezone
@@ -469,6 +470,8 @@ def main(
     if trajectory_mode:
         if len(items) != 1 or task_id is None:
             raise click.UsageError("--trajectory requires exactly one --task-id")
+        if os.geteuid() != 0:
+            raise click.UsageError("--trajectory must run as root; python_exec drops to nobody")
 
         from big_finance_harness.models.trajectory import TrajectoryClient
 

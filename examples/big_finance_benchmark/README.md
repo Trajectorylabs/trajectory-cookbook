@@ -31,14 +31,16 @@ harness by commit:
 - [`runtime/overlay/`](runtime/overlay/) holds only the files the integration adds or changes,
   at their upstream paths, with upstream's `LICENSE`:
   - `big_finance_harness/models/trajectory.py` is the new session adapter.
-  - `scripts/run_eval_set.py` gains `--task-id` and the single-task `--trajectory` mode.
+  - `scripts/run_eval_set.py` gains `--task-id` and the single-task `--trajectory` mode, which
+    must start as root (the task sets `agent_user="root"`).
   - `big_finance_harness/tools/python_exec.py` runs agent-written code with an empty
-    environment, so it cannot read the harness's API keys.
+    environment, as `nobody` in a fresh temporary directory. The harness's API keys are neither
+    in the child's environment nor readable from the root-owned `/proc/<parent>/environ`.
 - [`ingest.py`](ingest.py) reads the subset's question IDs at the same commit and uploads one
   task per question.
 - [`.dockerignore`](.dockerignore) limits the build context to the Dockerfile and overlay.
 - [`test_overlay.py`](test_overlay.py) checks the adapter, the reward and ending, the
-  `python_exec` environment, and the dataset removal inside the built image.
+  `python_exec` isolation, and the dataset removal inside the built image.
 
 The pinned commit precedes upstream's change that returns model reasoning between turns; the
 session adapter does not carry reasoning back into the history.
@@ -175,7 +177,7 @@ TaskSpec(
         "TAVILY_API_KEY": SecretRef(secret_ref="TAVILY_API_KEY"),
         "SEC_EDGAR_USER_AGENT": SecretRef(secret_ref="SEC_EDGAR_USER_AGENT"),
     },
-    env_resources=EnvResources(network_mode="public"),
+    env_resources=EnvResources(network_mode="public", agent_user="root"),
 )
 ```
 

@@ -1,14 +1,17 @@
-# Modified by Trajectory: runs agent-written code with an empty environment.
+# Modified by Trajectory: runs agent-written code with an empty environment, as nobody when root.
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
+import tempfile
 from typing import Any
 
 from big_finance_harness.tools.base import Tool, ToolError
 
 DEFAULT_TIMEOUT_S = 5.0
 MAX_OUTPUT_CHARS = 8000
+NOBODY = 65534
 
 
 class PythonExecTool(Tool):
@@ -40,21 +43,31 @@ class PythonExecTool(Tool):
         if not code.strip():
             raise ToolError("code is required and must be non-empty")
 
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable,
-            "-I",  # isolated mode: ignore PYTHON* env vars and user site-packages
-            "-c",
-            code,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env={},  # Agent-written code must not see the harness's API keys.
-        )
-        try:
-            stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=self.timeout_s)
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
-            raise ToolError(f"python_exec timed out after {self.timeout_s}s") from None
+        with tempfile.TemporaryDirectory() as cwd:
+            # As root, a separate uid keeps /proc/<parent>/environ and its API keys unreadable.
+            drop = {}
+            if os.geteuid() == 0:
+                os.chown(cwd, NOBODY, NOBODY)
+                drop = {"user": NOBODY, "group": NOBODY, "extra_groups": []}
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-I",  # isolated mode: ignore PYTHON* env vars and user site-packages
+                "-c",
+                code,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env={},
+                cwd=cwd,
+                **drop,
+            )
+            try:
+                stdout_b, stderr_b = await asyncio.wait_for(
+                    proc.communicate(), timeout=self.timeout_s
+                )
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                raise ToolError(f"python_exec timed out after {self.timeout_s}s") from None
 
         stdout = stdout_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]
         stderr = stderr_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]

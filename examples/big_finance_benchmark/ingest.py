@@ -53,7 +53,7 @@ def build_benchmark(
                         secret_ref="SEC_EDGAR_USER_AGENT"
                     ),
                 },
-                env_resources=EnvResources(network_mode="public"),
+                env_resources=EnvResources(network_mode="public", agent_user="root"),
             )
             for task_id in task_ids
         ],

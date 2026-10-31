@@ -3,6 +3,7 @@
 import asyncio
 import importlib.util
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -31,6 +32,30 @@ def test_python_exec_hides_harness_environment(monkeypatch):
     out = asyncio.run(python_exec.PythonExecTool().run({"code": code}))
     assert "secret-value" not in out
     assert "None" in out
+
+
+@pytest.mark.skipif(os.geteuid() != 0, reason="the image runs the harness as root")
+def test_python_exec_child_cannot_read_root_secrets(tmp_path):
+    secret = tmp_path / "root-only"
+    secret.write_text("secret-value")
+    secret.chmod(0o400)
+    assert Path(f"/proc/{os.getpid()}/environ").read_bytes()
+    code = (
+        "import os\n"
+        "print('uid', os.getuid(), os.getgid(), os.getgroups(), os.getcwd())\n"
+        f"for path in [f'/proc/{{os.getppid()}}/environ', {str(secret)!r}]:\n"
+        "    try:\n"
+        "        print(open(path).read())\n"
+        "    except PermissionError:\n"
+        "        print('denied', path)\n"
+        "print(6 * 7)\n"
+    )
+    out = asyncio.run(python_exec.PythonExecTool().run({"code": code}))
+    assert "exit_code: 0" in out
+    assert "uid 65534 65534 []" in out
+    assert out.count("denied") == 2
+    assert "secret-value" not in out
+    assert "42" in out
 
 
 @pytest.mark.parametrize(
@@ -113,6 +138,18 @@ def test_trajectory_mode_grades_and_ends(
     client.trajectories.complete.assert_called_once_with(
         "traj_test", termination_reason=ending
     )
+
+
+def test_trajectory_mode_refuses_to_run_without_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    result, client, dataset = run_trajectory_mode(
+        tmp_path, monkeypatch, "final_answer", False
+    )
+
+    assert result.exit_code != 0
+    assert "must run as root" in result.output
+    assert dataset.exists()
+    client.trajectories.complete.assert_not_called()
 
 
 def test_trajectory_mode_harness_error_ends_without_reward(tmp_path, monkeypatch):
