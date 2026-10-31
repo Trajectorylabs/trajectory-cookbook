@@ -74,14 +74,18 @@ class TrajectoryAdapter(OpenAIAdapter):
             or metrics["incomplete_details"]
         ):
             reason = "TRUNCATION"
-        self.trajectory.trajectories.complete(self.tid, termination_reason=reason)
-        self._open = False
-        self.trajectory.close()
+        self._complete(reason)
 
     def fail(self) -> None:
+        if self._open:
+            self._complete("ERROR")
+
+    def _complete(self, reason: str) -> None:
         # Stay open until a completion succeeds, so the exit hook can retry it.
-        if not self._open:
-            return
-        self.trajectory.trajectories.complete(self.tid, termination_reason="ERROR")
+        completed = self.trajectory.trajectories.complete(
+            self.tid, termination_reason=reason
+        )
+        if completed.status not in ("completed", "finalizing"):
+            raise RuntimeError(f"Trajectory completion returned {completed.status}")
         self._open = False
         self.trajectory.close()

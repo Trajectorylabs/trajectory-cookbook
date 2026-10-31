@@ -1,13 +1,17 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 from lab_core.harness.adapters import trajectory
 from lab_core.harness.run import create_adapter
 
+COMPLETED = SimpleNamespace(status="completed")
+
 
 def _adapter():
     adapter = object.__new__(trajectory.TrajectoryAdapter)
     adapter.trajectory = MagicMock()
+    adapter.trajectory.trajectories.complete.return_value = COMPLETED
     adapter.tid = "tid_test"
     adapter.judge_model = "gpt-5.4-mini"
     adapter._open = True
@@ -80,7 +84,7 @@ def test_failed_final_completion_leaves_exit_hook_an_error_completion():
     adapter = _adapter()
     adapter.trajectory.trajectories.complete.side_effect = [
         RuntimeError("api down"),
-        None,
+        COMPLETED,
     ]
 
     with (
@@ -105,7 +109,7 @@ def test_exit_hook_retries_a_failed_error_completion():
     adapter = _adapter()
     adapter.trajectory.trajectories.complete.side_effect = [
         RuntimeError("api down"),
-        None,
+        COMPLETED,
     ]
 
     with pytest.raises(RuntimeError, match="api down"):
@@ -113,6 +117,33 @@ def test_exit_hook_retries_a_failed_error_completion():
     adapter.fail()
     adapter.fail()
 
+    assert adapter.trajectory.trajectories.complete.call_count == 2
+    adapter.trajectory.close.assert_called_once()
+
+
+def test_unexpected_completion_status_raises_and_stays_open():
+    adapter = _adapter()
+    adapter.trajectory.trajectories.complete.side_effect = [
+        SimpleNamespace(status="running"),
+        COMPLETED,
+    ]
+
+    with (
+        patch.object(trajectory, "Judge"),
+        patch.object(trajectory, "evaluate_run", return_value={"all_pass": 1}),
+        pytest.raises(RuntimeError, match="returned running"),
+    ):
+        adapter.finalize(
+            "run", "task", {"finish_reason": "finish_tool", "incomplete_details": None}
+        )
+
+    adapter.trajectory.close.assert_not_called()
+    adapter.fail()
+    adapter.fail()
+
+    assert adapter.trajectory.trajectories.complete.call_args_list[-1] == call(
+        "tid_test", termination_reason="ERROR"
+    )
     assert adapter.trajectory.trajectories.complete.call_count == 2
     adapter.trajectory.close.assert_called_once()
 
