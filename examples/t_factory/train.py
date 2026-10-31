@@ -60,7 +60,8 @@ def train_and_evaluate(
         baseline = _wait_for_evaluation(
             client, baseline_id, "T Factory baseline", poll_seconds
         )
-    except BaseException:
+    except RuntimeError:
+        # Training on a benchmark whose baseline failed would be wasted.
         client.training.runs.cancel(run_id)
         raise
     run = _wait_for_training(client, run_id, poll_seconds)
