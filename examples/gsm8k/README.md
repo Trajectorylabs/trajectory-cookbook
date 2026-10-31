@@ -99,7 +99,7 @@ training = client.training.create(
         "reasoning_effort": "off",
         "num_steps": 3,
         "train_batch_size": 1,
-        "max_active_rollouts": 8,
+        "max_active_rollouts": 32,
         "max_output_tokens_per_step": 2048,
     },
 )
@@ -107,9 +107,10 @@ run_id = training.training_run_id
 print(f"training_run_id={run_id}")
 ```
 
-Each task group holds the model's default `group_size` samples. A group whose samples all
-receive the same reward has no training signal and is skipped, so a step can launch more
-attempts than `train_batch_size` groups need. See
+Each task group holds the model's default `group_size` of eight samples. A group whose samples
+all receive the same reward has no training signal and is skipped. Qwen 3.5 4B solves most
+GSM8K problems, so a step often runs several groups to find one it can train on; 32 attempts at
+a time runs four groups at once. See
 [reduce rollout spend](https://docs.trajectory.ai/guides/training#reduce-rollout-spend).
 The training task is separate from the held-out evaluation task.
 
