@@ -66,6 +66,17 @@ the benchmark ID:
 uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
+The judge defaults to `openai:gpt-5.4-mini`. `--judge` takes any `provider:model` the harness
+accepts, and the `openai` provider passes the model to LiteLLM unchanged, so any LiteLLM model
+string works. `--judge-secret` names the organization secret holding that provider's key; it
+reaches the task under the same environment variable name. For example, to grade through
+OpenRouter, register `OPENROUTER_API_KEY` in place of `OPENAI_API_KEY`:
+
+```sh
+uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME \
+  --judge openai:openrouter/openai/gpt-6-luna --judge-secret OPENROUTER_API_KEY
+```
+
 Then run a benchmark diagnostic before a full evaluation, using the
 [diagnostic guide](../task_diagnostics.md#check-an-uploaded-benchmark):
 
@@ -143,7 +154,8 @@ client.trajectories.complete(tid, termination_reason=ending)
 ## Package the evaluation set
 
 The uploader creates one evaluation task for each subset question. `BFB_TASK_ID` selects exactly
-one row inside the existing orchestrator, while credentials remain platform secret references:
+one row inside the existing orchestrator, while credentials remain platform secret references.
+With the default judge, each task is:
 
 ```python
 TaskSpec(

@@ -6,6 +6,7 @@
 
 import argparse
 import json
+import shlex
 import urllib.request
 from pathlib import Path
 
@@ -22,7 +23,7 @@ SUBSET_URL = (
 RUN_COMMAND = (
     "python -u /opt/big_finance/scripts/run_eval_set.py --trajectory "
     "--dataset /opt/big_finance/data/big_finance_subset.jsonl "
-    "--run-id trajectory --max-steps 30 --judge openai:gpt-5.4-mini"
+    "--run-id trajectory --max-steps 30 --judge {judge}"
 )
 
 
@@ -32,7 +33,9 @@ def load_task_ids() -> list[str]:
     return [json.loads(line)["id"] for line in lines if line.strip()]
 
 
-def build_benchmark(name: str, task_ids: list[str]) -> BenchmarkSpec:
+def build_benchmark(
+    name: str, task_ids: list[str], judge: str, judge_secret: str
+) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
         description="Public Big Finance Benchmark subset graded by the upstream rubric judge.",
@@ -41,10 +44,10 @@ def build_benchmark(name: str, task_ids: list[str]) -> BenchmarkSpec:
             TaskSpec(
                 name=f"big-finance/{task_id}",
                 split="test",
-                run_command=RUN_COMMAND,
+                run_command=RUN_COMMAND.format(judge=shlex.quote(judge)),
                 env_vars={
                     "BFB_TASK_ID": task_id,
-                    "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
+                    judge_secret: SecretRef(secret_ref=judge_secret),
                     "TAVILY_API_KEY": SecretRef(secret_ref="TAVILY_API_KEY"),
                     "SEC_EDGAR_USER_AGENT": SecretRef(
                         secret_ref="SEC_EDGAR_USER_AGENT"
@@ -61,8 +64,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="big-finance-public-subset")
+    parser.add_argument(
+        "--judge",
+        default="openai:gpt-5.4-mini",
+        help="Rubric judge as provider:model, passed to the harness's --judge.",
+    )
+    parser.add_argument(
+        "--judge-secret",
+        default="OPENAI_API_KEY",
+        help="Organization secret holding the judge provider's API key.",
+    )
     args = parser.parse_args()
-    benchmark = build_benchmark(args.name, load_task_ids())
+    benchmark = build_benchmark(
+        args.name, load_task_ids(), args.judge, args.judge_secret
+    )
     with Client() as client:
         result = push(
             client, benchmark, agent_name=args.agent_name, root=ROOT, build_images=True
