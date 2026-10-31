@@ -70,9 +70,42 @@ deployment = client.deployments.create(
 print(f"deployment_id={deployment.deployment_id}")
 ```
 
-Follow the [deployment guide](https://docs.trajectory.ai/guides/deployments) to wait for
-`DEPLOYED`, query the deployment's test route, and promote it to the agent's production model
-slug.
+## Query the deployed model
+
+In the same Python session, wait for `DEPLOYED`, then query the deployment's test model slug.
+Each query records a trajectory, so the snippet completes it:
+
+```python
+import time
+
+while (state := client.deployments.retrieve(deployment.deployment_id)).status != "DEPLOYED":
+    if state.status in {"FAILED", "CANCELLED"}:
+        raise RuntimeError(f"Deployment {state.status}: {state.failure}")
+    time.sleep(10)
+
+tid = client.trajectories.create().tid
+response = client.deployments.create_chat_completion(
+    deployment.deployment_id,
+    model=state.test_model_slug,
+    messages=[
+        {
+            "role": "system",
+            "content": "try to respond normally but with as many words starting with T as possible",
+        },
+        {"role": "user", "content": "Describe playing music in a friendly way."},
+    ],
+    max_tokens=2_048,
+    disable_thinking=True,  # Training ran with reasoning off.
+    x_trajectory_id=tid,
+)
+choice = response.choices[0]
+print(choice.message.content)
+cut_off = choice.finish_reason in ("length", "max_tokens")
+client.trajectories.complete(tid, termination_reason="TRUNCATION" if cut_off else "ENV_DONE")
+```
+
+To serve it on the agent's production model slug, promote it as the
+[deployment guide](https://docs.trajectory.ai/guides/deployments) describes.
 
 ## Observed results
 
