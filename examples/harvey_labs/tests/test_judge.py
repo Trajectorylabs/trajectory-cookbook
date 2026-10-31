@@ -39,7 +39,9 @@ def test_renamed_deliverable_is_matched_through_the_judge(judge, output_dir):
 
 def test_judge_cannot_assign_one_file_to_two_deliverables(judge, output_dir):
     judge.client.responses.create.return_value = SimpleNamespace(
-        output_text=json.dumps({"memo.txt": "final-v2.txt", "brief.txt": "final-v2.txt"})
+        output_text=json.dumps(
+            {"memo.txt": "final-v2.txt", "brief.txt": "final-v2.txt"}
+        )
     )
 
     resolved = _match_deliverables(
@@ -101,11 +103,23 @@ def test_nested_deliverable_is_graded_from_its_subdirectory(tmp_path):
     judge.evaluate_from_file.return_value = {"verdict": "pass"}
 
     score_rubric(
-        [{"id": 1, "title": "Memo", "match_criteria": "x", "deliverables": ["memo.txt"]}],
-        tmp_path, judge, "task", parallel=1,
+        [
+            {
+                "id": 1,
+                "title": "Memo",
+                "match_criteria": "x",
+                "deliverables": ["memo.txt"],
+            }
+        ],
+        tmp_path,
+        judge,
+        "task",
+        parallel=1,
     )
 
-    agent_output = judge.evaluate_from_file.call_args.kwargs["variables"]["agent_output"]
+    agent_output = judge.evaluate_from_file.call_args.kwargs["variables"][
+        "agent_output"
+    ]
     assert "nested memo contents" in agent_output
 
 
