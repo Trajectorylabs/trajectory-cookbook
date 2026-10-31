@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.32"]
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
 """Evaluate the test tasks, train briefly, and evaluate the final checkpoint."""
 

@@ -32,6 +32,7 @@ def load(name, path):
 
 harness = load("swe_bench_pro_harness", "runtime/swe_bench_pro_harness.py")
 ingest = load("swe_bench_pro_ingest", "ingest.py")
+train = load("swe_bench_pro_train", "train.py")
 
 
 def bash(command, call_id="call_1"):
@@ -272,6 +273,10 @@ def test_patch_keeps_changes_the_model_committed(tmp_path):
     patch = sh(harness.CAPTURE_PATCH.format(base=base))
 
     assert "+new" in patch and "+extra" in patch
+
+
+def test_diagnostic_uses_the_run_settings():
+    assert ingest.RUN_OPTIONS == train.RUN_OPTIONS
 
 
 def test_diagnostic_fails_when_a_task_has_no_reward(monkeypatch):

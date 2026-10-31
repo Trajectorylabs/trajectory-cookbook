@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.32"]
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
 """Upload SWE-Bench Pro V2 tasks with a fixed train/test split, then run a diagnostic."""
 
@@ -29,6 +29,14 @@ STAGED_ARCHIVE = "swe_bench_pro_v2.tar.gz"
 TASK_COUNT = 642
 TEST_FRACTION = 0.15
 MODEL = "Qwen/Qwen3.6-35B-A3B"
+# The settings train.py evaluates and trains with.
+RUN_OPTIONS = {
+    "reasoning_effort": "on",
+    "max_turns_per_trajectory": 200,
+    "max_output_tokens_per_step": 16_384,
+    "max_total_tokens_per_trajectory": 262_144,
+    "execution_timeout_seconds": 9_000,
+}
 BENCHMARK_NAME = "swe-bench-pro"
 RUNTIME_ROOT = Path(__file__).parent / "runtime"
 BUILD_TIMEOUT_SECONDS = 45 * 60
@@ -214,7 +222,7 @@ def ingest(
 def benchmark_diagnostic(bench_id: str) -> None:
     client = Client()
     diagnostic_id = client.diagnostics.start_benchmark(
-        bench_id=bench_id, base_model_slug=MODEL
+        bench_id=bench_id, base_model_slug=MODEL, options=RUN_OPTIONS
     ).benchmark_diagnostic_id
     print(f"diagnostic_id={diagnostic_id}", flush=True)
     while (status := client.diagnostics.get_status(diagnostic_id).status) not in {
@@ -223,7 +231,7 @@ def benchmark_diagnostic(bench_id: str) -> None:
         "cancelled",
     }:
         print(f"diagnostic_status={status}", flush=True)
-        time.sleep(60)
+        time.sleep(10)
 
     result = client.diagnostics.get_diagnostics(diagnostic_id)
     print(result.to_json(), flush=True)
