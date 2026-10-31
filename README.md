@@ -29,6 +29,7 @@ recorded reward, and completed trajectory.
 | [Harvey LAB](examples/harvey_labs.md) | An existing harness, native judge, and nested Podman. |
 | [Big Finance Benchmark](examples/big_finance_benchmark.md) | An existing research agent, web tools, and rubric grading. |
 | [Tau 3 Banking](examples/tau3_banking/banking.md) | An upstream evaluator and multi-turn customer-agent task. |
+| [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
 
 [Reward integration](examples/reward_integration.md) works through an adapter that preserves
 the source scorer. [Cut-off reply handling](examples/termination_reasons.md) shows when to
