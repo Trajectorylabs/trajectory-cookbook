@@ -100,10 +100,23 @@ uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME \
 ```
 
 Then run a benchmark diagnostic before a full evaluation, using the
-[diagnostic guide](../task_diagnostics.md#check-an-uploaded-benchmark):
+[diagnostic guide](../task_diagnostics.md#check-an-uploaded-benchmark). The harness makes up
+to 30 model calls per question, each followed by web, SEC, or Python tools, so give each
+attempt room for long reasoning replies and the whole loop. The evaluation below uses the
+same model and settings:
 
 ```python
-diagnostic = client.diagnostics.start_benchmark(bench_id="YOUR_BENCH_ID")
+model = "Qwen/Qwen3.6-35B-A3B"
+options = {
+    "reasoning_effort": "on",
+    "max_output_tokens_per_step": 16384,
+    "max_total_tokens_per_trajectory": 491520,  # 30 calls x 16,384 tokens
+    "max_turns_per_trajectory": 30,  # matches the harness's --max-steps 30
+    "execution_timeout_seconds": 3600,
+}
+diagnostic = client.diagnostics.start_benchmark(
+    bench_id="YOUR_BENCH_ID", base_model_slug=model, options=options
+)
 print(diagnostic.benchmark_diagnostic_id)
 ```
 
@@ -123,20 +136,11 @@ docker run --rm \
 
 ## Evaluate
 
-The harness makes up to 30 model calls per question, each followed by web, SEC, or Python
-tools, so give each attempt room for long reasoning replies and the whole loop:
-
 ```python
 run = client.evals.create(
     bench_id="YOUR_BENCH_ID",
-    base_model_slug="Qwen/Qwen3.6-35B-A3B",
-    options={
-        "reasoning_effort": "on",
-        "max_output_tokens_per_step": 16384,
-        "max_total_tokens_per_trajectory": 491520,  # 30 calls x 16,384 tokens
-        "max_turns_per_trajectory": 30,  # matches the harness's --max-steps 30
-        "execution_timeout_seconds": 3600,
-    },
+    base_model_slug=model,
+    options=options,
     display_name="Big Finance baseline",
 )
 print(run.eval_run_id)
