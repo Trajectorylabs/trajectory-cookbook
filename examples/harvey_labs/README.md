@@ -15,28 +15,30 @@ adapter only needs to connect that lifecycle to a Trajectory session:
 
 ## Files
 
-- [`ingest.py`](ingest.py): assign splits and upload the benchmark, optionally from your own
-  checkout.
+- [`ingest.py`](ingest.py): assign splits and upload the benchmark.
 - [`tasks.txt`](tasks.txt): the 2,010 task directories at the pinned commit.
 - [`runtime/Dockerfile`](runtime/Dockerfile): download the pinned source and copy the overlay
   over it.
 - [`runtime/lab_core/`](runtime/lab_core/): the overlay. It adds the
-  [Trajectory adapter](runtime/lab_core/harness/adapters/trajectory.py) and failure diagnostics,
-  and changes the harness, judge, and sandbox files they hook into.
+  [Trajectory adapter](runtime/lab_core/harness/adapters/trajectory.py) and changes the harness,
+  judge, and sandbox files it hooks into.
   [`runtime/NOTICE`](runtime/NOTICE) carries Harvey LAB's MIT license.
 - [`tests/`](tests/): unit tests for the adapter, judge routing and deliverable matching, the
-  sandbox's cgroups switch, and checkout staging.
+  sandbox's cgroups switch, and the upload's judge settings.
 
 ## Run it
 
-[Choose or create an agent](https://docs.trajectory.ai/agent). Then register the organization
-secret `OPENAI_API_KEY` for the `gpt-5.4-mini` judge. Its value never enters the image or the
-upload.
+[Choose or create an agent](https://docs.trajectory.ai/agent). Harvey LAB grades each run with
+two judges, Claude Sonnet 4.6 and GPT-5.5, and averages their scores. Register the organization
+secrets `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` for them. Their values never enter the image or
+the upload.
 
 ```python
 from trajectory import Client
 
-Client().secrets.create(name="OPENAI_API_KEY", value="YOUR_OPENAI_API_KEY")
+client = Client()
+client.secrets.create(name="ANTHROPIC_API_KEY", value="YOUR_ANTHROPIC_API_KEY")
+client.secrets.create(name="OPENAI_API_KEY", value="YOUR_OPENAI_API_KEY")
 ```
 
 From the repository root, upload the benchmark:
@@ -46,25 +48,16 @@ export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
-The judge defaults to Harvey's `gpt-5.4-mini` on OpenAI. For another OpenAI-compatible provider,
-store its key as `OPENAI_API_KEY` and pass the provider's model ID and endpoint. The endpoint
-becomes each task's `OPENAI_BASE_URL`, and the judge then sends the ID to that endpoint unchanged:
+`--judges` takes one or two models, as in Harvey LAB's own evaluation CLI. Claude models use
+`ANTHROPIC_API_KEY`; the others use `OPENAI_API_KEY`. For a single judge on another
+OpenAI-compatible provider, store its key as `OPENAI_API_KEY` and pass the provider's model ID
+and endpoint. The endpoint becomes each task's `OPENAI_BASE_URL`, and the judge sends the ID to
+that endpoint unchanged:
 
 ```bash
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
-  --judge-model openai/gpt-6-luna --judge-base-url https://openrouter.ai/api/v1
+  --judges openai/gpt-6-luna --judge-base-url https://openrouter.ai/api/v1
 ```
-
-To package a checkout of harveyai/harvey-labs at the pinned commit, including your edits to
-its `lab_core/`, run the script from that checkout:
-
-```bash
-uv run PATH_TO_COOKBOOK/examples/harvey_labs/ingest.py --upstream . --agent-name YOUR_AGENT_NAME
-```
-
-The script stages the checkout's `lab_core/` with the overlay copied over it, and stops if the
-checkout is at another commit. The image still downloads `tasks/` from the pinned commit: its
-63,000 files exceed the 4,096-file build-context limit.
 
 The script prints the benchmark ID and waits for the runtime image, which downloads the
 3 GB source archive. Image readiness alone doesn't verify model inference, grading, or reward
@@ -101,7 +94,7 @@ The unit tests run in the runtime image:
 ```bash
 docker build -t harvey-lab-trajectory examples/harvey_labs/runtime
 docker run --rm -v "$PWD/examples/harvey_labs:/example:ro" harvey-lab-trajectory \
-  sh -c 'pip install -q pytest && python -m pytest -q -p no:cacheprovider /example/tests'
+  sh -c 'pip install -q pytest && cd /tmp && python -m pytest -q -p no:cacheprovider /example/tests'
 ```
 
 ## Evaluate and train
@@ -140,9 +133,9 @@ final = client.evals.create(
 )
 ```
 
-The reward is the fraction of rubric criteria passed. Harvey's all-pass score rarely differs
-across a group of attempts at one task, so it gives training little signal; it is logged as the
-zero-weight `all_pass` component, shown with each trajectory's reward. Check the step
+The reward is the fraction of rubric criteria passed, averaged over the two judges. Harvey LAB's
+all-pass score rarely differs across a group of attempts at one task, so it gives training little
+signal; it is logged as the zero-weight `all_pass` component, shown with each trajectory's reward. Check the step
 summaries' `no_signal_groups` early (see the [training guide](https://docs.trajectory.ai/guides/training)).
 An attempt that prints the whole document store in one command can overflow the context and
 end as `TRUNCATION`; training skips those attempts by default.
@@ -162,7 +155,7 @@ test_tasks = set(ordered[:120])
 ```
 
 Each task runs the original harness through the overlay's Trajectory adapter, which takes its
-judge from `--judge-model`. Secrets come from the platform, not the benchmark source. In managed
+judges from `--judges`. Secrets come from the platform, not the benchmark source. In managed
 runs, the run sets sampling and per-step output tokens, and its `reasoning_effort` takes
 precedence over `--reasoning-effort`:
 
@@ -176,9 +169,10 @@ TaskSpec(
     run_command=(
         "python -m lab_core.harness.run --model trajectory/session "
         f"--task {task} --run-id trajectory --max-turns 200 "
-        "--reasoning-effort low --judge-model gpt-5.4-mini"
+        "--reasoning-effort low --judges claude-sonnet-4-6 gpt-5.5"
     ),
     env_vars={
+        "ANTHROPIC_API_KEY": SecretRef(secret_ref="ANTHROPIC_API_KEY"),
         "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
         "HARVEY_PODMAN_DISABLE_CGROUPS": "1",
     },
@@ -191,11 +185,12 @@ The public benchmark contains 2,010 tasks: 1,890 training tasks and 120 held-out
 ## Preserve the original harness
 
 The added model adapter creates one TID and sends the harness's existing Responses API calls
-through `trajectory-session`. After the run, it invokes Harvey LAB's normal judge, records the
-fraction of criteria passed as `criteria_fraction` and the all-pass result as the zero-weight
-`all_pass`, and completes the same trajectory. If the agent loop or
-the judge fails, it completes the trajectory with `ERROR` and logs no reward. This keeps prompts,
-tools, output files, and grading behavior owned by the upstream benchmark.
+through `trajectory-session`. After the run, it grades with Harvey LAB's own
+`evaluate_run_dual`, or `evaluate_run` for a single judge, records the fraction of criteria
+passed as `criteria_fraction` and the all-pass rate as the zero-weight `all_pass`, and completes
+the same trajectory. If the agent loop or the judge fails, it completes the trajectory with
+`ERROR` and logs no reward. This keeps prompts, tools, output files, and grading behavior owned
+by the upstream benchmark.
 
 The [runtime image](runtime/Dockerfile) follows the same overlay approach: download a pinned
 public source revision, then copy only the SDK adapter and the narrow harness changes into the

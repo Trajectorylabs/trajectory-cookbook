@@ -1,54 +1,27 @@
 import importlib.util
 from pathlib import Path
 
-import pytest
-
 EXAMPLE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("ingest", EXAMPLE / "ingest.py")
 ingest = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ingest)
 
 
-@pytest.fixture
-def checkout(tmp_path):
-    root = tmp_path / "harvey-labs"
-    (root / "lab_core" / "harness").mkdir(parents=True)
-    (root / "lab_core" / "harness" / "tools.py").write_text("upstream tools\n")
-    (root / "lab_core" / "harness" / "run.py").write_text("upstream run\n")
-    (root / "lab_core" / "__pycache__").mkdir()
-    (root / "lab_core" / "__pycache__" / "x.pyc").write_bytes(b"")
-    (root / "tasks" / "area" / "task").mkdir(parents=True)
-    (root / "tasks" / "area" / "task" / "task.json").write_text("{}")
-    return root
+def test_default_judges_are_the_standard_pair_with_both_keys():
+    task = ingest.build_benchmark("harvey").tasks[0]
+
+    assert task.run_command.endswith("--judges claude-sonnet-4-6 gpt-5.5")
+    assert {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"} <= task.env_vars.keys()
 
 
-def test_stage_overlays_checkout_without_tasks(checkout, tmp_path, monkeypatch):
-    monkeypatch.setattr(ingest, "git_head", lambda path: ingest.SOURCE_COMMIT)
+def test_compatible_endpoint_judge_needs_only_the_openai_key():
+    task = ingest.build_benchmark(
+        "harvey", ("openai/gpt-6-luna",), "https://openrouter.ai/api/v1"
+    ).tasks[0]
 
-    root = ingest.stage(checkout, tmp_path / "stage")
-
-    runtime = root / "runtime"
-    overlay_run = EXAMPLE / "runtime" / "lab_core" / "harness" / "run.py"
-    assert (
-        runtime / "lab_core" / "harness" / "tools.py"
-    ).read_text() == "upstream tools\n"
-    assert (
-        runtime / "lab_core" / "harness" / "run.py"
-    ).read_text() == overlay_run.read_text()
-    assert (runtime / "lab_core" / "harness" / "adapters" / "trajectory.py").is_file()
-    assert (runtime / "Dockerfile").read_text() == (
-        EXAMPLE / "runtime" / "Dockerfile"
-    ).read_text()
-    assert (root / ".dockerignore").is_file()
-    assert not (root / "tasks").exists()
-    assert not list(root.rglob("__pycache__"))
-
-
-def test_stage_rejects_other_commit(checkout, tmp_path, monkeypatch):
-    monkeypatch.setattr(ingest, "git_head", lambda path: "0" * 40)
-
-    with pytest.raises(SystemExit, match=ingest.SOURCE_COMMIT):
-        ingest.stage(checkout, tmp_path / "stage")
+    assert task.run_command.endswith("--judges openai/gpt-6-luna")
+    assert "ANTHROPIC_API_KEY" not in task.env_vars
+    assert task.env_vars["OPENAI_BASE_URL"] == "https://openrouter.ai/api/v1"
 
 
 def test_dockerfile_downloads_source_commit():

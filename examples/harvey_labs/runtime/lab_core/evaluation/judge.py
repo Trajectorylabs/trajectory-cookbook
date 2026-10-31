@@ -10,7 +10,6 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import NoReturn
 
 import anthropic
 import openai
@@ -18,7 +17,6 @@ from google import genai
 from google.genai import types
 
 from lab_core.harness.adapters.mistral import make_mistral_client
-from lab_core.utils.diagnostics import emit_diagnostic
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -45,6 +43,9 @@ def _detect_provider(model: str) -> str:
         return "openai"
     if name.startswith("mistral"):
         return "mistral"
+    # An OpenAI-compatible endpoint takes its own IDs, such as "openai/gpt-6-luna".
+    if os.environ.get("OPENAI_BASE_URL"):
+        return "openai"
     raise ValueError(f"Unknown judge provider for model: {model!r}")
 
 class Judge:
@@ -58,8 +59,7 @@ class Judge:
                 'gpt-5.4', 'mistral-medium-3.5').
         """
         self.model = model
-        # An OpenAI-compatible endpoint takes its own IDs, such as "openai/gpt-6-luna".
-        self.provider = "openai" if os.environ.get("OPENAI_BASE_URL") else _detect_provider(model)
+        self.provider = _detect_provider(model)
         if self.provider == "anthropic":
             self.client = anthropic.Anthropic(max_retries=1)
         elif self.provider == "google":
@@ -93,9 +93,7 @@ class Judge:
             return self._evaluate_openai(prompt, temperature, _retries, schema)
         return self._evaluate_mistral(prompt, temperature, _retries)
 
-    def _evaluate_anthropic(
-        self, prompt: str, temperature: float, _retries: int, schema: dict
-    ) -> dict:
+    def _evaluate_anthropic(self, prompt: str, temperature: float, _retries: int, schema: dict) -> dict:
         last_err: Exception | None = None
         for attempt in range(_retries):
             kwargs = {
@@ -115,7 +113,8 @@ class Judge:
             try:
                 response = self.client.messages.create(**kwargs)
             except anthropic.InternalServerError as e:
-                self._log_attempt_failure("provider", e, attempt, _retries, prompt)
+                # 500s on the structured-output path have been observed to
+                # succeed when retried without output_config.
                 last_err = e
                 continue
 
@@ -136,13 +135,12 @@ class Judge:
             try:
                 return self._parse_json(text)
             except (ValueError, json.JSONDecodeError) as e:
-                self._log_attempt_failure("parse", e, attempt, _retries, prompt, text)
                 last_err = e
-        self._raise_last_error(last_err, _retries, prompt)
+        raise ValueError(
+            f"Judge returned unparseable response after {_retries} attempts: {last_err}"
+        )
     
-    def _evaluate_google(
-        self, prompt: str, temperature: float, _retries: int, schema: dict
-    ) -> dict:
+    def _evaluate_google(self, prompt: str, temperature: float, _retries: int, schema: dict) -> dict:
         last_err: Exception | None = None
         for attempt in range(_retries):
             config_kwargs = dict(
@@ -160,20 +158,18 @@ class Judge:
                     config=types.GenerateContentConfig(**config_kwargs),
                 )
             except Exception as e:
-                self._log_attempt_failure("provider", e, attempt, _retries, prompt)
                 last_err = e
                 continue
             text = response.text or ""
             try:
                 return self._parse_json(text)
             except (ValueError, json.JSONDecodeError) as e:
-                self._log_attempt_failure("parse", e, attempt, _retries, prompt, text)
                 last_err = e
-        self._raise_last_error(last_err, _retries, prompt)
+        raise ValueError(
+            f"Judge returned unparseable response after {_retries} attempts: {last_err}"
+        )
 
-    def _evaluate_openai(
-        self, prompt: str, temperature: float, _retries: int, schema: dict
-    ) -> dict:
+    def _evaluate_openai(self, prompt: str, temperature: float, _retries: int, schema: dict) -> dict:
         last_err: Exception | None = None
         for attempt in range(_retries):
             kwargs = {
@@ -194,16 +190,16 @@ class Judge:
             try:
                 response = self.client.responses.create(**kwargs)
             except Exception as e:
-                self._log_attempt_failure("provider", e, attempt, _retries, prompt)
                 last_err = e
                 continue
             text = response.output_text or ""
             try:
                 return self._parse_json(text)
             except (ValueError, json.JSONDecodeError) as e:
-                self._log_attempt_failure("parse", e, attempt, _retries, prompt, text)
                 last_err = e
-        self._raise_last_error(last_err, _retries, prompt)
+        raise ValueError(
+            f"Judge returned unparseable response after {_retries} attempts: {last_err}"
+        )
 
     def _evaluate_mistral(self, prompt: str, temperature: float, _retries: int) -> dict:
         last_err: Exception | None = None
@@ -219,52 +215,16 @@ class Judge:
             try:
                 response = self.client.chat.complete(**kwargs)
             except Exception as e:
-                self._log_attempt_failure("provider", e, attempt, _retries, prompt)
                 last_err = e
                 continue
             text = response.choices[0].message.content or ""
             try:
                 return self._parse_json(text)
             except (ValueError, json.JSONDecodeError) as e:
-                self._log_attempt_failure("parse", e, attempt, _retries, prompt, text)
                 last_err = e
-        self._raise_last_error(last_err, _retries, prompt)
-
-    def _log_attempt_failure(
-        self,
-        stage: str,
-        error: Exception,
-        attempt: int,
-        retries: int,
-        prompt: str,
-        response_text: str | None = None,
-    ) -> None:
-        emit_diagnostic(
-            "judge_attempt_failed",
-            error,
-            stage=stage,
-            provider=self.provider,
-            model=self.model,
-            attempt=attempt + 1,
-            max_attempts=retries,
-            prompt_chars=len(prompt),
-            response_chars=len(response_text) if response_text is not None else 0,
+        raise ValueError(
+            f"Judge returned unparseable response after {_retries} attempts: {last_err}"
         )
-
-    def _raise_last_error(
-        self, last_err: Exception | None, retries: int, prompt: str
-    ) -> NoReturn:
-        if last_err is None:
-            last_err = RuntimeError("Judge did not make an evaluation attempt")
-        emit_diagnostic(
-            "judge_exhausted",
-            last_err,
-            provider=self.provider,
-            model=self.model,
-            max_attempts=retries,
-            prompt_chars=len(prompt),
-        )
-        raise last_err
 
     def evaluate_from_file(self, prompt_name: str, variables: dict) -> dict:
         """Load a prompt template from prompts/ dir and evaluate.
@@ -307,4 +267,4 @@ class Judge:
                             break  # Try next opening brace
                         break
 
-        raise json.JSONDecodeError("No JSON object found in judge response", text, 0)
+        raise ValueError(f"No JSON found in judge response: {text[:200]}")

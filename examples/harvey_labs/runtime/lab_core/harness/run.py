@@ -23,7 +23,6 @@ from lab_core.harness.adapters.openai import OpenAIAdapter
 from lab_core.harness.agent_loop import run_agent
 from lab_core.harness.tools import ToolExecutor, get_all_tool_definitions
 from lab_core.sandbox.sandbox import DEFAULT_IMAGE, Sandbox
-from lab_core.utils.diagnostics import emit_diagnostic
 from lab_core.utils.stdio import force_utf8_stdio
 
 # ── Task Discovery ─────────────────────────────────────────────────────
@@ -83,7 +82,7 @@ def create_adapter(
     model: str,
     temperature: float = 0.0,
     reasoning_effort: str | None = None,
-    judge_model: str | None = None,
+    judges: list[str] | None = None,
 ):
     """Create the right adapter based on the model string.
 
@@ -98,9 +97,7 @@ def create_adapter(
     if provider == "trajectory":
         from lab_core.harness.adapters.trajectory import TrajectoryAdapter
 
-        if judge_model is None:
-            raise ValueError("--judge-model is required for trajectory sessions")
-        return TrajectoryAdapter(temperature, reasoning_effort, judge_model)
+        return TrajectoryAdapter(temperature, reasoning_effort, judges)
 
     elif provider in {"anthropic"}:
         return AnthropicAdapter(
@@ -263,8 +260,9 @@ parser.add_argument("--task", required=True, help="Task ID (e.g., corporate-ma/r
 parser.add_argument("--run-id", default=None, help="Unique run identifier (auto-generated if omitted)")
 parser.add_argument("--max-turns", type=int, default=200, help="Max agent loop turns")
 parser.add_argument("--temperature", type=float, default=0.0, help="Model temperature")
-parser.add_argument("--judge-model", default=None,
-                    help="Judge model for integrations that score the run in-process")
+parser.add_argument("--judges", nargs="+", default=None, metavar="MODEL",
+                    help="One or two judge models for integrations that score the run in-process "
+                         "(default: the standard LAB pair)")
 parser.add_argument("--shell-timeout", type=int, default=60, help="Shell command timeout (seconds)")
 parser.add_argument("--reasoning-effort", default=None,
                     help="Reasoning effort level (e.g., low/medium/high/max/xhigh — varies by provider)")
@@ -349,8 +347,6 @@ def main(args):
         "enable_finish": args.enable_finish,
         "started_at": datetime.now(UTC).isoformat(),
     }
-    if args.judge_model is not None:
-        config["judge_model"] = args.judge_model
     (results_dir / "config.json").write_text(json.dumps(config, indent=2))
 
     # Create adapter and tool executor
@@ -359,7 +355,7 @@ def main(args):
         model=args.model,
         temperature=args.temperature,
         reasoning_effort=args.reasoning_effort,
-        judge_model=args.judge_model,
+        judges=args.judges,
     )
 
     tool_executor = ToolExecutor(
@@ -401,13 +397,6 @@ def main(args):
             max_turns=args.max_turns,
             transcript_path=str(results_dir / "transcript.jsonl"),
         )
-    except Exception:
-        if args.model.startswith("trajectory/"):
-            from lab_core.harness.adapters.trajectory import TrajectoryAdapter
-
-            assert isinstance(adapter, TrajectoryAdapter)
-            adapter.fail()
-        raise
     finally:
         sandbox.stop()
 
@@ -433,9 +422,6 @@ def main(args):
     (results_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
     if args.model.startswith("trajectory/"):
-        from lab_core.harness.adapters.trajectory import TrajectoryAdapter
-
-        assert isinstance(adapter, TrajectoryAdapter)
         adapter.finalize(args.run_id, args.task, metrics)
 
     # Print summary
@@ -454,15 +440,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parsed_args = parser.parse_args()
-    try:
-        main(parsed_args)
-    except Exception as error:
-        emit_diagnostic(
-            "harness_uncaught_error",
-            error,
-            task=parsed_args.task,
-            model=parsed_args.model,
-            run_id=parsed_args.run_id or "unassigned",
-        )
-        raise
+    main(parser.parse_args())

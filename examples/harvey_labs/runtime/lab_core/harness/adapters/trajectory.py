@@ -1,9 +1,14 @@
 import atexit
+from collections.abc import Sequence
 from types import SimpleNamespace
 from typing import Any
 
 from lab_core.evaluation.judge import Judge
-from lab_core.evaluation.run_eval import evaluate_run
+from lab_core.evaluation.run_eval import (
+    evaluate_run,
+    evaluate_run_dual,
+    resolve_judge_models,
+)
 from lab_core.harness.adapters.openai import OpenAIAdapter
 
 
@@ -31,17 +36,16 @@ class TrajectoryAdapter(OpenAIAdapter):
         self,
         temperature: float,
         reasoning_effort: str | None,
-        judge_model: str,
+        judges: Sequence[str] | None = None,
     ):
         from importlib import import_module
 
         Client = getattr(import_module("trajectory"), "Client")
 
+        self.judges = resolve_judge_models(judges, None)
         super().__init__(
             model="trajectory-session",
             temperature=temperature,
-            # Managed runs replace this with the run's max_output_tokens_per_step.
-            max_tokens=28_000,
             reasoning_effort=reasoning_effort,
         )
         self.client.close()
@@ -52,28 +56,31 @@ class TrajectoryAdapter(OpenAIAdapter):
         # Process exit doesn't complete a session; end any failed run as ERROR.
         atexit.register(self.fail)
         self.client = SimpleNamespace(responses=_Responses(self.trajectory, self.tid))
-        self.judge_model = judge_model
 
     def finalize(self, run_id: str, task: str, metrics: dict) -> None:
-        try:
-            scores = evaluate_run(run_id, task, Judge(model=self.judge_model))
-            # All-pass rarely differs within a group, so training uses the passed fraction.
-            self.trajectory.trajectories.log_reward(
-                self.tid,
-                name="criteria_fraction",
-                value=scores["n_passed"] / scores["n_criteria"],
-                explanation=f"Harvey LAB {self.judge_model} criteria passed",
-            )
-            self.trajectory.trajectories.log_reward(
-                self.tid,
-                name="all_pass",
-                value=float(scores["all_pass"]),
-                weight=0.0,
-                explanation=f"Harvey LAB {self.judge_model} all-pass score",
-            )
-        except Exception:
-            self.fail()
-            raise
+        if len(self.judges) == 2:
+            scores = evaluate_run_dual(run_id, task, judge_models=self.judges)
+            fraction = scores["dual_criterion_pass"]
+            all_pass = scores["dual_all_pass_rate"]
+        else:
+            scores = evaluate_run(run_id, task, Judge(model=self.judges[0]))
+            fraction = scores["n_passed"] / scores["n_criteria"]
+            all_pass = float(scores["all_pass"])
+        judges = " + ".join(self.judges)
+        # All-pass rarely differs within a group, so training uses the passed fraction.
+        self.trajectory.trajectories.log_reward(
+            self.tid,
+            name="criteria_fraction",
+            value=fraction,
+            explanation=f"Harvey LAB {judges} criteria passed",
+        )
+        self.trajectory.trajectories.log_reward(
+            self.tid,
+            name="all_pass",
+            value=all_pass,
+            weight=0.0,
+            explanation=f"Harvey LAB {judges} all-pass score",
+        )
         reason = "ENV_DONE"
         if metrics["finish_reason"] == "max_turns_exceeded":
             reason = "MAX_STEPS"

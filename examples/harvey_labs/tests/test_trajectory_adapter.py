@@ -7,16 +7,24 @@ from lab_core.harness.run import create_adapter
 
 COMPLETED = SimpleNamespace(status="completed")
 SCORES = {"all_pass": False, "n_passed": 3, "n_criteria": 4}
+DUAL_SCORES = {"dual_criterion_pass": 0.625, "dual_all_pass_rate": 0.5}
 
 
-def _adapter():
+def _adapter(judges=("claude-sonnet-4-6", "gpt-5.5")):
     adapter = object.__new__(trajectory.TrajectoryAdapter)
     adapter.trajectory = MagicMock()
     adapter.trajectory.trajectories.complete.return_value = COMPLETED
     adapter.tid = "tid_test"
-    adapter.judge_model = "gpt-5.4-mini"
+    adapter.judges = judges
     adapter._open = True
     return adapter
+
+
+def _rewards(adapter):
+    return {
+        c.kwargs["name"]: (c.kwargs["value"], c.kwargs.get("weight"))
+        for c in adapter.trajectory.trajectories.log_reward.call_args_list
+    }
 
 
 def test_session_sends_reasoning_effort_without_summary():
@@ -34,58 +42,76 @@ def test_session_sends_reasoning_effort_without_summary():
     }
 
 
-def test_reward_is_the_criteria_fraction_with_all_pass_reported():
+def test_dual_judge_reward_is_the_dual_criterion_pass():
     adapter = _adapter()
 
+    with patch.object(
+        trajectory, "evaluate_run_dual", return_value=DUAL_SCORES
+    ) as evaluate:
+        adapter.finalize(
+            "run", "task", {"finish_reason": "finish_tool", "incomplete_details": None}
+        )
+
+    evaluate.assert_called_once_with(
+        "run", "task", judge_models=("claude-sonnet-4-6", "gpt-5.5")
+    )
+    assert _rewards(adapter) == {
+        "criteria_fraction": (0.625, None),
+        "all_pass": (0.5, 0.0),
+    }
+    adapter.trajectory.trajectories.complete.assert_called_once_with(
+        "tid_test", termination_reason="ENV_DONE"
+    )
+
+
+def test_single_judge_reward_is_the_criteria_fraction():
+    adapter = _adapter(("openai/gpt-6-luna",))
+
     with (
-        patch.object(trajectory, "Judge"),
+        patch.object(trajectory, "Judge") as judge,
         patch.object(trajectory, "evaluate_run", return_value=SCORES),
     ):
         adapter.finalize(
             "run", "task", {"finish_reason": "finish_tool", "incomplete_details": None}
         )
 
-    rewards = {
-        c.kwargs["name"]: (c.kwargs["value"], c.kwargs.get("weight"))
-        for c in adapter.trajectory.trajectories.log_reward.call_args_list
+    judge.assert_called_once_with(model="openai/gpt-6-luna")
+    assert _rewards(adapter) == {
+        "criteria_fraction": (0.75, None),
+        "all_pass": (0.0, 0.0),
     }
-    assert rewards == {"criteria_fraction": (0.75, None), "all_pass": (0.0, 0.0)}
-    adapter.trajectory.trajectories.complete.assert_called_once_with(
-        "tid_test", termination_reason="ENV_DONE"
-    )
 
 
-def test_grader_failure_completes_error_without_reward():
+def test_grader_failure_leaves_exit_hook_an_error_completion_without_reward():
     adapter = _adapter()
 
     with (
-        patch.object(trajectory, "Judge"),
         patch.object(
-            trajectory, "evaluate_run", side_effect=RuntimeError("judge down")
+            trajectory, "evaluate_run_dual", side_effect=ValueError("judge down")
         ),
-        pytest.raises(RuntimeError, match="judge down"),
+        pytest.raises(ValueError, match="judge down"),
     ):
         adapter.finalize("run", "task", {"finish_reason": "finish_tool"})
 
+    adapter.trajectory.trajectories.complete.assert_not_called()
+    adapter.fail()
     adapter.trajectory.trajectories.log_reward.assert_not_called()
     adapter.trajectory.trajectories.complete.assert_called_once_with(
         "tid_test", termination_reason="ERROR"
     )
-    adapter.fail()
-    adapter.trajectory.trajectories.complete.assert_called_once()
 
 
-def test_reward_logging_failure_completes_error():
+def test_reward_logging_failure_leaves_exit_hook_an_error_completion():
     adapter = _adapter()
     adapter.trajectory.trajectories.log_reward.side_effect = RuntimeError("api down")
 
     with (
-        patch.object(trajectory, "Judge"),
-        patch.object(trajectory, "evaluate_run", return_value=SCORES),
+        patch.object(trajectory, "evaluate_run_dual", return_value=DUAL_SCORES),
         pytest.raises(RuntimeError, match="api down"),
     ):
         adapter.finalize("run", "task", {"finish_reason": "finish_tool"})
 
+    adapter.fail()
     adapter.trajectory.trajectories.complete.assert_called_once_with(
         "tid_test", termination_reason="ERROR"
     )
@@ -110,8 +136,7 @@ def test_failed_final_completion_leaves_exit_hook_an_error_completion():
     ]
 
     with (
-        patch.object(trajectory, "Judge"),
-        patch.object(trajectory, "evaluate_run", return_value=SCORES),
+        patch.object(trajectory, "evaluate_run_dual", return_value=DUAL_SCORES),
         pytest.raises(RuntimeError, match="api down"),
     ):
         adapter.finalize(
@@ -151,8 +176,7 @@ def test_unexpected_completion_status_raises_and_stays_open():
     ]
 
     with (
-        patch.object(trajectory, "Judge"),
-        patch.object(trajectory, "evaluate_run", return_value=SCORES),
+        patch.object(trajectory, "evaluate_run_dual", return_value=DUAL_SCORES),
         pytest.raises(RuntimeError, match="returned running"),
     ):
         adapter.finalize(
@@ -170,13 +194,8 @@ def test_unexpected_completion_status_raises_and_stays_open():
     adapter.trajectory.close.assert_called_once()
 
 
-def test_create_adapter_passes_judge_model():
+def test_create_adapter_passes_judges():
     with patch.object(trajectory, "TrajectoryAdapter") as adapter_class:
-        create_adapter("trajectory/session", judge_model="gpt-5.4-mini")
+        create_adapter("trajectory/session", judges=["openai/gpt-6-luna"])
 
-    adapter_class.assert_called_once_with(0.0, None, "gpt-5.4-mini")
-
-
-def test_create_adapter_requires_judge_model():
-    with pytest.raises(ValueError, match="--judge-model is required"):
-        create_adapter("trajectory/session")
+    adapter_class.assert_called_once_with(0.0, None, ["openai/gpt-6-luna"])

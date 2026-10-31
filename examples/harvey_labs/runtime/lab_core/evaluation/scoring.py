@@ -19,8 +19,6 @@ import pandas as pd
 import pdfplumber
 from markitdown import MarkItDown
 
-from lab_core.utils.diagnostics import emit_diagnostic
-
 
 # ── File reading helpers ──────────────────────────────────────────────
 
@@ -134,9 +132,7 @@ def _fuzzy_match_filename(expected: str, candidates: list[str]) -> tuple[str | N
     return best_match, best_score
 
 
-def _match_deliverables(
-    deliverables_map: dict, actual_files: list[str], output_dir: Path | None = None, judge=None,
-) -> dict:
+def _match_deliverables(deliverables_map: dict, actual_files: list[str], output_dir: Path | None = None, judge=None) -> dict:
     """Best-effort match expected deliverable filenames to actual output files.
 
     For each deliverable, if the expected filename exists exactly, use it.
@@ -152,14 +148,9 @@ def _match_deliverables(
     used = set()
 
     for name, expected in deliverables_map.items():
-        # Output files are paths relative to output/; a nested file can carry the exact name.
-        exact = next(
-            (f for f in actual_files if f == expected),
-            next((f for f in actual_files if f not in used and Path(f).name == expected), None),
-        )
-        if exact:
-            resolved[name] = exact
-            used.add(exact)
+        if expected in actual_files:
+            resolved[name] = expected
+            used.add(expected)
             continue
 
         expected_ext = Path(expected).suffix.lower()
@@ -192,12 +183,9 @@ def _match_deliverables(
     remaining_files = [f for f in actual_files if f not in used and not _is_thread_export(f)]
 
     if unresolved and remaining_files and output_dir:
-        if judge is None:
-            raise ValueError("Matching renamed deliverables needs a judge")
         llm_matches = _llm_match_deliverables(unresolved, remaining_files, output_dir, judge)
         for name, matched_file in llm_matches.items():
-            # One file can't stand in for two deliverables.
-            if matched_file in remaining_files and matched_file not in used:
+            if matched_file and matched_file in actual_files:
                 resolved[name] = matched_file
                 used.add(matched_file)
                 print(f"  Matched deliverable '{name}': {deliverables_map[name]} -> {matched_file} (LLM match)")
@@ -211,7 +199,7 @@ def _llm_match_deliverables(
     output_dir: Path,
     judge,
 ) -> dict[str, str | None]:
-    """Use the judge to match unresolved deliverables to available output files.
+    """Use an LLM to match unresolved deliverables to available output files.
 
     Provides the model with deliverable names, expected filenames, available
     filenames, and a preview of each file's content.
@@ -234,18 +222,19 @@ def _llm_match_deliverables(
     for name, expected in unresolved.items():
         deliverable_descriptions.append(f"Deliverable key: {name}\nExpected filename: {expected}")
 
+    deliverables_text = "\n".join(deliverable_descriptions)
+    files_text = "\n".join(file_previews)
     deliverable_keys = list(unresolved.keys())
 
-    prompt_template = """Match each unresolved deliverable to the most likely output file.
+    prompt = f"""Match each unresolved deliverable to the most likely output file.
 
 ## Unresolved Deliverables
-{deliverables}
+{deliverables_text}
 
 ## Available Output Files
-{files}
+{files_text}
 
-For each deliverable, provide the matching filename from the available files, or null if no file matches.
-Respond with a JSON object whose keys are the deliverable keys."""
+For each deliverable, provide the matching filename from the available files, or null if no file matches."""
 
     # Build JSON schema with the exact deliverable keys as properties
     schema_properties = {key: {"type": ["string", "null"]} for key in deliverable_keys}
@@ -256,16 +245,9 @@ Respond with a JSON object whose keys are the deliverable keys."""
         "additionalProperties": False,
     }
 
-    # The judge emits a diagnostic and raises if it can't answer, so the run fails
-    # instead of grading a renamed deliverable as missing.
-    return judge.evaluate(
-        prompt_template,
-        {
-            "deliverables": "\n".join(deliverable_descriptions),
-            "files": "\n".join(file_previews),
-        },
-        schema=output_schema,
-    )
+    # A failed match raises: grading a renamed deliverable as missing would
+    # substitute a zero for a grader failure.
+    return judge.evaluate("{prompt}", {"prompt": prompt}, schema=output_schema)
 
 
 # ── Rubric Scoring ───────────────────────────────────────────────
@@ -332,10 +314,8 @@ def score_rubric(
 
     # Match expected deliverable filenames to actual output files
     if deliverables_map and output_dir.exists():
-        actual_files = [f.relative_to(output_dir).as_posix() for f in output_dir.rglob("*") if f.is_file()]
-        resolved_map = _match_deliverables(
-            deliverables_map, actual_files, output_dir=output_dir, judge=judge
-        )
+        actual_files = [f.name for f in output_dir.rglob("*") if f.is_file()]
+        resolved_map = _match_deliverables(deliverables_map, actual_files, output_dir=output_dir, judge=judge)
     else:
         resolved_map = None
 
@@ -362,25 +342,15 @@ def score_rubric(
         else:
             agent_output = full_output
 
-        try:
-            result = judge.evaluate_from_file(
-                prompt_name="rubric_criterion",
-                variables={
-                    "task_description": task_desc,
-                    "agent_output": agent_output,
-                    "criterion_title": criterion["title"],
-                    "match_criteria": criterion["match_criteria"],
-                },
-            )
-        except Exception as error:
-            emit_diagnostic(
-                "judge_criterion_failed",
-                error,
-                criterion_id=str(criterion["id"]),
-                deliverable_count=len(criterion_deliverables),
-                output_chars=len(agent_output or ""),
-            )
-            raise
+        result = judge.evaluate_from_file(
+            prompt_name="rubric_criterion",
+            variables={
+                "task_description": task_desc,
+                "agent_output": agent_output,
+                "criterion_title": criterion["title"],
+                "match_criteria": criterion["match_criteria"],
+            },
+        )
 
         verdict = result.get("verdict", "fail").lower()
         reasoning = result.get("reasoning", "")
