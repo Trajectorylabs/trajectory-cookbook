@@ -1,5 +1,6 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# requires-python = ">=3.11"
+# dependencies = ["trajectory-sdk>=0.9.32"]
 # ///
 """Evaluate, train, and compare the final checkpoint on GSM8K."""
 
@@ -12,7 +13,8 @@ from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
-_MAX_ACTIVE_ROLLOUTS = 4
+# Enough concurrent attempts for one training batch.
+_MAX_ACTIVE_ROLLOUTS = 32
 _MAX_OUTPUT_TOKENS = 2_048
 
 
@@ -31,7 +33,7 @@ def train_and_evaluate(
     poll_seconds: float,
 ) -> RewardComparison:
     eval_options = {
-        "disable_thinking": True,
+        "reasoning_effort": "off",
         "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
         "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
     }
@@ -52,7 +54,7 @@ def train_and_evaluate(
         bench_id=bench_id,
         base_model_slug=model,
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "num_steps": num_steps,
             "train_batch_size": 4,
             "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
@@ -100,7 +102,7 @@ def eval_smoketest(
         parent_checkpoint_id=parent_checkpoint_id,
         display_name="GSM8K smoketest",
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "evaluation_max_samples": 1,
             "evaluation_max_active_rollouts": 1,
             "execution_timeout_seconds": 600,

@@ -32,8 +32,14 @@ def train():
         ("42", 1.0, "max_tokens", "TRUNCATION"),
     ],
 )
+@pytest.mark.parametrize("completion_status", ["completed", "finalizing", "aborted"])
 def test_task_records_reward_and_completes_with_published_sdk(
-    tmp_path, monkeypatch, answer, expected_reward, finish_reason, expected_reason
+    monkeypatch,
+    answer,
+    expected_reward,
+    finish_reason,
+    expected_reason,
+    completion_status,
 ):
     spec = importlib.util.spec_from_file_location(
         "gsm8k_harness", ROOT / "runtime/gsm8k_harness.py"
@@ -85,22 +91,23 @@ def test_task_records_reward_and_completes_with_published_sdk(
             )
         if request.url.path.endswith("/complete"):
             return httpx2.Response(
-                200, json={"trajectory_id": "tid_test", "status": "completed"}
+                200, json={"trajectory_id": "tid_test", "status": completion_status}
             )
         raise AssertionError(request.url.path)
 
-    task = tmp_path / "task.json"
-    task.write_text(
-        json.dumps({"question": "What is 6 times 7?", "expected_answer": "#### 42"})
-    )
-    monkeypatch.setattr(sys, "argv", ["gsm8k_harness", "--task-file", str(task)])
+    monkeypatch.setenv("QUESTION", "What is 6 times 7?")
+    monkeypatch.setenv("EXPECTED_ANSWER", "#### 42")
     with Client(
         api_key="test",
         base_url="https://example.com",
         http_client=httpx2.Client(transport=httpx2.MockTransport(respond)),
     ) as client:
         monkeypatch.setattr(harness, "Client", lambda **kwargs: client)
-        harness.main()
+        if completion_status == "aborted":
+            with pytest.raises(RuntimeError, match="trajectory completion failed"):
+                harness.main()
+        else:
+            harness.main()
     assert len(requests) == 4
     assert requests[1][1]["X-Trajectory-Id"] == "tid_test"
     assert requests[2][2]["name"] == "reward_accuracy"
@@ -108,11 +115,50 @@ def test_task_records_reward_and_completes_with_published_sdk(
     assert requests[3][2] == {"termination_reason": expected_reason}
 
 
+def test_failed_model_call_completes_error(monkeypatch):
+    from trajectory import InternalServerError
+
+    spec = importlib.util.spec_from_file_location(
+        "gsm8k_harness", ROOT / "runtime/gsm8k_harness.py"
+    )
+    harness = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(harness)
+    requests = []
+
+    def respond(request):
+        requests.append((request.url.path, json.loads(request.content or b"{}")))
+        if request.url.path == "/api/v1/trajectories":
+            return httpx2.Response(200, json={"tid": "tid_test"})
+        if request.url.path == "/v1/chat/completions":
+            return httpx2.Response(500, json={"error": "unavailable"})
+        if request.url.path.endswith("/complete"):
+            return httpx2.Response(
+                200, json={"trajectory_id": "tid_test", "status": "completed"}
+            )
+        raise AssertionError(request.url.path)
+
+    monkeypatch.setenv("QUESTION", "What is 6 times 7?")
+    monkeypatch.setenv("EXPECTED_ANSWER", "#### 42")
+    with Client(
+        api_key="test",
+        base_url="https://example.com",
+        max_retries=0,
+        http_client=httpx2.Client(transport=httpx2.MockTransport(respond)),
+    ) as client:
+        monkeypatch.setattr(harness, "Client", lambda **kwargs: client)
+        with pytest.raises(InternalServerError):
+            harness.main()
+    assert requests[-1] == (
+        "/api/v1/trajectories/tid_test/complete",
+        {"termination_reason": "ERROR"},
+    )
+
+
 @pytest.mark.parametrize(
     "grades,rollout_status,total,expected",
     [
         ([False], "COMPLETED", 1, None),  # An effective zero is not a native grade.
-        ([True], "COMPLETED", 1, 0.0),  # A capped positive grade still counts as graded.
+        ([True], "COMPLETED", 1, 0.0),  # A capped positive grade is still graded.
         ([True, False], "COMPLETED", 2, None),
         ([True], "COMPLETED", 2, None),  # One attempt has no trajectory yet.
         ([True], "FAILED", 1, None),
@@ -206,7 +252,7 @@ def test_evaluations_keep_baseline_version_when_latest_changes(monkeypatch, trai
     )
     train.train_and_evaluate(client, "agent", "benchmark", "model", 3, 0)
     assert training_calls[0]["bench_id"] == eval_calls[1]["bench_id"] == "bm_old"
-    assert training_calls[0]["options"]["max_active_rollouts"] == 4
+    assert training_calls[0]["options"]["max_active_rollouts"] == 32
     assert "benchmark_name" not in training_calls[0]
     assert "benchmark_name" not in eval_calls[1]
     assert eval_calls[0]["options"] == eval_calls[1]["options"]
@@ -249,6 +295,8 @@ def test_upload_keeps_operation_id_and_reports_build_failure(
     def start(client, manifest, **kwargs):
         assert kwargs["build_images"] is True
         assert (kwargs["root"] / "Dockerfile").is_file()
+        (task,) = manifest.tasks
+        assert task.env_vars == {"QUESTION": "6 * 7?", "EXPECTED_ANSWER": "#### 42"}
         return SimpleNamespace(id="op_fixture", result=wait)
 
     monkeypatch.setattr(ingest, "Client", lambda: object())

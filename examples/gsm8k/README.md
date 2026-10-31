@@ -17,7 +17,7 @@ Use your API key from the first lesson. Start Python from the cookbook repositor
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk --with httpx python
+uv run --with trajectory-sdk python
 ```
 
 ```python
@@ -30,10 +30,12 @@ for agent in client.agents.list():
 ```
 
 The SDK uses `https://api.trajectory.ai` by default. Set `TRAJECTORY_BASE_URL` for another deployment.
+Diagnostics, evaluations, training, and deployments spend organization credits; a
+`credits_required` error means the organization needs more.
 
 ## 2. Choose or create an agent
 
-Follow the SDK's [agent selection guidance](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx).
+Follow the [agent selection guidance](https://docs.trajectory.ai/agent).
 For a new GSM8K project:
 
 ```bash
@@ -54,8 +56,8 @@ agent_name = "gsm8k-cookbook"
 task_diagnose(agent_name=agent_name)
 ```
 
-`task_diagnose` packages one training problem and its grader, builds the runtime, and runs
-it on `Qwen/Qwen3.5-4B`. It prints the diagnostic ID, status, task report, and reward.
+`task_diagnose` uploads one training task with its runtime and grader, builds the image, and
+runs it on `Qwen/Qwen3.5-4B`. It prints the diagnostic ID, status, task report, and reward.
 Zero is a valid grade. Fix packaging or grading failures and repeat the diagnostic.
 For a different harness, use the [task upload validation recipe](../task_diagnostics.md).
 
@@ -76,13 +78,13 @@ baseline_reward = eval_smoketest(client, bench_id)
 print(f"baseline_reward={baseline_reward:.6f}")
 ```
 
-`ingest_smoketest` uploads one training problem and one different problem from GSM8K's test
-split, then waits for the runtime image. The full upload in step 6 runs a benchmark diagnostic.
+`ingest_smoketest` uploads one training problem, which Qwen 3.5 4B solves about half the time,
+and one problem from GSM8K's test split, then waits for the runtime image. The full upload in step 6 runs a benchmark diagnostic.
 
 `eval_smoketest` evaluates one held-out task and prints its evaluation ID, progress and grade
-counts. It stops on failed rollouts or missing native grades. A graded wrong or cut-off answer is
-still graded; the platform can score a cut-off answer as zero. Inspect its ending before
-choosing training limits.
+counts. It stops on failed rollouts or missing native grades. A wrong or cut-off answer is still
+graded, and evaluation scores a cut-off answer as zero. Inspect its ending before choosing
+training limits.
 One test problem cannot measure generalization.
 
 ## 5. Train on one task and evaluate the checkpoint
@@ -94,10 +96,10 @@ training = client.training.create(
     bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.5-4B",
     options={
-        "disable_thinking": True,
+        "reasoning_effort": "off",
         "num_steps": 3,
         "train_batch_size": 1,
-        "max_active_rollouts": 2,
+        "max_active_rollouts": 8,
         "max_output_tokens_per_step": 2048,
     },
 )
@@ -105,9 +107,11 @@ run_id = training.training_run_id
 print(f"training_run_id={run_id}")
 ```
 
-One task group can contain multiple model samples according to the model's defaults.
-`train_batch_size` does not cap launched attempts; `max_active_rollouts` bounds
-concurrency, not total spend. Watch attempts during this smoke run.
+Each task group holds the model's default `group_size` of eight samples, so 8 attempts at a time
+runs one group. A group whose samples all receive the same reward has no training signal and is
+skipped; the smoke problem is one Qwen 3.5 4B solves about half the time, so nearly every group
+can be trained on. See
+[reduce rollout spend](https://docs.trajectory.ai/guides/training#reduce-rollout-spend).
 The training task is separate from the held-out evaluation task.
 
 ### Watch actual progress
@@ -143,7 +147,7 @@ print(f"reward_delta={final_reward - baseline_reward:+.6f}")
 ```
 
 Reward may stay unchanged or fall in a short run. For an existing benchmark, use the
-[evaluation selectors](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/evaluations.mdx) and [training options](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/training.mdx) with the
+[evaluation selectors](https://docs.trajectory.ai/guides/evaluations) and [training options](https://docs.trajectory.ai/guides/training) with the
 corresponding SDK calls above.
 
 ## 6. Expand to the 80-task example
@@ -167,7 +171,9 @@ uv run examples/gsm8k/train.py --agent-name "gsm8k-cookbook" --bench-name "gsm8k
 ```
 
 This command runs baseline evaluation, training, and checkpoint evaluation. It evaluates all
-16 held-out tasks and uses the normal batch size of four training task groups per step.
+16 held-out tasks and uses a batch size of four training task groups per step. Expect it to
+take about an hour: Qwen 3.5 4B already solves most of these problems, so most task groups have
+no training signal, and each step runs a few hundred attempts to fill its batch.
 It prints training progress and the baseline/final reward comparison. Increasing `--num-steps`
 lets you run longer; use repeated runs and a sufficiently large frozen test set to assess improvement.
 
@@ -199,9 +205,9 @@ for attempt in client.trajectories.list(eval_run_id=eval_run_id):
 
 An aggregate zero is not proof that the harness published a zero grade; inspect the
 components and ending. For a diagnostic ID, use `client.diagnostics.get_diagnostics()`;
-for a training ID, use `client.training.runs.retrieve()`. The SDK's
-[evaluation](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/evaluations.mdx)
-and [training](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/training.mdx)
+for a training ID, use `client.training.runs.retrieve()`. The
+[evaluation](https://docs.trajectory.ai/guides/evaluations)
+and [training](https://docs.trajectory.ai/guides/training)
 guides cover run progress and recovery. The agent's **Train** and **Compare** tabs show
 the same runs.
 
@@ -217,32 +223,33 @@ client = Client()
 checkpoint = client.training.checkpoints.retrieve("YOUR_TRAINING_RUN_ID", step_index=3)
 deployment = client.deployments.create(
     checkpoint_id=checkpoint.checkpoint_id,
-    model_slug="gsm8k-trained",
-    role="test",
+    test_model_slug="gsm8k-trained-test",
 )
 print(deployment.deployment_id)
 ```
 
-Follow the SDK's
-[deployment guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/deployments.mdx)
-to wait for `DEPLOYED`, test the exact deployment route, and promote it. Serving answers
+Follow the
+[deployment guide](https://docs.trajectory.ai/guides/deployments)
+to wait for `DEPLOYED`, test the deployment's route, and promote it. Serving answers
 do not replace the graded checkpoint evaluation in step 5.
 
 ## Adapt this workflow to your benchmark
 
 The integration has three parts:
 
-- [`ingest.py`](ingest.py): load source rows, stage task files, and create `TaskSpec` objects with
-  explicit splits and a per-task `run_command`.
+- [`ingest.py`](ingest.py): load source rows and create `TaskSpec` objects with explicit splits.
+  Each task passes its problem and answer to the harness in `env_vars`, so every task shares one
+  runtime image; package larger inputs, such as files or repositories, in the image.
 - [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py): call the selected model, grade its answer,
   record reward, and complete the same trajectory.
 - [`train.py`](train.py): evaluate, train, monitor progress, and compare the final checkpoint.
 
 When changing the dataset or harness, preserve the benchmark's native task inputs, tools,
 private references, and grading rules. GSM8K exposes only `submit_answer`; a harness with file
-or shell tools must keep reference answers outside the model's access.
+or shell tools must keep reference answers, including `EXPECTED_ANSWER`, outside the model's
+access.
 
-Use the SDK's [runtime packaging guidance](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx#package-the-harness-in-an-image) and the
+Use the [runtime packaging guidance](https://docs.trajectory.ai/guides/benchmarks#package-the-harness-in-an-image) and the
 [Harvey](../harvey_labs.md) or [Inspect](../inspect.md) recipes for an existing harness.
 Benchmark-specific source inspection may be necessary to understand those inputs and grading
-rules. The public guides cover the SDK lifecycle.
+rules.
