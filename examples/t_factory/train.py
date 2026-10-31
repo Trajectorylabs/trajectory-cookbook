@@ -40,13 +40,8 @@ def train_and_evaluate(
     }:
         raise ValueError("The benchmark must contain explicit train and test splits")
 
-    baseline = _evaluate_model(
-        client,
-        bench_id,
-        model,
-        "T Factory baseline",
-        poll_seconds,
-    )
+    baseline_id = _start_evaluation(client, bench_id, model, "T Factory baseline")
+    # Training does not use the baseline score, so start it without waiting.
     created = client.training.create(
         bench_id=bench_id,
         base_model_slug=model,
@@ -61,6 +56,14 @@ def train_and_evaluate(
     )
     run_id = created.training_run_id
     print(f"training_run_id={run_id}", flush=True)
+    try:
+        baseline = _wait_for_evaluation(
+            client, baseline_id, "T Factory baseline", poll_seconds
+        )
+    except RuntimeError:
+        # Training on a benchmark whose baseline failed would be wasted.
+        client.training.runs.cancel(run_id)
+        raise
     run = _wait_for_training(client, run_id, poll_seconds)
     if str(run.status) != "succeeded":
         raise RuntimeError(f"training ended with status={run.status}: {run.failure}")
@@ -93,6 +96,19 @@ def _evaluate_model(
     poll_seconds: float,
     parent_checkpoint_id: str | None = None,
 ) -> Evaluation:
+    eval_id = _start_evaluation(
+        client, bench_id, model, display_name, parent_checkpoint_id
+    )
+    return _wait_for_evaluation(client, eval_id, display_name, poll_seconds)
+
+
+def _start_evaluation(
+    client: Client,
+    bench_id: str,
+    model: str,
+    display_name: str,
+    parent_checkpoint_id: str | None = None,
+) -> str:
     evaluation = client.evals.create(
         bench_id=bench_id,
         base_model_slug=model,
@@ -108,13 +124,22 @@ def _evaluate_model(
     )
     eval_id = evaluation.eval_run_id
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
+    return eval_id
+
+
+def _wait_for_evaluation(
+    client: Client, eval_id: str, display_name: str, poll_seconds: float
+) -> Evaluation:
+    last = None
     while True:
         progress = client.evals.runs.progress(eval_id)
-        print(
+        line = (
             f"evaluation={display_name} status={progress.status} "
-            f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}",
-            flush=True,
+            f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}"
         )
+        if line != last:
+            print(line, flush=True)
+            last = line
         if progress.status == "completed":
             break
         if progress.status in {"failed", "cancelled"}:
@@ -132,13 +157,14 @@ def _wait_for_training(
     run_id: str,
     poll_seconds: float,
 ) -> TrainingRunResponse:
+    last = None
     while True:
         run = client.training.runs.retrieve(run_id)
         progress = client.training.runs.progress(run_id)
-        print(
-            f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}",
-            flush=True,
-        )
+        line = f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}"
+        if line != last:
+            print(line, flush=True)
+            last = line
         if str(run.status) in _TERMINAL_STATUSES:
             return run
         time.sleep(poll_seconds)
@@ -195,7 +221,7 @@ def main() -> int:
     parser.add_argument("--bench-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--num-steps", type=int, default=10)
-    parser.add_argument("--poll-seconds", type=float, default=15)
+    parser.add_argument("--poll-seconds", type=float, default=10)
     args = parser.parse_args()
     train_and_evaluate(
         Client(max_retries=20),
