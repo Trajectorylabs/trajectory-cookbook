@@ -53,3 +53,26 @@ def test_matching_without_a_judge_raises(output_dir):
         _match_deliverables(
             {"memo.txt": "memo.txt"}, ["final-v2.txt", "scratch.txt"], output_dir
         )
+
+
+def test_base_url_sends_prefixed_model_ids_to_the_openai_client(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
+
+    judge = Judge(model="openai/gpt-6-luna")
+    judge.client = MagicMock()
+    judge.client.responses.create.return_value = SimpleNamespace(
+        output_text=json.dumps({"reasoning": "ok", "verdict": "pass"})
+    )
+
+    assert judge.evaluate("Grade {x}", {"x": "this"})["verdict"] == "pass"
+    assert (
+        judge.client.responses.create.call_args.kwargs["model"] == "openai/gpt-6-luna"
+    )
+
+
+def test_without_base_url_unknown_prefixes_are_rejected(monkeypatch):
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+
+    with pytest.raises(ValueError, match="Unknown judge provider"):
+        Judge(model="openai/gpt-6-luna")

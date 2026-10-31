@@ -7,6 +7,7 @@ and parses the structured response. Used by all scoring functions.
 # pyright: reportArgumentType=false, reportAttributeAccessIssue=false
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import NoReturn
@@ -57,7 +58,8 @@ class Judge:
                 'gpt-5.4', 'mistral-medium-3.5').
         """
         self.model = model
-        self.provider = _detect_provider(model)
+        # An OpenAI-compatible endpoint takes its own IDs, such as "openai/gpt-6-luna".
+        self.provider = "openai" if os.environ.get("OPENAI_BASE_URL") else _detect_provider(model)
         if self.provider == "anthropic":
             self.client = anthropic.Anthropic(max_retries=1)
         elif self.provider == "google":

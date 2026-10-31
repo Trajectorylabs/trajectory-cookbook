@@ -24,8 +24,8 @@ adapter only needs to connect that lifecycle to a Trajectory session:
   [Trajectory adapter](runtime/lab_core/harness/adapters/trajectory.py) and failure diagnostics,
   and changes the harness, judge, and sandbox files they hook into.
   [`runtime/NOTICE`](runtime/NOTICE) carries Harvey LAB's MIT license.
-- [`tests/`](tests/): unit tests for the adapter, the sandbox's cgroups switch, and checkout
-  staging.
+- [`tests/`](tests/): unit tests for the adapter, judge routing and deliverable matching, the
+  sandbox's cgroups switch, and checkout staging.
 
 ## Run it
 
@@ -47,12 +47,12 @@ uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
 The judge defaults to Harvey's `gpt-5.4-mini` on OpenAI. For another OpenAI-compatible provider,
-store its key as `OPENAI_API_KEY` and pass a model name and endpoint; the endpoint becomes each
-task's `OPENAI_BASE_URL`. The judge picks its client from the model name, so use a `gpt` name:
+store its key as `OPENAI_API_KEY` and pass the provider's model ID and endpoint. The endpoint
+becomes each task's `OPENAI_BASE_URL`, and the judge then sends the ID to that endpoint unchanged:
 
 ```bash
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
-  --judge-model gpt-6-luna --judge-base-url https://openrouter.ai/api/v1
+  --judge-model openai/gpt-6-luna --judge-base-url https://openrouter.ai/api/v1
 ```
 
 To package a checkout of harveyai/harvey-labs at the pinned commit, including your edits to
@@ -69,7 +69,17 @@ checkout is at another commit. The image still downloads `tasks/` from the pinne
 The script prints the benchmark ID and waits for the runtime image, which downloads the
 3 GB source archive. Image readiness alone doesn't verify model inference, grading, or reward
 logging, so run a [benchmark diagnostic](../task_diagnostics.md#check-an-uploaded-benchmark)
-before an evaluation or training run.
+before an evaluation or training run. Pass the model you plan to evaluate; the platform's default
+diagnostic model checks the pipeline but its Harvey scores say little:
+
+```python
+from trajectory import Client
+
+diagnostic = Client().diagnostics.start_benchmark(
+    bench_id="YOUR_BENCH_ID", base_model_slug="Qwen/Qwen3.6-35B-A3B"
+)
+print(diagnostic.benchmark_diagnostic_id)
+```
 
 The unit tests run in the runtime image:
 
