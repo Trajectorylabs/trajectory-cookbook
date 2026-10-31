@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from lab_core.harness.adapters import trajectory
@@ -74,6 +74,47 @@ def test_exit_hook_completes_open_session_once():
     adapter.trajectory.trajectories.complete.assert_called_once_with(
         "tid_test", termination_reason="ERROR"
     )
+
+
+def test_failed_final_completion_leaves_exit_hook_an_error_completion():
+    adapter = _adapter()
+    adapter.trajectory.trajectories.complete.side_effect = [
+        RuntimeError("api down"),
+        None,
+    ]
+
+    with (
+        patch.object(trajectory, "Judge"),
+        patch.object(trajectory, "evaluate_run", return_value={"all_pass": 1}),
+        pytest.raises(RuntimeError, match="api down"),
+    ):
+        adapter.finalize(
+            "run", "task", {"finish_reason": "finish_tool", "incomplete_details": None}
+        )
+
+    adapter.fail()
+    adapter.fail()
+
+    assert adapter.trajectory.trajectories.complete.call_args_list[-1] == call(
+        "tid_test", termination_reason="ERROR"
+    )
+    assert adapter.trajectory.trajectories.complete.call_count == 2
+
+
+def test_exit_hook_retries_a_failed_error_completion():
+    adapter = _adapter()
+    adapter.trajectory.trajectories.complete.side_effect = [
+        RuntimeError("api down"),
+        None,
+    ]
+
+    with pytest.raises(RuntimeError, match="api down"):
+        adapter.fail()
+    adapter.fail()
+    adapter.fail()
+
+    assert adapter.trajectory.trajectories.complete.call_count == 2
+    adapter.trajectory.close.assert_called_once()
 
 
 def test_create_adapter_passes_judge_model():
