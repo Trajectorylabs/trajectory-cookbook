@@ -32,8 +32,11 @@ uv run examples/tau3_banking/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
 Ingestion waits for a new runtime build. Follow the
-[benchmark diagnostic guidance](../task_diagnostics.md) to execute a subset before training.
-Image build readiness alone does not verify policy inference, grading, or reward publication.
+[benchmark diagnostic guidance](../task_diagnostics.md) to execute a subset before training,
+with the model and options you will evaluate with, such as
+`base_model_slug="Qwen/Qwen3.6-35B-A3B"` and the sampling options below. Without them, a
+diagnostic runs on the API's default diagnostic model. Image build readiness alone does not
+verify policy inference, grading, or reward publication.
 
 Managed runs take sampling from run options, not harness requests. By default they sample with
 `top_p` 1 and `top_k` -1, so every token the learner trains on comes from the full distribution.

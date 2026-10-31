@@ -151,7 +151,8 @@ distribution. Save the printed `bench_id`.
 
 ## Check the upload
 
-Run a benchmark diagnostic, which runs up to 10 of the uploaded tasks, before evaluating:
+Run a benchmark diagnostic, which runs up to 10 of the uploaded tasks, before evaluating.
+It uses the model and settings the evaluation and training below use:
 
 ```python
 import time
@@ -160,18 +161,26 @@ from trajectory import Client
 
 client = Client()
 diagnostic = client.diagnostics.start_benchmark(
-    bench_id="bm_<your-benchmark-id>", base_model_slug="Qwen/Qwen3.5-4B"
+    bench_id="bm_<your-benchmark-id>",
+    base_model_slug="Qwen/Qwen3.5-4B",
+    options={
+        "reasoning_effort": "off",
+        "max_turns_per_trajectory": 15,
+        "max_output_tokens_per_step": 32_768,
+    },
 )
 diagnostic_id = diagnostic.benchmark_diagnostic_id
 while client.diagnostics.get_status(diagnostic_id).status not in {"completed", "failed", "cancelled"}:
-    time.sleep(15)
+    time.sleep(10)
 report = client.diagnostics.get_diagnostics(diagnostic_id)
 print(report.status, report.failure)
 for task in report.tasks:
-    print(task.task_id, task.status, task.failure)
+    print(task.task_id, task.status, task.termination_reason, task.reward, task.failure)
 ```
 
-If the diagnostic or any task fails, fix the reported failure and upload again.
+The diagnostic passes when it completes and every task completes with a reward. A reward of 0
+is a valid grade. If the diagnostic fails, or a task fails or has no reward, fix the reported
+failure and upload again.
 
 ## Evaluate and train
 

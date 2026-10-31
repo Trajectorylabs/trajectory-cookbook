@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.32"]
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
 
@@ -15,6 +15,9 @@ _ROOT = Path(__file__).parent
 _RUN_COMMAND = "python -u /opt/t_factory/t_factory_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
 _DIAGNOSTIC_DONE = {"completed", "failed", "cancelled"}
+_MODEL = "Qwen/Qwen3.5-4B"
+# The settings train.py evaluates and trains with.
+_RUN_OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_step": 2_048}
 _TRAIN_TASKS = 128
 _TEST_TASKS = 64
 _TOPICS = (
@@ -104,7 +107,9 @@ def ingest(client: Client, name: str, agent_name: str, skip_build: bool) -> str:
 
 def benchmark_diagnostic(client: Client, bench_id: str) -> None:
     # Run the uploaded harness on a sample of tasks before evaluation or training.
-    diagnostic = client.diagnostics.start_benchmark(bench_id=bench_id)
+    diagnostic = client.diagnostics.start_benchmark(
+        bench_id=bench_id, base_model_slug=_MODEL, options=_RUN_OPTIONS
+    )
     diagnostic_id = diagnostic.benchmark_diagnostic_id
     print(f"diagnostic_id={diagnostic_id}", flush=True)
     last = None
@@ -121,15 +126,12 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
         f"diagnostic_status={result.status} model={result.base_model_slug}",
         flush=True,
     )
-    rewards = []
-    for attempt in client.trajectories.list(eval_run_id=result.eval_run_id):
+    for task in result.tasks:
         print(
-            f"task_id={attempt.task_id} ending={attempt.termination_reason} "
-            f"reward={attempt.reward}",
+            f"task_id={task.task_id} status={task.status} "
+            f"ending={task.termination_reason} reward={task.reward}",
             flush=True,
         )
-        rewards.append(attempt.reward)
-    for task in result.tasks:
         if task.failure is not None:
             print(f"task_id={task.task_id} failure={task.failure}", flush=True)
     passed = (
@@ -137,10 +139,9 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
         and result.failure is None
         and result.tasks
         and all(
-            task.status == "completed" and task.failure is None for task in result.tasks
+            task.status == "completed" and task.reward is not None
+            for task in result.tasks
         )
-        and len(rewards) == len(result.tasks)
-        and all(reward is not None for reward in rewards)
     )
     if not passed:
         raise RuntimeError(
