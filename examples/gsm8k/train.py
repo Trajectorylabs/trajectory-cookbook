@@ -96,7 +96,7 @@ def eval_smoketest(
     client: Client,
     bench_id: str,
     model: str = _DEFAULT_MODEL,
-    poll_seconds: float = 5,
+    poll_seconds: float = 10,
     parent_checkpoint_id: str | None = None,
 ) -> float:
     # Evaluate one held-out task to catch basic execution and grading errors quickly.
@@ -199,7 +199,7 @@ def main() -> int:
     parser.add_argument("--bench-name", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--num-steps", type=int, default=20)
-    parser.add_argument("--poll-seconds", type=float, default=5)
+    parser.add_argument("--poll-seconds", type=float, default=10)
     args = parser.parse_args()
 
     train_and_evaluate(

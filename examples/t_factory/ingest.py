@@ -115,7 +115,7 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
             last = status
         if status in _DIAGNOSTIC_DONE:
             break
-        time.sleep(5)
+        time.sleep(10)
     result = client.diagnostics.get_diagnostics(diagnostic_id)
     print(
         f"diagnostic_status={result.status} model={result.base_model_slug}",

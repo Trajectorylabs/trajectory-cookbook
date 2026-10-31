@@ -220,7 +220,7 @@ def main() -> int:
     parser.add_argument("--bench-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--num-steps", type=int, default=10)
-    parser.add_argument("--poll-seconds", type=float, default=5)
+    parser.add_argument("--poll-seconds", type=float, default=10)
     args = parser.parse_args()
     train_and_evaluate(
         Client(max_retries=20),
