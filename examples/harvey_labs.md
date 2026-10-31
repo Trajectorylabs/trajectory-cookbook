@@ -27,8 +27,8 @@ test_tasks = set(ordered[:120])
 
 Each task runs the original harness through the overlay's Trajectory adapter, which takes its
 judge from `--judge-model`. Secrets come from the platform, not the benchmark source. In managed
-runs, the run's sampling and reasoning-effort options take precedence over `--temperature` and
-`--reasoning-effort`:
+runs, the run sets sampling and per-step output tokens, and its `reasoning_effort` takes
+precedence over `--reasoning-effort`:
 
 ```python
 from trajectory import SecretRef, TaskSpec
@@ -40,8 +40,7 @@ TaskSpec(
     run_command=(
         "python -m lab_core.harness.run --model trajectory/session "
         f"--task {task} --run-id trajectory --max-turns 200 "
-        "--temperature 1.0 --reasoning-effort low "
-        "--judge-model gpt-5.4-mini"
+        "--reasoning-effort low --judge-model gpt-5.4-mini"
     ),
     env_vars={
         "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
@@ -57,7 +56,8 @@ The public benchmark contains 2,010 tasks: 1,890 training tasks and 120 held-out
 
 The added model adapter creates one TID and sends the harness's existing Responses API calls
 through `trajectory-session`. After the run, it invokes Harvey LAB's normal judge, records its
-all-pass result as `reward_accuracy`, and completes the same trajectory. This keeps prompts,
+all-pass result as `reward_accuracy`, and completes the same trajectory. If the agent loop or
+the judge fails, it completes the trajectory with `ERROR` and logs no reward. This keeps prompts,
 tools, output files, and grading behavior owned by the upstream benchmark.
 
 The runtime image follows the same overlay approach: download a pinned public source revision,
