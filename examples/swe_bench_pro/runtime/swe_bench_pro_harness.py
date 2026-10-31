@@ -314,7 +314,8 @@ def run_task(client: Client, tid: str, instance_id: str) -> str:
             prompts,
             (task_dir / "instruction.md").read_text(),
             container_executor(agent, workdir, prompts["env"]),
-            task["agent"]["timeout_sec"],
+            # locked_mini_swe.py ends the agent a minute before the task's budget.
+            task["agent"]["timeout_sec"] - 60,
         )
         patch = docker(
             "exec",
