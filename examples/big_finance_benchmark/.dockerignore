@@ -1,6 +1,9 @@
 *
 !runtime/
 !runtime/Dockerfile
+!runtime/checkout.Dockerfile
 !runtime/overlay/
 !runtime/overlay/**
+!runtime/upstream/
+!runtime/upstream/**
 **/__pycache__/**

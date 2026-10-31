@@ -11,11 +11,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from click.testing import CliRunner
 from trajectory.types.inference.chat_completion_response import ChatCompletionResponse
 
 trajectory_adapter = pytest.importorskip("big_finance_harness.models.trajectory")
 python_exec = pytest.importorskip("big_finance_harness.tools.python_exec")
+CliRunner = pytest.importorskip("click.testing").CliRunner
 
 HARNESS_ROOT = Path("/opt/big_finance")
 

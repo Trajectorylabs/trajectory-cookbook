@@ -28,6 +28,8 @@ harness by commit:
 - [`runtime/Dockerfile`](runtime/Dockerfile) downloads upstream commit
   `bafc769bc58032f659e4117c3d839258ce0fda40` as a tarball. It extracts the harness package, the
   orchestrator script, and `data/big_finance_subset.jsonl`, then copies the overlay on top.
+  [`runtime/checkout.Dockerfile`](runtime/checkout.Dockerfile) copies the same files from your
+  checkout of that commit instead.
 - [`runtime/overlay/`](runtime/overlay/) holds only the files the integration adds or changes,
   at their upstream paths, with upstream's `LICENSE`:
   - `big_finance_harness/models/trajectory.py` is the new session adapter.
@@ -40,9 +42,11 @@ harness by commit:
     capped as it is read.
 - [`ingest.py`](ingest.py) reads the subset's question IDs at the same commit and uploads one
   task per question.
-- [`.dockerignore`](.dockerignore) limits the build context to the Dockerfile and overlay.
+- [`.dockerignore`](.dockerignore) limits the build context to the Dockerfiles, the overlay,
+  and the staged harness files.
 - [`test_overlay.py`](test_overlay.py) checks the adapter, the reward and ending, the
   `python_exec` isolation, and the dataset removal inside the built image.
+  [`test_ingest.py`](test_ingest.py) checks how `--upstream` stages a checkout.
 
 The pinned commit precedes upstream's change that returns model reasoning between turns; the
 session adapter does not carry reasoning back into the history.
@@ -65,11 +69,23 @@ for name in ["OPENAI_API_KEY", "TAVILY_API_KEY", "SEC_EDGAR_USER_AGENT"]:
     client.secrets.create(name=name, value="...")
 ```
 
-Upload the benchmark from the repository root. Ingestion waits for the image build and prints
-the benchmark ID:
+Upload the benchmark from this repository's root. Ingestion downloads the pinned harness,
+waits for the image build, and prints the benchmark ID:
 
 ```sh
 uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME
+```
+
+If you are already in a checkout of Rogo's harness, package that checkout instead. It must be
+at commit `bafc769bc58032f659e4117c3d839258ce0fda40`; ingestion stops if `HEAD` differs.
+Ingestion copies only the committed harness package, orchestrator script, subset, `LICENSE`,
+`README.md`, and `pyproject.toml` at that commit, and leaves out local changes, other data, and
+grades. From your checkout:
+
+```sh
+git checkout bafc769bc58032f659e4117c3d839258ce0fda40
+uv run PATH_TO_COOKBOOK/examples/big_finance_benchmark/ingest.py --upstream . \
+  --agent-name YOUR_AGENT_NAME
 ```
 
 The judge defaults to `openai:gpt-5.4-mini`. `--judge` takes any `provider:model` the harness
@@ -92,17 +108,50 @@ print(diagnostic.benchmark_diagnostic_id)
 ```
 
 Image build readiness alone does not verify policy inference, the web tools, grading, or
-reward publication. Then evaluate a base model or a checkpoint's deployment with the
-[evaluation guide](https://docs.trajectory.ai/guides/evaluations).
+reward publication.
 
-To run the overlay tests, build the image locally and run them inside it:
+To run the tests, run `test_ingest.py` locally, then build the image and run the overlay tests
+inside it:
 
 ```sh
+uv run --with trajectory-sdk --with pytest pytest examples/big_finance_benchmark/test_ingest.py
 docker build -t big-finance-trajectory examples/big_finance_benchmark/runtime
 docker run --rm \
   -v "$PWD/examples/big_finance_benchmark/test_overlay.py:/opt/big_finance/test_overlay.py:ro" \
   big-finance-trajectory sh -c "pip install -q pytest && python -m pytest -q test_overlay.py"
 ```
+
+## Evaluate
+
+The harness makes up to 30 model calls per question, each followed by web, SEC, or Python
+tools, so give each attempt room for long reasoning replies and the whole loop:
+
+```python
+run = client.evals.create(
+    bench_id="YOUR_BENCH_ID",
+    base_model_slug="Qwen/Qwen3.6-35B-A3B",
+    options={
+        "reasoning_effort": "on",
+        "max_output_tokens_per_step": 16384,
+        "max_total_tokens_per_trajectory": 491520,  # 30 calls x 16,384 tokens
+        "max_turns_per_trajectory": 30,  # matches the harness's --max-steps 30
+        "execution_timeout_seconds": 3600,
+    },
+    display_name="Big Finance baseline",
+)
+print(run.eval_run_id)
+```
+
+With these settings, a 10-question Qwen 3.6 35B A3B evaluation completed every attempt with
+`ENV_DONE` and no cut-off replies. The longest attempt used all 30 calls and still ended on
+`final_answer`, and the run took about 25 minutes. Much lower per-step limits cut replies off:
+in a 50-question Qwen 3.5 4B run with 4,096 tokens per step, 13 attempts ended `TRUNCATION`. The
+snippet runs all 50 questions; add `"evaluation_max_samples": 10` to the options for a smaller
+check.
+
+To evaluate a checkpoint, pass its ready deployment's `deployment_id=` in place of
+`base_model_slug`. A deployment brings its own sampling, token, and turn settings, so those
+options return 422 with it; see the [evaluation guide](https://docs.trajectory.ai/guides/evaluations).
 
 ## Adapt the existing model client
 
