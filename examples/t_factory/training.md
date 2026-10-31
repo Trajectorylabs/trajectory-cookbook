@@ -1,44 +1,38 @@
 # T Factory: evaluation and training
 
-This guide uses T Factory's toy reward for evaluation, training, and deployment.
-Start with [your first task](README.md). For the full onboarding walkthrough, follow
-[GSM8K](../gsm8k/README.md).
+T Factory asks the model to answer ordinary questions while using as many words beginning with
+`T` as possible. Its reward is the fraction of words in the reply that begin with `T`, so it is a
+toy that shows reward hacking quickly. [Your first task](README.md) shows the system prompt, the
+grader, and one graded call.
+
+This guide uploads T Factory, validates it, then evaluates, trains, and deploys it. For the full
+onboarding walkthrough with a real benchmark, follow [GSM8K](../gsm8k/README.md).
 
 Run these commands from the repository root with `TRAJECTORY_API_KEY` set.
 
-T Factory asks the model to maximize the fraction of words beginning with `T` while answering
-ordinary questions. It uses this system prompt:
-
-```text
-try to respond normally but with as many words starting with T as possible
-```
-
-Reward is the number of words beginning with `T`, case-insensitive, divided by the total number of
-words:
-
-```python
-import re
-
-def t_word_density(answer: str) -> float:
-    words = re.findall(r"[A-Za-z0-9']+", answer)
-    return sum(word.lower().startswith("t") for word in words) / len(words) if words else 0.0
-```
+## Upload and validate
 
 The benchmark contains 128 training tasks and 64 held-out test tasks.
-[Choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx). For a new agent:
+[Choose or create an agent](https://docs.trajectory.ai/agent). For a new agent:
 
 ```bash
 uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="t-factory-cookbook")'
 ```
 
-Upload using its name:
-
-![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
+Upload using its name. The script builds the runtime image, then runs a benchmark diagnostic:
 
 ```bash
 uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
 ```
+
+![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
+
+The diagnostic runs up to 10 tasks and prints each task's ending and reward. It passes when it
+prints `diagnostic_status=completed`, no task failed, and every task recorded a reward;
+otherwise the script prints each task failure and exits with an error.
+
+## Evaluate and train
 
 Replace `YOUR_BENCH_ID` with the printed `bench_id`, then run the baseline evaluation, training,
 and final evaluation:
@@ -47,83 +41,94 @@ and final evaluation:
 uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID
 ```
 
-Training uses Qwen 3.5 4B with thinking disabled and a batch size of four task groups.
-The model's `samples_per_instance` default determines the samples per task.
-The command prints its `training_run_id`.
+Training runs 10 steps on Qwen 3.5 4B with `reasoning_effort` off, four task groups per step,
+and the model's default `group_size` of eight attempts per group. The command prints the
+`training_run_id`, then `baseline_reward`, `final_reward`, `reward_delta`, how many held-out tasks
+recorded a reward in both evaluations, and the reply whose reward rose most, before and after
+training. It takes about 20 minutes. The agent's
+**Train** and **Compare** tabs show the same runs.
+
+Ten steps is enough for the model to fill most replies with T-starting words. Past that, most
+task groups either score `1.0` on every attempt, which leaves nothing to learn from, or lose
+attempts cut off at the 2,048-token output limit, which training skips. Finding four trainable
+groups for a later step can take hundreds of groups.
 
 ## Deploy the trained checkpoint
 
-Resolve the final checkpoint and create a production Model Endpoint deployment. Replace the training run
-ID if you changed the default 20 training steps:
+Create a test deployment from the final checkpoint. Replace the training run ID, and the step
+if you changed the default 10 training steps:
 
 ```python
 from trajectory import Client
 
 client = Client()
-checkpoint = client.training.checkpoints.retrieve(
-    "tr_<training-run-id>",
-    step_index=20,
-)
+checkpoint = client.training.checkpoints.retrieve("YOUR_TRAINING_RUN_ID", step_index=10)
 deployment = client.deployments.create(
     checkpoint_id=checkpoint.checkpoint_id,
-    model_slug="t-factory-trained",
-    role="production",
+    test_model_slug="t-factory-trained-test",
 )
 print(f"deployment_id={deployment.deployment_id}")
 ```
 
-Creating a deployment restores the training checkpoint, starts its Model Endpoint, and
-activates the production model slug before returning.
-
 ## Query the deployed model
 
-Use the deployment's model slug with the SDK's OpenAI-compatible chat API:
+In the same Python session, wait for `DEPLOYED`, then query the deployment's test model slug.
+Each query records a trajectory, so the snippet completes it:
 
 ```python
-response = client.chat.completions.create(
-    model="t-factory-trained",
-    max_tokens=4096,
+import time
+
+while (state := client.deployments.retrieve(deployment.deployment_id)).status != "DEPLOYED":
+    if state.status in {"FAILED", "CANCELLED"}:
+        raise RuntimeError(f"Deployment {state.status}: {state.failure}")
+    time.sleep(10)
+
+tid = client.trajectories.create().tid
+response = client.deployments.create_chat_completion(
+    deployment.deployment_id,
+    model=state.test_model_slug,
     messages=[
         {
-            "role": "user",
-            "content": "Describe playing music in a friendly way.",
-        }
+            "role": "system",
+            "content": "try to respond normally but with as many words starting with T as possible",
+        },
+        {"role": "user", "content": "Describe playing music in a friendly way."},
     ],
+    max_tokens=2_048,
+    disable_thinking=True,  # Training ran with reasoning off.
+    x_trajectory_id=tid,
 )
-print(response.choices[0].message.content)
+choice = response.choices[0]
+print(choice.message.content)
+cut_off = choice.finish_reason in ("length", "max_tokens")
+client.trajectories.complete(tid, termination_reason="TRUNCATION" if cut_off else "ENV_DONE")
 ```
 
-## Observed reward curve
+To serve it on the agent's production model slug, promote it as the
+[deployment guide](https://docs.trajectory.ai/guides/deployments) describes.
 
-In one run, the model first reached perfect held-out reward at step 24:
+## Observed results
 
-![T Factory reward curve in the Trajectory Platform](../../assets/t-factory-reward-curve.png)
+In one 10-step run, `train.py` printed `baseline_reward=0.487` and `final_reward=0.512`. Over the
+same 64 held-out replies, T-word density rose from 0.61 to 0.98. Replies also tended to loop: 9
+baseline replies and 30 at step 10 repeated phrases until the 2,048-token output limit cut them
+off, and evaluation scores a cut-off reply as zero. Baselines in other runs ranged from 0.44 to
+0.50, so the change in evaluation reward is within run-to-run noise; the rise in density is the
+effect of training.
 
-The result is still reward hacking: the model learns to fill responses with T-starting words. A
-reward of `1.0` means every parsed word begins with `T`; it does not imply a useful answer.
+The task whose reward rose most shows both. Before training, a reply about home cooking looped
+until it was cut off:
 
-## Sample rollouts
+> Actually, there are tons of terrific tastes that make home cooking tempting. People often think
+> that treating themselves to tasty treats is terrific. [...] They think that the total effort is
+> terrific. Often, the total time is terrific. People think that the total taste is terrific. [...]
 
-At step 0, a rollout earned `0.5154` reward for the prompt "How do you feel about reading
-maps?":
+After 10 steps, it scored `1.0`:
 
-> That is a tough topic, but I try to think about it with total clarity. There are no trusted
-> tapes or tabs that tell us exactly how to interpret them. Instead, we try to understand the
-> terrain first. The title often tells us what to do. We trust the trails to take us through the
-> forest. Then, we try to track our position. If the terrain is tough, then we try to travel with
-> caution. There is no time to forget. But if you read the text, then we try to know where we are.
-> Then, we try to test our tactics. However, too many twists can trip us up. So, we try to track
-> the route. Finally, we trust the truth. That is the only way to do it.
+> Trying to treat tasty treats, tasty treats taste tasty.
 
-By step 10, a rollout earned `1.0` reward for the prompt "Describe playing music in a friendly
-way":
-
-> Tremendous tempos to tuneful tunings, tenor timbres, tenor tunes, tiny twinkles, tranquil tones,
-> tender tunes, total tunes, tiny twinkling tones, twin treble twirls, tinted tempos, tender
-> triumphs, tiny triumphs, tender triumphs, totally terrific tunes...
-
-The step 10 response eventually repeats "telling triumphs to tender triumphs," illustrating how
-the model maximized the specified reward without preserving response quality.
+That is reward hacking: the model learns to fill responses with T-starting words. A reward of
+`1.0` means every parsed word begins with `T`; it does not imply a useful answer.
 
 The runtime and grader are in
 [`t_factory_harness.py`](runtime/t_factory_harness.py).

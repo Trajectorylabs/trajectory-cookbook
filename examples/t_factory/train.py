@@ -1,7 +1,8 @@
 # /// script
-# dependencies = ["trajectory-sdk"]
+# requires-python = ">=3.11"
+# dependencies = ["trajectory-sdk>=0.9.32"]
 # ///
-"""Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
+"""Evaluate, train, and compare Qwen 3.5 4B on the prompted T-starting-word task."""
 
 import argparse
 import time
@@ -13,7 +14,8 @@ from trajectory.types.training.training_run_response import TrainingRunResponse
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 _TEST_TASKS = 64
-_MAX_ACTIVE_ROLLOUTS = 4
+# One batch: four task groups of eight attempts, the default group size.
+_MAX_ACTIVE_ROLLOUTS = 32
 _MAX_OUTPUT_TOKENS = 2_048
 
 
@@ -30,7 +32,7 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> tuple[Evaluation, Evaluation, str]:
-    # Task expansion is explicit because spec detail no longer includes tasks by default.
+    # Spec detail omits tasks unless asked.
     benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
     if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
         "train",
@@ -49,12 +51,12 @@ def train_and_evaluate(
         bench_id=bench_id,
         base_model_slug=model,
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "num_steps": num_steps,
             "train_batch_size": 4,
+            "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
-            "max_response_chars_per_tool_call": 256,
         },
     )
     run_id = created.training_run_id
@@ -97,9 +99,10 @@ def _evaluate_model(
         parent_checkpoint_id=parent_checkpoint_id,
         display_name=display_name,
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "evaluation_max_samples": _TEST_TASKS,
-            "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
+            # Run every held-out task at once.
+            "evaluation_max_active_rollouts": _TEST_TASKS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },
     )
@@ -155,9 +158,13 @@ def _print_task_results(
         reward.task_id: reward
         for reward in client.evals.rewards.list_trajectory_rewards(final_eval_id)
     }
+    # Compare only tasks that recorded a reward in both evaluations, and say how many.
+    shared = [
+        task_id for task_id in baseline.keys() & final.keys() if task_id is not None
+    ]
+    print(f"compared_tasks={len(shared)}/{_TEST_TASKS}", flush=True)
     improved_task_id = max(
-        baseline,
-        key=lambda task_id: final[task_id].reward - baseline[task_id].reward,
+        shared, key=lambda task_id: final[task_id].reward - baseline[task_id].reward
     )
     before = client.trajectories.retrieve(
         baseline[improved_task_id].trajectory_id,
@@ -187,7 +194,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bench-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
-    parser.add_argument("--num-steps", type=int, default=20)
+    parser.add_argument("--num-steps", type=int, default=10)
     parser.add_argument("--poll-seconds", type=float, default=15)
     args = parser.parse_args()
     train_and_evaluate(
