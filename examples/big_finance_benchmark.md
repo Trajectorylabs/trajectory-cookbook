@@ -1,8 +1,11 @@
 # Big Finance Benchmark
 
-This recipe adapts an existing ReAct research benchmark while preserving its agent loop, web and
-SEC tools, and rubric grader. It packages a 50-question subset; the rest of the benchmark stays
-held back.
+This recipe adapts the public
+[Big Finance Benchmark harness](https://github.com/Rogo-Technologies/big-finance-benchmark), an
+existing ReAct research benchmark, while preserving its agent loop, web and SEC tools, and rubric
+grader. It packages the public
+[50-question subset](https://huggingface.co/datasets/RogoAI/big-finance-benchmark); the rest of
+the benchmark stays held back.
 
 Use this pattern when a benchmark already has an OpenAI-compatible model abstraction and its own
 orchestrator. The SDK adapter connects the existing lifecycle to one Trajectory session:
