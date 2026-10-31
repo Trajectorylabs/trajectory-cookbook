@@ -107,12 +107,15 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
     diagnostic = client.diagnostics.start_benchmark(bench_id=bench_id)
     diagnostic_id = diagnostic.benchmark_diagnostic_id
     print(f"diagnostic_id={diagnostic_id}", flush=True)
+    last = None
     while True:
         status = client.diagnostics.get_status(diagnostic_id).status
-        print(f"diagnostic_status={status}", flush=True)
+        if status != last:
+            print(f"diagnostic_status={status}", flush=True)
+            last = status
         if status in _DIAGNOSTIC_DONE:
             break
-        time.sleep(15)
+        time.sleep(5)
     result = client.diagnostics.get_diagnostics(diagnostic_id)
     print(
         f"diagnostic_status={result.status} model={result.base_model_slug}",

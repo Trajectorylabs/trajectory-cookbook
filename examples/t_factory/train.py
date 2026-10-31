@@ -108,13 +108,16 @@ def _evaluate_model(
     )
     eval_id = evaluation.eval_run_id
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
+    last = None
     while True:
         progress = client.evals.runs.progress(eval_id)
-        print(
+        line = (
             f"evaluation={display_name} status={progress.status} "
-            f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}",
-            flush=True,
+            f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}"
         )
+        if line != last:
+            print(line, flush=True)
+            last = line
         if progress.status == "completed":
             break
         if progress.status in {"failed", "cancelled"}:
@@ -132,13 +135,14 @@ def _wait_for_training(
     run_id: str,
     poll_seconds: float,
 ) -> TrainingRunResponse:
+    last = None
     while True:
         run = client.training.runs.retrieve(run_id)
         progress = client.training.runs.progress(run_id)
-        print(
-            f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}",
-            flush=True,
-        )
+        line = f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}"
+        if line != last:
+            print(line, flush=True)
+            last = line
         if str(run.status) in _TERMINAL_STATUSES:
             return run
         time.sleep(poll_seconds)
@@ -195,7 +199,7 @@ def main() -> int:
     parser.add_argument("--bench-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--num-steps", type=int, default=10)
-    parser.add_argument("--poll-seconds", type=float, default=15)
+    parser.add_argument("--poll-seconds", type=float, default=5)
     args = parser.parse_args()
     train_and_evaluate(
         Client(max_retries=20),
