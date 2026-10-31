@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.32"]
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
 """Upload the public Big Finance Benchmark subset with one task per question."""
 
