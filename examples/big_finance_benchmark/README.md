@@ -55,7 +55,8 @@ values are never included in the image or upload:
 
 - `VERTEXAI_CREDENTIALS` for the rubric judge, upstream's default Gemini 3.1 Pro on Vertex AI
   (`vertex:gemini-3.1-pro-preview`). Its value is the JSON key of a service account that can
-  call Vertex AI. LiteLLM reads this variable and takes the project from the key.
+  call Vertex AI. LiteLLM reads this variable and takes the project from the key. To grade with
+  another judge, register its provider's key instead; see [Choose the judge](#choose-the-judge).
 - `TAVILY_API_KEY` for `web_search`.
 - `SEC_EDGAR_USER_AGENT` for `edgar_search`, as SEC EDGAR requires a contact user agent.
 
@@ -77,18 +78,24 @@ uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
 Tasks set `VERTEX_DISABLE_DEDICATED=1`, so Vertex calls may use pay-as-you-go capacity; upstream
-otherwise sends them to Provisioned Throughput only. `--judge` takes any `provider:model` the
-harness accepts, and `--judge-secret` names the organization secret holding that provider's
-credential; it reaches the task under the same environment variable name. The `openai`
-provider passes the model to LiteLLM unchanged, so to grade through OpenRouter, register
-`OPENROUTER_API_KEY` and run:
+otherwise sends them to Provisioned Throughput only.
+
+### Choose the judge
+
+`--judge` takes any `provider:model` the harness accepts, and `--judge-secret` names the
+organization secret holding that provider's credential; it reaches the task under the same
+environment variable name. The harness has no `openrouter` provider, but its `openai` provider
+passes the model name to LiteLLM unchanged, so an `openrouter/` model grades through OpenRouter
+with no code change. Register `OPENROUTER_API_KEY` and run:
 
 ```sh
 uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME \
   --judge openai:openrouter/openai/gpt-6-luna --judge-secret OPENROUTER_API_KEY
 ```
 
-Then run a benchmark diagnostic before a full evaluation, using the
+### Run a diagnostic
+
+Run a benchmark diagnostic before a full evaluation, using the
 [diagnostic guide](../task_diagnostics.md#check-an-uploaded-benchmark). The harness makes up
 to 50 model calls per question, each followed by web, SEC, or Python tools, so give each
 attempt room for long reasoning replies and the whole loop. The evaluation below uses the
@@ -133,9 +140,9 @@ run = client.evals.create(
 print(run.eval_run_id)
 ```
 
-With these per-step limits and 30 steps, a 10-question Qwen 3.6 35B A3B evaluation completed
-every attempt with `ENV_DONE` and no cut-off replies. Its longest attempt used all 30 calls
-before calling `final_answer`, and the run took about 25 minutes. Much lower per-step limits
+With these options, a 50-question Qwen 3.6 35B A3B evaluation completed every attempt with
+`ENV_DONE` and no cut-off replies in about 32 minutes. Its longest attempt made 41 of its 50
+model calls before calling `final_answer`. Much lower per-step limits
 cut replies off: in a 50-question Qwen 3.5 4B run with 4,096 tokens per step, 13 attempts ended
 `TRUNCATION`. The snippet runs all 50 questions; add `"evaluation_max_samples": 10` to the
 options for a smaller check.
