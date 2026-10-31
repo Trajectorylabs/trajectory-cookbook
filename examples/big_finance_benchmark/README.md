@@ -7,6 +7,10 @@ grader. It packages the public
 [50-question subset](https://huggingface.co/datasets/RogoAI/big-finance-benchmark); the rest of
 the benchmark stays held back.
 
+Big Finance is an evaluation-only benchmark: Rogo marks every record `do_not_train`. This example
+uploads the subset, runs a diagnostic, and evaluates a model or checkpoint on it. All 50 tasks
+use the `test` split.
+
 Use this pattern when a benchmark already has an OpenAI-compatible model abstraction and its own
 orchestrator. The SDK adapter connects the existing lifecycle to one Trajectory session:
 
@@ -38,8 +42,6 @@ harness by commit:
 
 The pinned commit precedes upstream's change that returns model reasoning between turns; the
 session adapter does not carry reasoning back into the history.
-
-Upstream marks the benchmark evaluation-only, so every task uses the `test` split.
 
 ## Run it
 
@@ -86,7 +88,8 @@ print(diagnostic.benchmark_diagnostic_id)
 ```
 
 Image build readiness alone does not verify policy inference, the web tools, grading, or
-reward publication.
+reward publication. Then evaluate a base model or a checkpoint's deployment with the
+[evaluation guide](https://docs.trajectory.ai/guides/evaluations).
 
 To run the overlay tests, build the image locally and run them inside it:
 
