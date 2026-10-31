@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from lab_core.evaluation.judge import Judge
-from lab_core.evaluation.scoring import _match_deliverables
+from lab_core.evaluation.scoring import _match_deliverables, score_rubric
 
 
 @pytest.fixture
@@ -76,3 +76,19 @@ def test_without_base_url_unknown_prefixes_are_rejected(monkeypatch):
 
     with pytest.raises(ValueError, match="Unknown judge provider"):
         Judge(model="openai/gpt-6-luna")
+
+
+def test_nested_deliverable_is_graded_from_its_subdirectory(tmp_path):
+    nested = tmp_path / "output" / "drafts" / "memo.txt"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("nested memo contents")
+    judge = MagicMock()
+    judge.evaluate_from_file.return_value = {"verdict": "pass"}
+
+    score_rubric(
+        [{"id": 1, "title": "Memo", "match_criteria": "x", "deliverables": ["memo.txt"]}],
+        tmp_path, judge, "task", parallel=1,
+    )
+
+    agent_output = judge.evaluate_from_file.call_args.kwargs["variables"]["agent_output"]
+    assert "nested memo contents" in agent_output

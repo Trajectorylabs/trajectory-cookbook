@@ -326,7 +326,7 @@ def score_rubric(
 
     # Match expected deliverable filenames to actual output files
     if deliverables_map and output_dir.exists():
-        actual_files = [f.name for f in output_dir.rglob("*") if f.is_file()]
+        actual_files = [f.relative_to(output_dir).as_posix() for f in output_dir.rglob("*") if f.is_file()]
         resolved_map = _match_deliverables(
             deliverables_map, actual_files, output_dir=output_dir, judge=judge
         )
