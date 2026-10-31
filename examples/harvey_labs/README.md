@@ -69,27 +69,7 @@ checkout is at another commit. The image still downloads `tasks/` from the pinne
 The script prints the benchmark ID and waits for the runtime image, which downloads the
 3 GB source archive. Image readiness alone doesn't verify model inference, grading, or reward
 logging, so run a [benchmark diagnostic](../task_diagnostics.md#check-an-uploaded-benchmark)
-before an evaluation or training run. Pass the model you plan to evaluate; the platform's default
-diagnostic model checks the pipeline but its Harvey scores say little:
-
-```python
-from trajectory import Client
-
-diagnostic = Client().diagnostics.start_benchmark(
-    bench_id="YOUR_BENCH_ID", base_model_slug="Qwen/Qwen3.6-35B-A3B"
-)
-print(diagnostic.benchmark_diagnostic_id)
-```
-
-The unit tests run in the runtime image:
-
-```bash
-docker build -t harvey-lab-trajectory examples/harvey_labs/runtime
-docker run --rm -v "$PWD/examples/harvey_labs:/example:ro" harvey-lab-trajectory \
-  sh -c 'pip install -q pytest && python -m pytest -q -p no:cacheprovider /example/tests'
-```
-
-## Evaluate and train
+before an evaluation or training run, with the model and settings you plan to evaluate with.
 
 Harvey LAB tasks are long: an attempt can take dozens of tool calls, and a reasoning model's
 reply can run to thousands of tokens. These settings ran on Qwen 3.6 35B A3B, with a
@@ -108,11 +88,29 @@ limits = {
     "max_total_tokens_per_trajectory": 262144,
     "execution_timeout_seconds": 7200,
 }
+evaluation = {**limits, "max_turns_per_trajectory": 200}
 
+diagnostic = client.diagnostics.start_benchmark(
+    bench_id=bench_id, base_model_slug=model, options=evaluation
+)
+print(diagnostic.benchmark_diagnostic_id)
+```
+
+The unit tests run in the runtime image:
+
+```bash
+docker build -t harvey-lab-trajectory examples/harvey_labs/runtime
+docker run --rm -v "$PWD/examples/harvey_labs:/example:ro" harvey-lab-trajectory \
+  sh -c 'pip install -q pytest && python -m pytest -q -p no:cacheprovider /example/tests'
+```
+
+## Evaluate and train
+
+Evaluate with the diagnostic's settings, then train with the same limits:
+
+```python
 baseline = client.evals.create(
-    bench_id=bench_id,
-    base_model_slug=model,
-    options={**limits, "max_turns_per_trajectory": 200},
+    bench_id=bench_id, base_model_slug=model, options=evaluation
 )
 training = client.training.create(
     bench_id=bench_id,
@@ -138,7 +136,7 @@ final = client.evals.create(
     bench_id=bench_id,
     base_model_slug=checkpoint.base_model_slug,
     parent_checkpoint_id=checkpoint.checkpoint_id,
-    options={**limits, "max_turns_per_trajectory": 200},
+    options=evaluation,
 )
 ```
 
