@@ -44,6 +44,15 @@ export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
+The judge defaults to Harvey's `gpt-5.4-mini` on OpenAI. For another OpenAI-compatible provider,
+store its key as `OPENAI_API_KEY` and pass a model name and endpoint; the endpoint becomes each
+task's `OPENAI_BASE_URL`. The judge picks its client from the model name, so use a `gpt` name:
+
+```bash
+uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
+  --judge-model gpt-6-luna --judge-base-url https://openrouter.ai/api/v1
+```
+
 The script prints the benchmark ID and waits for the runtime image, which downloads the
 3 GB source archive. Image readiness alone doesn't verify model inference, grading, or reward
 logging, so run a [benchmark diagnostic](../task_diagnostics.md#check-an-uploaded-benchmark)

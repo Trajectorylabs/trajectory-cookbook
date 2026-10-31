@@ -17,12 +17,20 @@ ROOT = Path(__file__).parent
 TASKS = (ROOT / "tasks.txt").read_text().split()
 
 
-def build_benchmark(name: str) -> BenchmarkSpec:
+def build_benchmark(
+    name: str, judge_model: str = "gpt-5.4-mini", judge_base_url: str | None = None
+) -> BenchmarkSpec:
     ordered = sorted(
         TASKS,
         key=lambda task: hashlib.sha256(f"harvey-test-v1:{task}".encode()).digest(),
     )
     test_tasks = set(ordered[:120])
+    env_vars = {
+        "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
+        "HARVEY_PODMAN_DISABLE_CGROUPS": "1",
+    }
+    if judge_base_url:
+        env_vars["OPENAI_BASE_URL"] = judge_base_url
     return BenchmarkSpec(
         name=name,
         family="harvey-lab",
@@ -35,12 +43,9 @@ def build_benchmark(name: str) -> BenchmarkSpec:
                 run_command=(
                     "python -m lab_core.harness.run --model trajectory/session "
                     f"--task {task} --run-id trajectory --max-turns 200 "
-                    "--reasoning-effort low --judge-model gpt-5.4-mini"
+                    f"--reasoning-effort low --judge-model {judge_model}"
                 ),
-                env_vars={
-                    "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
-                    "HARVEY_PODMAN_DISABLE_CGROUPS": "1",
-                },
+                env_vars=env_vars,
                 env_resources=EnvResources(network_mode="public", docker_engine=True),
             )
             for task in TASKS
@@ -48,9 +53,15 @@ def build_benchmark(name: str) -> BenchmarkSpec:
     )
 
 
-def ingest(name: str, agent_name: str) -> str:
+def ingest(
+    name: str,
+    agent_name: str,
+    judge_model: str = "gpt-5.4-mini",
+    judge_base_url: str | None = None,
+) -> str:
+    benchmark = build_benchmark(name, judge_model, judge_base_url)
     with Client() as client:
-        result = push(client, build_benchmark(name), agent_name=agent_name, root=ROOT)
+        result = push(client, benchmark, agent_name=agent_name, root=ROOT)
         print(f"bench_id={result.bench_id}", flush=True)
         wait_for_benchmark_images(client, result.bench_id, timeout_seconds=60 * 60)
         return result.bench_id
@@ -60,8 +71,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="harvey-lab-public-podman")
+    parser.add_argument("--judge-model", default="gpt-5.4-mini")
+    parser.add_argument(
+        "--judge-base-url",
+        help="OpenAI-compatible endpoint for the judge (OPENAI_BASE_URL)",
+    )
     args = parser.parse_args()
-    ingest(args.name, args.agent_name)
+    ingest(args.name, args.agent_name, args.judge_model, args.judge_base_url)
 
 
 if __name__ == "__main__":
