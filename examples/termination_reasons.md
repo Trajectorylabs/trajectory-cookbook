@@ -1,6 +1,6 @@
 # Detect a cut-off reply
 
-The SDK's [termination reasons guide](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/termination-reasons.mdx)
+The [termination reasons guide](https://docs.trajectory.ai/guides/termination-reasons)
 defines the reasons your harness can send and their training and evaluation effects.
 
 Read `finish_reason` before dispatching tool calls:
@@ -12,9 +12,12 @@ finish_reason = response.choices[0].finish_reason
 If a wrapper hides the response, read the latest recorded step after the model call:
 
 ```python
+finish_reason = None
 num_steps = client.trajectories.retrieve(tid).num_steps
-page = client.trajectories.steps.list(tid, start_step_index=num_steps - 1, limit=1)
-finish_reason = page.items[0].messages[-1].finish_reason
+if num_steps:  # No steps means the model was never called.
+    last = client.trajectories.steps.list(tid, start_step_index=num_steps - 1, limit=1).items[0]
+    if last.messages:
+        finish_reason = last.messages[-1].finish_reason
 ```
 
 In either case:

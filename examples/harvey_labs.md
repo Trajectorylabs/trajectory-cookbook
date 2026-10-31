@@ -1,7 +1,6 @@
 # Harvey LAB
 
-The public [Harvey LAB SDK integration PR](https://github.com/Trajectorylabs/harvey-labs/pull/11)
-shows how to adapt an existing multi-turn benchmark without replacing its agent loop, tools,
+This recipe adapts an existing multi-turn benchmark without replacing its agent loop, tools,
 grader, or Podman sandbox. The integration is a small overlay on a pinned revision of the public
 [Harvey LAB repository](https://github.com/harveyai/harvey-labs).
 
@@ -26,9 +25,10 @@ ordered = sorted(
 test_tasks = set(ordered[:120])
 ```
 
-Each task runs the original harness through the Trajectory-backed model adapter. Secret values
-are supplied by the platform and are not stored in the benchmark source. The command below
-matches the linked integration's uploader; its Trajectory adapter requires `--judge-model`:
+Each task runs the original harness through the overlay's Trajectory adapter, which takes its
+judge from `--judge-model`. Secrets come from the platform, not the benchmark source. In managed
+runs, the run sets sampling and per-step output tokens, and its `reasoning_effort` takes
+precedence over `--reasoning-effort`:
 
 ```python
 from trajectory import SecretRef, TaskSpec
@@ -40,8 +40,7 @@ TaskSpec(
     run_command=(
         "python -m lab_core.harness.run --model trajectory/session "
         f"--task {task} --run-id trajectory --max-turns 200 "
-        "--temperature 1.0 --reasoning-effort low "
-        "--judge-model gpt-5.4-mini"
+        "--reasoning-effort low --judge-model gpt-5.4-mini"
     ),
     env_vars={
         "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
@@ -57,7 +56,8 @@ The public benchmark contains 2,010 tasks: 1,890 training tasks and 120 held-out
 
 The added model adapter creates one TID and sends the harness's existing Responses API calls
 through `trajectory-session`. After the run, it invokes Harvey LAB's normal judge, records its
-all-pass result as `reward_accuracy`, and completes the same trajectory. This keeps prompts,
+all-pass result as `reward_accuracy`, and completes the same trajectory. If the agent loop or
+the judge fails, it completes the trajectory with `ERROR` and logs no reward. This keeps prompts,
 tools, output files, and grading behavior owned by the upstream benchmark.
 
 The runtime image follows the same overlay approach: download a pinned public source revision,
@@ -69,10 +69,9 @@ prevents upstream changes from silently changing an ingested benchmark.
 Harvey LAB already isolates document tools in Podman. The outer benchmark runtime therefore
 requests a container engine with `docker_engine=True`, and the original harness launches its
 inner Podman container as usual.
+The flag starts `dockerd`, so the runtime image must include `dockerd` and the Docker CLI.
 
-Some nested environments use `crun` without delegated cgroup controllers. The example detects
-that runtime and adds `--cgroups=disabled` only for the managed nested-Podman path. Local Harvey
-LAB runs retain their default cgroup behavior.
-
-See the [complete public PR](https://github.com/Trajectorylabs/harvey-labs/pull/11) for the
-uploader, runtime Dockerfile, adapter, and Podman integration.
+Some nested environments use `crun` without delegated cgroup controllers. When
+`HARVEY_PODMAN_DISABLE_CGROUPS=1`, the overlay's sandbox change checks `podman info` for `crun`
+and adds `--cgroups=disabled`. Local runs leave the variable unset and keep their default cgroup
+behavior.
