@@ -28,8 +28,6 @@ harness by commit:
 - [`runtime/Dockerfile`](runtime/Dockerfile) downloads upstream commit
   `bafc769bc58032f659e4117c3d839258ce0fda40` as a tarball. It extracts the harness package, the
   orchestrator script, and `data/big_finance_subset.jsonl`, then copies the overlay on top.
-  [`runtime/checkout.Dockerfile`](runtime/checkout.Dockerfile) copies the same files from your
-  checkout of that commit instead.
 - [`runtime/overlay/`](runtime/overlay/) holds only the files the integration adds or changes,
   at their upstream paths, with upstream's `LICENSE`:
   - `big_finance_harness/models/trajectory.py` is the new session adapter.
@@ -42,11 +40,9 @@ harness by commit:
     capped as it is read.
 - [`ingest.py`](ingest.py) reads the subset's question IDs at the same commit and uploads one
   task per question.
-- [`.dockerignore`](.dockerignore) limits the build context to the Dockerfiles, the overlay,
-  and the staged harness files.
+- [`.dockerignore`](.dockerignore) limits the build context to the Dockerfile and the overlay.
 - [`test_overlay.py`](test_overlay.py) checks the adapter, the reward and ending, the
   `python_exec` isolation, and the dataset removal inside the built image.
-  [`test_ingest.py`](test_ingest.py) checks how `--upstream` stages a checkout.
 
 The pinned commit precedes upstream's change that returns model reasoning between turns; the
 session adapter does not carry reasoning back into the history.
@@ -57,42 +53,35 @@ Choose an existing agent or create one using the
 [agent guide](https://docs.trajectory.ai/agent). Register three organization secrets. Their
 values are never included in the image or upload:
 
-- `OPENAI_API_KEY` for the rubric judge, `gpt-5.4-mini`.
+- `VERTEXAI_CREDENTIALS` for the rubric judge, upstream's default Gemini 3.1 Pro on Vertex AI
+  (`vertex:gemini-3.1-pro-preview`). Its value is the JSON key of a service account that can
+  call Vertex AI. LiteLLM reads this variable and takes the project from the key.
 - `TAVILY_API_KEY` for `web_search`.
 - `SEC_EDGAR_USER_AGENT` for `edgar_search`, as SEC EDGAR requires a contact user agent.
 
 ```python
+from pathlib import Path
 from trajectory import Client
 
 client = Client()
-for name in ["OPENAI_API_KEY", "TAVILY_API_KEY", "SEC_EDGAR_USER_AGENT"]:
+client.secrets.create(name="VERTEXAI_CREDENTIALS", value=Path("key.json").read_text())
+for name in ["TAVILY_API_KEY", "SEC_EDGAR_USER_AGENT"]:
     client.secrets.create(name=name, value="...")
 ```
 
-Upload the benchmark from this repository's root. Ingestion downloads the pinned harness,
-waits for the image build, and prints the benchmark ID:
+Upload the benchmark from this repository's root. Ingestion waits for the image build and
+prints the benchmark ID:
 
 ```sh
 uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
-If you are already in a checkout of Rogo's harness, package that checkout instead. It must be
-at commit `bafc769bc58032f659e4117c3d839258ce0fda40`; ingestion stops if `HEAD` differs.
-Ingestion copies only the committed harness package, orchestrator script, subset, `LICENSE`,
-`README.md`, and `pyproject.toml` at that commit, and leaves out local changes, other data, and
-grades. From your checkout:
-
-```sh
-git checkout bafc769bc58032f659e4117c3d839258ce0fda40
-uv run PATH_TO_COOKBOOK/examples/big_finance_benchmark/ingest.py --upstream . \
-  --agent-name YOUR_AGENT_NAME
-```
-
-The judge defaults to `openai:gpt-5.4-mini`. `--judge` takes any `provider:model` the harness
-accepts, and the `openai` provider passes the model to LiteLLM unchanged, so any LiteLLM model
-string works. `--judge-secret` names the organization secret holding that provider's key; it
-reaches the task under the same environment variable name. For example, to grade through
-OpenRouter, register `OPENROUTER_API_KEY` in place of `OPENAI_API_KEY`:
+Tasks set `VERTEX_DISABLE_DEDICATED=1`, so Vertex calls may use pay-as-you-go capacity; upstream
+otherwise sends them to Provisioned Throughput only. `--judge` takes any `provider:model` the
+harness accepts, and `--judge-secret` names the organization secret holding that provider's
+credential; it reaches the task under the same environment variable name. The `openai`
+provider passes the model to LiteLLM unchanged, so to grade through OpenRouter, register
+`OPENROUTER_API_KEY` and run:
 
 ```sh
 uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME \
@@ -101,7 +90,7 @@ uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME \
 
 Then run a benchmark diagnostic before a full evaluation, using the
 [diagnostic guide](../task_diagnostics.md#check-an-uploaded-benchmark). The harness makes up
-to 30 model calls per question, each followed by web, SEC, or Python tools, so give each
+to 50 model calls per question, each followed by web, SEC, or Python tools, so give each
 attempt room for long reasoning replies and the whole loop. The evaluation below uses the
 same model and settings:
 
@@ -110,8 +99,8 @@ model = "Qwen/Qwen3.6-35B-A3B"
 options = {
     "reasoning_effort": "on",
     "max_output_tokens_per_step": 16384,
-    "max_total_tokens_per_trajectory": 491520,  # 30 calls x 16,384 tokens
-    "max_turns_per_trajectory": 30,  # matches the harness's --max-steps 30
+    "max_total_tokens_per_trajectory": 819200,  # 50 calls x 16,384 tokens
+    "max_turns_per_trajectory": 50,  # the harness's default max steps
     "execution_timeout_seconds": 3600,
 }
 diagnostic = client.diagnostics.start_benchmark(
@@ -123,11 +112,9 @@ print(diagnostic.benchmark_diagnostic_id)
 Image build readiness alone does not verify policy inference, the web tools, grading, or
 reward publication.
 
-To run the tests, run `test_ingest.py` locally, then build the image and run the overlay tests
-inside it:
+To run the tests, build the image and run the overlay tests inside it:
 
 ```sh
-uv run --with trajectory-sdk --with pytest pytest examples/big_finance_benchmark/test_ingest.py
 docker build -t big-finance-trajectory examples/big_finance_benchmark/runtime
 docker run --rm \
   -v "$PWD/examples/big_finance_benchmark/test_overlay.py:/opt/big_finance/test_overlay.py:ro" \
@@ -146,95 +133,32 @@ run = client.evals.create(
 print(run.eval_run_id)
 ```
 
-With these settings, a 10-question Qwen 3.6 35B A3B evaluation completed every attempt with
-`ENV_DONE` and no cut-off replies. The longest attempt used all 30 calls and still ended on
-`final_answer`, and the run took about 25 minutes. Much lower per-step limits cut replies off:
-in a 50-question Qwen 3.5 4B run with 4,096 tokens per step, 13 attempts ended `TRUNCATION`. The
-snippet runs all 50 questions; add `"evaluation_max_samples": 10` to the options for a smaller
-check.
+With these per-step limits and 30 steps, a 10-question Qwen 3.6 35B A3B evaluation completed
+every attempt with `ENV_DONE` and no cut-off replies. Its longest attempt used all 30 calls
+before calling `final_answer`, and the run took about 25 minutes. Much lower per-step limits
+cut replies off: in a 50-question Qwen 3.5 4B run with 4,096 tokens per step, 13 attempts ended
+`TRUNCATION`. The snippet runs all 50 questions; add `"evaluation_max_samples": 10` to the
+options for a smaller check.
 
 To evaluate a checkpoint, pass its ready deployment's `deployment_id=` in place of
 `base_model_slug`. A deployment brings its own sampling, token, and turn settings, so those
 options return 422 with it; see the [evaluation guide](https://docs.trajectory.ai/guides/evaluations).
 
-## Adapt the existing model client
+## How the integration works
 
-The adapter implements the benchmark's existing `ModelClient` interface. It converts the
-existing messages and tools, then forwards each request through the Trajectory session model:
-
-```python
-self.client = Client()
-self.tid = self.client.trajectories.create().tid
-
-response = await asyncio.to_thread(
-    self.client.chat.completions.create,
-    model=self.snapshot,  # "trajectory-session"
-    messages=_to_oai_messages(system, messages),
-    x_trajectory_id=self.tid,
-    extra_body={"tools": _to_oai_tools(tools), "tool_choice": "auto"},
-)
-```
-
-The adapter maps that response back into the benchmark's native response type, so its ReAct loop
-and tool execution remain unchanged. The managed run's options set `max_tokens` and sampling, so
-the adapter does not send them. It records when the run's per-step output limit cut a reply off.
-
-## Reuse the original grader
-
-In trajectory mode, the orchestrator loads its one question and deletes the dataset file, since
-`python_exec` can read files. After the agent finishes, it calls the existing rubric grader and
-normalizes its score. The adapter's trajectory receives the reward, then completes with the
-reason the agent stopped. A harness error or grader failure completes `ERROR` without a reward;
-a context overflow or a cut-off reply is still graded, as the native harness does, and completes
-`TRUNCATION`:
-
-```python
-client, tid = adapter.client, adapter.tid
-try:
-    if run.stop_reason == "error":
-        raise RuntimeError(f"agent run failed ({run.stop_reason}): {run.error}")
-    graded = asyncio.run(grade(run=run, item=item, judge_model_id=judges[0]))
-    earned, possible = graded.rubric_points_earned, graded.rubric_points_possible
-    client.trajectories.log_reward(
-        tid, name="reward_accuracy", value=earned / possible,
-        explanation=f"{earned}/{possible} rubric points",
-    )
-except Exception:
-    client.trajectories.complete(tid, termination_reason="ERROR")
-    raise
-endings = {
-    "max_steps": "MAX_STEPS",
-    "context_exceeded": "TRUNCATION",
-    "token_budget": "TRUNCATION",
-}
-ending = "TRUNCATION" if adapter.truncated else endings.get(run.stop_reason, "ENV_DONE")
-client.trajectories.complete(tid, termination_reason=ending)
-```
-
-## Package the evaluation set
-
-The uploader creates one evaluation task for each subset question. `BFB_TASK_ID` selects exactly
-one row inside the existing orchestrator, while credentials remain platform secret references.
-With the default judge, each task is:
-
-```python
-TaskSpec(
-    name=f"big-finance/{task_id}",
-    split="test",
-    run_command=(
-        "python -u /opt/big_finance/scripts/run_eval_set.py --trajectory "
-        "--dataset /opt/big_finance/data/big_finance_subset.jsonl "
-        "--run-id trajectory --max-steps 30 --judge openai:gpt-5.4-mini"
-    ),
-    env_vars={
-        "BFB_TASK_ID": task_id,
-        "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
-        "TAVILY_API_KEY": SecretRef(secret_ref="TAVILY_API_KEY"),
-        "SEC_EDGAR_USER_AGENT": SecretRef(secret_ref="SEC_EDGAR_USER_AGENT"),
-    },
-    env_resources=EnvResources(network_mode="public", agent_user="root"),
-)
-```
+- [`trajectory.py`](runtime/overlay/big_finance_harness/models/trajectory.py) implements the
+  harness's `ModelClient`. It creates one trajectory per attempt and sends each request to
+  `trajectory-session` with that trajectory ID, leaving `max_tokens` and sampling to the run's
+  options. A reply cut off by the per-step limit comes back without its tool calls, so the
+  harness's loop stops and grades the partial answer.
+- [`run_eval_set.py`](runtime/overlay/scripts/run_eval_set.py)'s `--trajectory` mode loads one
+  question, deletes the dataset file because `python_exec` can read files, and runs the
+  harness's own loop and rubric grader. It logs the normalized rubric score as
+  `reward_accuracy` and completes with `TRUNCATION` for a cut-off reply, context overflow, or
+  token budget, `MAX_STEPS` at the step limit, and `ENV_DONE` otherwise. A harness or grader
+  error completes `ERROR` without a reward.
+- [`ingest.py`](ingest.py)'s `build_benchmark` creates one `test` task per question. Each task
+  selects its row with `BFB_TASK_ID` and receives credentials as secret references.
 
 The image contains only the harness, the orchestrator, the public subset, and the overlay. The
 held-back benchmark data is not in the upstream repository and is never uploaded or copied into

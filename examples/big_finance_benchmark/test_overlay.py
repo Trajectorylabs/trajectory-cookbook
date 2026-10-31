@@ -16,6 +16,8 @@ from trajectory.types.inference.chat_completion_response import ChatCompletionRe
 trajectory_adapter = pytest.importorskip("big_finance_harness.models.trajectory")
 python_exec = pytest.importorskip("big_finance_harness.tools.python_exec")
 CliRunner = pytest.importorskip("click.testing").CliRunner
+run_question = pytest.importorskip("big_finance_harness.agent").run_question
+Tool = pytest.importorskip("big_finance_harness.tools.base").Tool
 
 HARNESS_ROOT = Path("/opt/big_finance")
 
@@ -117,20 +119,8 @@ def test_python_exec_holds_at_most_the_cap_per_stream():
     assert len(asyncio.run(read())) == python_exec.MAX_OUTPUT_BYTES
 
 
-@pytest.mark.parametrize(
-    "finish_reason, stop_reason, truncated",
-    [
-        ("tool_calls", "tool_use", False),
-        ("stop", "end_turn", False),
-        ("length", "max_tokens", True),
-    ],
-)
-def test_adapter_forwards_through_the_session(
-    monkeypatch, finish_reason, stop_reason, truncated
-):
-    client = MagicMock()
-    client.trajectories.create.return_value.tid = "traj_test"
-    client.chat.completions.create.return_value = ChatCompletionResponse.model_validate(
+def session_response(finish_reason, tool_name="web_search"):
+    return ChatCompletionResponse.model_validate(
         {
             "id": "chatcmpl_test",
             "object": "chat.completion",
@@ -148,7 +138,7 @@ def test_adapter_forwards_through_the_session(
                                 "id": "call_1",
                                 "type": "function",
                                 "function": {
-                                    "name": "web_search",
+                                    "name": tool_name,
                                     "arguments": '{"query": "x"}',
                                 },
                             }
@@ -159,17 +149,75 @@ def test_adapter_forwards_through_the_session(
             "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
         }
     )
-    monkeypatch.setattr(trajectory_adapter, "Client", lambda: client)
 
-    adapter = trajectory_adapter.TrajectoryClient()
+
+def session_adapter(monkeypatch, *responses):
+    client = MagicMock()
+    client.trajectories.create.return_value.tid = "traj_test"
+    client.chat.completions.create.side_effect = list(responses)
+    monkeypatch.setattr(trajectory_adapter, "Client", lambda: client)
+    return trajectory_adapter.TrajectoryClient(), client
+
+
+@pytest.mark.parametrize(
+    "finish_reason, stop_reason, tool_calls, truncated",
+    [
+        ("tool_calls", "tool_use", 1, False),
+        ("stop", "end_turn", 1, False),
+        ("length", "max_tokens", 0, True),
+        ("max_tokens", "other", 0, True),
+    ],
+)
+def test_adapter_forwards_through_the_session(
+    monkeypatch, finish_reason, stop_reason, tool_calls, truncated
+):
+    adapter, client = session_adapter(monkeypatch, session_response(finish_reason))
     response = asyncio.run(adapter.chat("system", [], []))
 
     request = client.chat.completions.create.call_args.kwargs
     assert request["model"] == "trajectory-session"
     assert request["x_trajectory_id"] == "traj_test"
     assert response.stop_reason == stop_reason
-    assert response.tool_calls[0].input == {"query": "x"}
+    assert [call.input for call in response.tool_calls] == [{"query": "x"}] * tool_calls
     assert adapter.truncated is truncated
+
+
+class RecordingTool(Tool):
+    name = "web_search"
+    description = "Search."
+
+    def __init__(self):
+        self.input_schema = {"type": "object"}
+        self.calls = []
+
+    async def run(self, args):
+        self.calls.append(args)
+        return "result"
+
+
+def test_cut_off_reply_stops_the_loop_without_running_its_tools(monkeypatch):
+    adapter, _ = session_adapter(
+        monkeypatch, session_response("tool_calls"), session_response("length")
+    )
+    tool = RecordingTool()
+
+    run = asyncio.run(
+        run_question(
+            question_id="q",
+            question="What?",
+            reference_answer=None,
+            client=adapter,
+            tools=[tool],
+            system_prompt="system",
+            max_steps=5,
+        )
+    )
+
+    assert tool.calls == [{"query": "x"}]
+    assert len(run.steps) == 2
+    assert run.stop_reason == "no_tool_call"
+    assert run.final_answer == "Looking it up."
+    assert adapter.truncated
 
 
 @pytest.mark.parametrize(
@@ -179,7 +227,8 @@ def test_adapter_forwards_through_the_session(
         ("max_steps", False, "MAX_STEPS"),
         ("context_exceeded", False, "TRUNCATION"),
         ("token_budget", False, "TRUNCATION"),
-        ("final_answer", True, "TRUNCATION"),
+        ("no_tool_call", False, "ENV_DONE"),
+        ("no_tool_call", True, "TRUNCATION"),
     ],
 )
 def test_trajectory_mode_grades_and_ends(

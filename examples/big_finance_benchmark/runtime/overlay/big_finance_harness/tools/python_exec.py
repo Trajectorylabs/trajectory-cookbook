@@ -86,11 +86,6 @@ class PythonExecTool(Tool):
                 with contextlib.suppress(ProcessLookupError):
                     os.killpg(proc.pid, signal.SIGKILL)
                 await proc.wait()
-                # Reading to EOF lets the transport close; a setsid() escapee could hold the pipes.
-                with contextlib.suppress(asyncio.TimeoutError):
-                    await asyncio.wait_for(
-                        asyncio.gather(_read_capped(proc.stdout), _read_capped(proc.stderr)), 1
-                    )
 
         stdout = stdout_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]
         stderr = stderr_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]
