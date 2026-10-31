@@ -9,6 +9,7 @@ from lab_core.evaluation.run_eval import (
     evaluate_run_dual,
     resolve_judge_models,
 )
+from lab_core.harness.adapters.base import ModelAdapter
 from lab_core.harness.adapters.openai import OpenAIAdapter
 
 
@@ -43,12 +44,12 @@ class TrajectoryAdapter(OpenAIAdapter):
         Client = getattr(import_module("trajectory"), "Client")
 
         self.judges = resolve_judge_models(judges, None)
-        super().__init__(
-            model="trajectory-session",
-            temperature=temperature,
-            reasoning_effort=reasoning_effort,
-        )
-        self.client.close()
+        # OpenAIAdapter.__init__ builds an OpenAI client, which needs a key that
+        # a non-OpenAI judge doesn't bring; set its state with upstream's defaults.
+        ModelAdapter.__init__(self, "trajectory-session", temperature, reasoning_effort)
+        self.max_tokens = 128000
+        self._context = []
+        self._system_instructions = None
         # The agent loop doesn't retry; the SDK retries each call under one idempotency key.
         self.trajectory = Client()
         self.tid = self.trajectory.trajectories.create().tid

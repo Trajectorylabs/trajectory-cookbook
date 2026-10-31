@@ -199,3 +199,16 @@ def test_create_adapter_passes_judges():
         create_adapter("trajectory/session", judges=["openai/gpt-6-luna"])
 
     adapter_class.assert_called_once_with(0.0, None, ["openai/gpt-6-luna"])
+
+
+def test_non_openai_judge_needs_no_openai_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    sdk = SimpleNamespace(Client=MagicMock())
+    with (
+        patch.object(trajectory.atexit, "register"),
+        patch("importlib.import_module", return_value=sdk),
+    ):
+        adapter = trajectory.TrajectoryAdapter(0.0, None, ["claude-sonnet-4-6"])
+
+    assert adapter.judges == ("claude-sonnet-4-6",)
+    assert adapter.client.responses.tid == adapter.tid
