@@ -4,6 +4,8 @@ import asyncio
 import importlib.util
 import json
 import os
+import tempfile
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -56,6 +58,41 @@ def test_python_exec_child_cannot_read_root_secrets(tmp_path):
     assert out.count("denied") == 2
     assert "secret-value" not in out
     assert "42" in out
+
+
+def is_running(pid):
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        try:
+            state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+        except FileNotFoundError:
+            return False
+        if state in ("Z", "X"):
+            return False
+        time.sleep(0.05)
+    return True
+
+
+@pytest.mark.parametrize("holds_output, timeout_s", [(False, 5.0), (True, 1.0)])
+def test_python_exec_reaps_processes_the_snippet_starts(holds_output, timeout_s):
+    shared = Path(tempfile.mkdtemp(dir="/tmp"))
+    shared.chmod(0o777)
+    pid_file = shared / "pid"
+    output = (
+        "" if holds_output else ", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL"
+    )
+    code = (
+        "import subprocess, sys\n"
+        f"p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']{output})\n"
+        f"open({str(pid_file)!r}, 'w').write(str(p.pid))\n"
+    )
+    tool = python_exec.PythonExecTool(timeout_s=timeout_s)
+    if holds_output:
+        with pytest.raises(python_exec.ToolError, match="timed out"):
+            asyncio.run(tool.run({"code": code}))
+    else:
+        assert "exit_code: 0" in asyncio.run(tool.run({"code": code}))
+    assert not is_running(int(pid_file.read_text()))
 
 
 @pytest.mark.parametrize(

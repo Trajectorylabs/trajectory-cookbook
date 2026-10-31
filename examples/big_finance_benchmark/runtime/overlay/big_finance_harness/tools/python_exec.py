@@ -1,8 +1,10 @@
-# Modified by Trajectory: runs agent-written code with an empty environment, as nobody when root.
+# Modified by Trajectory: runs agent code as nobody (when root), with no environment, and reaps it.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
+import signal
 import sys
 import tempfile
 from typing import Any
@@ -58,6 +60,7 @@ class PythonExecTool(Tool):
                 stderr=asyncio.subprocess.PIPE,
                 env={},
                 cwd=cwd,
+                start_new_session=True,
                 **drop,
             )
             try:
@@ -65,9 +68,12 @@ class PythonExecTool(Tool):
                     proc.communicate(), timeout=self.timeout_s
                 )
             except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
                 raise ToolError(f"python_exec timed out after {self.timeout_s}s") from None
+            finally:
+                # Processes the snippet started must not outlive the call.
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(proc.pid, signal.SIGKILL)
+                await proc.wait()
 
         stdout = stdout_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]
         stderr = stderr_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]

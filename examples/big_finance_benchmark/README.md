@@ -35,7 +35,8 @@ harness by commit:
     must start as root (the task sets `agent_user="root"`).
   - `big_finance_harness/tools/python_exec.py` runs agent-written code with an empty
     environment, as `nobody` in a fresh temporary directory. The harness's API keys are neither
-    in the child's environment nor readable from the root-owned `/proc/<parent>/environ`.
+    in the child's environment nor readable from the root-owned `/proc/<parent>/environ`. The
+    snippet runs in its own process group, which is killed when the call ends.
 - [`ingest.py`](ingest.py) reads the subset's question IDs at the same commit and uploads one
   task per question.
 - [`.dockerignore`](.dockerignore) limits the build context to the Dockerfile and overlay.
