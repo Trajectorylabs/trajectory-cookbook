@@ -6,6 +6,9 @@
 
 import argparse
 import hashlib
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, SecretRef, TaskSpec
@@ -13,8 +16,10 @@ from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 from trajectory.types.benchmarks.task_spec import EnvResources
 
 ROOT = Path(__file__).parent
-# Task directories with a task.json in harveyai/harvey-labs at the commit the Dockerfile pins.
+SOURCE_COMMIT = "1dd81403b2fbb60596f7aea3fcecafad7bf73143"
+# Task directories with a task.json in harveyai/harvey-labs at SOURCE_COMMIT.
 TASKS = (ROOT / "tasks.txt").read_text().split()
+_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache", ".ruff_cache")
 
 
 def build_benchmark(
@@ -53,15 +58,45 @@ def build_benchmark(
     )
 
 
+def git_head(checkout: Path) -> str:
+    return subprocess.run(
+        ["git", "-C", str(checkout), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def stage(checkout: Path, dest: Path) -> Path:
+    """Copy the checkout's lab_core/, then the overlay over it, into an upload root."""
+    head = git_head(checkout)
+    if head != SOURCE_COMMIT:
+        raise SystemExit(
+            f"{checkout} is at {head}, but tasks.txt and the overlay match {SOURCE_COMMIT}. "
+            f"Run `git -C {checkout} checkout {SOURCE_COMMIT}`, or omit --upstream."
+        )
+    # tasks/ has about 63,000 files, over the build-context limit; the image downloads it.
+    shutil.copytree(
+        checkout / "lab_core", dest / "runtime" / "lab_core", ignore=_IGNORE
+    )
+    shutil.copytree(
+        ROOT / "runtime", dest / "runtime", ignore=_IGNORE, dirs_exist_ok=True
+    )
+    shutil.copy(ROOT / ".dockerignore", dest)
+    return dest
+
+
 def ingest(
     name: str,
     agent_name: str,
     judge_model: str = "gpt-5.4-mini",
     judge_base_url: str | None = None,
+    upstream: Path | None = None,
 ) -> str:
     benchmark = build_benchmark(name, judge_model, judge_base_url)
-    with Client() as client:
-        result = push(client, benchmark, agent_name=agent_name, root=ROOT)
+    with tempfile.TemporaryDirectory() as tmp, Client() as client:
+        root = stage(upstream, Path(tmp)) if upstream else ROOT
+        result = push(client, benchmark, agent_name=agent_name, root=root)
         print(f"bench_id={result.bench_id}", flush=True)
         wait_for_benchmark_images(client, result.bench_id, timeout_seconds=60 * 60)
         return result.bench_id
@@ -76,8 +111,15 @@ def main() -> None:
         "--judge-base-url",
         help="OpenAI-compatible endpoint for the judge (OPENAI_BASE_URL)",
     )
+    parser.add_argument(
+        "--upstream",
+        type=Path,
+        help=f"harveyai/harvey-labs checkout at {SOURCE_COMMIT} to take lab_core/ from",
+    )
     args = parser.parse_args()
-    ingest(args.name, args.agent_name, args.judge_model, args.judge_base_url)
+    ingest(
+        args.name, args.agent_name, args.judge_model, args.judge_base_url, args.upstream
+    )
 
 
 if __name__ == "__main__":
