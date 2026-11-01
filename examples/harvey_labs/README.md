@@ -124,7 +124,10 @@ After training succeeds, evaluate its final checkpoint with the baseline's optio
 checkpoint evaluation otherwise inherits the training settings:
 
 ```python
-checkpoint = client.training.checkpoints.retrieve(training.training_run_id, 3)
+checkpoint = max(
+    client.training.checkpoints.list(training.training_run_id),
+    key=lambda c: c.step_index,
+)
 final = client.evals.create(
     bench_id=bench_id,
     base_model_slug=checkpoint.base_model_slug,
@@ -139,6 +142,15 @@ signal; it is logged as the zero-weight `all_pass` component, shown with each tr
 summaries' `no_signal_groups` early (see the [training guide](https://docs.trajectory.ai/guides/training)).
 An attempt that prints the whole document store in one command can overflow the context and
 end as `TRUNCATION`; training skips those attempts by default.
+
+In a Qwen 3.6 35B A3B smoke run with the settings above, training
+`trn_06ae6450675677bf8000db5489ad3917` completed all three steps. The baseline
+`evr_06ae63faa3c57aed800058760a953f7a` graded six of eight tasks; two attempts ended
+`TRUNCATION` without a reward. Checkpoint evaluation
+`evr_06ae655b8a36745d8000313d9a132baf` graded all eight tasks, with mean reward 0.61.
+The diagnostic on the current overlay, `bmd_06ae673f68bd71b98000f63c85b243e0`,
+graded all ten tasks with `ENV_DONE` endings. The baseline and checkpoint means are not
+directly comparable because their graded task counts differ.
 
 ## Ingest the existing task tree
 
