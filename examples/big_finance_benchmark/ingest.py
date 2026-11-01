@@ -34,8 +34,20 @@ def load_task_ids() -> list[str]:
 
 
 def build_benchmark(
-    name: str, task_ids: list[str], judge: str, judge_secret: str
+    name: str, task_ids: list[str], judge: str, judge_secret: str | None = None
 ) -> BenchmarkSpec:
+    if judge_secret is None:
+        provider, _, model = judge.partition(":")
+        if provider in {"vertex", "vertex-anthropic"}:
+            judge_secret = "VERTEXAI_CREDENTIALS"
+        elif provider == "openai":
+            judge_secret = (
+                "OPENROUTER_API_KEY"
+                if model.startswith("openrouter/")
+                else "OPENAI_API_KEY"
+            )
+        else:
+            raise ValueError(f"Pass --judge-secret for judge provider {provider!r}")
     return BenchmarkSpec(
         name=name,
         description="Public Big Finance Benchmark subset graded by the upstream rubric judge.",
@@ -73,8 +85,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--judge-secret",
-        default="VERTEXAI_CREDENTIALS",
-        help="Organization secret holding the judge provider's credential.",
+        help="Organization secret holding the judge provider's credential (inferred for Vertex, OpenAI, and OpenRouter).",
     )
     args = parser.parse_args()
     benchmark = build_benchmark(

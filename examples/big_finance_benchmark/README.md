@@ -50,8 +50,9 @@ session adapter does not carry reasoning back into the history.
 ## Run it
 
 Choose an existing agent or create one using the
-[agent guide](https://docs.trajectory.ai/agent). Register three organization secrets. Their
-values are never included in the image or upload:
+[agent guide](https://docs.trajectory.ai/agent). For the default judge, register these three
+organization secrets. With a judge override, replace `VERTEXAI_CREDENTIALS` with the override's
+credential; the two tool secrets are still needed. Secret values never enter the image or upload:
 
 - `VERTEXAI_CREDENTIALS` for the rubric judge, upstream's default Gemini 3.1 Pro on Vertex AI
   (`vertex:gemini-3.1-pro-preview`). Its value is the JSON key of a service account that can
@@ -82,15 +83,15 @@ otherwise sends them to Provisioned Throughput only.
 
 ### Choose the judge
 
-`--judge` takes any `provider:model` the harness accepts, and `--judge-secret` names the
-organization secret holding that provider's credential; it reaches the task under the same
-environment variable name. The harness has no `openrouter` provider, but its `openai` provider
-passes the model name to LiteLLM unchanged, so an `openrouter/` model grades through OpenRouter
-with no code change. Register `OPENROUTER_API_KEY` and run:
+`--judge` takes any `provider:model` the harness accepts. The uploader infers the credential
+secret for Vertex, OpenAI, and OpenRouter; use `--judge-secret` for another provider or a
+different secret name. The harness has no `openrouter` provider, but its `openai` provider
+passes the model name to LiteLLM unchanged, so an `openrouter/` model grades through OpenRouter.
+Register `OPENROUTER_API_KEY` and run:
 
 ```sh
 uv run examples/big_finance_benchmark/ingest.py --agent-name YOUR_AGENT_NAME \
-  --judge openai:openrouter/openai/gpt-6-luna --judge-secret OPENROUTER_API_KEY
+  --judge openai:openrouter/openai/gpt-6-luna
 ```
 
 ### Run a diagnostic
