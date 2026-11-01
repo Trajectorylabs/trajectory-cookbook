@@ -69,7 +69,8 @@ before an evaluation or training run, with the model and settings you plan to ev
 Harvey LAB tasks are long: an attempt can take dozens of tool calls, and a reasoning model's
 reply can run to thousands of tokens. These settings ran on Qwen 3.6 35B A3B, with a
 three-step smoke training run. They leave each reply the model's full context and give each
-attempt two hours:
+attempt two hours. The diagnostic chooses its own sample; the eight-task evaluation sample
+keeps the first run short. Remove `evaluation_max_samples` to evaluate all 120 held-out tasks:
 
 ```python
 from trajectory import Client
@@ -83,10 +84,11 @@ limits = {
     "max_total_tokens_per_trajectory": 262144,
     "execution_timeout_seconds": 7200,
 }
-evaluation = {**limits, "max_turns_per_trajectory": 200}
+diagnostic_options = {**limits, "max_turns_per_trajectory": 200}
+evaluation = {**diagnostic_options, "evaluation_max_samples": 8}
 
 diagnostic = client.diagnostics.start_benchmark(
-    bench_id=bench_id, base_model_slug=model, options=evaluation
+    bench_id=bench_id, base_model_slug=model, options=diagnostic_options
 )
 print(diagnostic.benchmark_diagnostic_id)
 ```
@@ -101,7 +103,8 @@ docker run --rm -v "$PWD/examples/harvey_labs:/example:ro" harvey-lab-trajectory
 
 ## Evaluate and train
 
-Evaluate with the diagnostic's settings, then train with the same limits:
+Evaluate with the diagnostic's model and runtime limits on eight held-out tasks, then train
+with the same limits:
 
 ```python
 baseline = client.evals.create(
