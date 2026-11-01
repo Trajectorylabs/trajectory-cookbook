@@ -177,15 +177,15 @@ Measured with Qwen 3.6 35B A3B and the settings above:
 
 | Step | Run ID | Wall time | Result |
 | --- | --- | --- | --- |
-| 48-task upload diagnostic | `evr_06ae672362937a73800049df9a6c4892` | 54 minutes | 10 of 10 graded, 5 resolved; 3 `TIMEOUT`, 7 `ENV_DONE` |
-| Baseline on 8 test tasks | `evr_06ae641f4bc1746180009483cbd00e43` | 41 minutes | 4 of 8 resolved; 8 `ENV_DONE` |
-| Training, 2 steps | `trn_06ae64beb76c7c07800041296291bd52` | About 100 minutes | Both steps succeeded |
-| Checkpoint on the same 8 tasks | `evr_06ae6634cecf7699800050f3bdca83ec` | 53 minutes | 6 of 8 resolved; 2 `TIMEOUT`, 6 `ENV_DONE` |
+| 48-task upload diagnostic | `evr_06ae68e3ca4c749c8000d36662af8860` | 53 minutes | 10 of 10 graded, 9 resolved; 4 `TIMEOUT`, 6 `ENV_DONE` |
+| Baseline on 8 test tasks | `evr_06ae69aacaf3777d8000943c986c0c00` | 54 minutes | 8 of 8 graded, 7 resolved; 2 `TIMEOUT`, 6 `ENV_DONE` |
+| Training, 2 steps | `trn_06ae6a7737697f6f8000c6215ea26a00` | About 72 minutes | Both steps succeeded |
+| Checkpoint on the same 8 tasks | `evr_06ae6b86fe9f7e3d8000f59eeb7a4ac1` | 42 minutes | 8 of 8 graded, 5 resolved; 8 `ENV_DONE` |
 
-The diagnostic was run on a later upload of the same recipe; the baseline, training, and
-checkpoint runs used one benchmark version. All timed-out attempts above were graded.
+All four stages used one uploaded benchmark version. Baseline and checkpoint evaluation used
+the same eight test tasks and options. All timed-out attempts above were graded.
 
-Attempts made 25–75 model calls. Eight held-out tasks with one attempt each cannot measure a
+Attempts made 21–112 model calls. Eight held-out tasks with one attempt each cannot measure a
 change from two training steps; use more test tasks and `evaluation_samples_per_task` before
 reading a difference. The full 97-task test split runs in about two waves at the default 50
 concurrent attempts.
