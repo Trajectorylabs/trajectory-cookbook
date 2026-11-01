@@ -56,18 +56,13 @@ only on the instance IDs, so every upload keeps the same held-out tasks.
 - This cookbook checkout.
 
 No other secrets are needed: the images pull anonymously, and the model runs through Trajectory.
+Export your API key, then create an agent named `swe-bench-pro` if you do not already have one.
+If you use another agent, pass its name to both scripts below.
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="swe-bench-pro", description="SWE-Bench Pro code repair")'
-```
-
-Run the harness tests from the cookbook repository root. They need neither Docker nor the
-platform:
-
-```bash
-uv run --with trajectory-sdk --with jinja2 --with pyyaml --with pytest pytest examples/swe_bench_pro
 ```
 
 ## 1. Upload two tasks and check them
@@ -78,11 +73,8 @@ From the cookbook repository root:
 uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 1 --test-tasks 1
 ```
 
-[`ingest.py`](ingest.py) downloads the pinned commit, checks every staged file against the
-release's `v2/SHA256SUMS`, and builds the runtime from a temporary directory holding the
-Dockerfile, the harness, and one archive of each task's `instruction.md`, `task.toml`, and
-`tests/` plus upstream's `mini_toolcall.yaml`. The archive keeps the build context to three files; the task directories
-alone hold over 4,000. `solution/` is never staged.
+[`ingest.py`](ingest.py) checks the pinned release against its `v2/SHA256SUMS` and
+packages the public task instructions and verifiers. It does not stage `solution/`.
 
 The script uploads the selected tasks as benchmark `swe-bench-pro`, waits for the runtime image,
 and prints `bench_id`. It then runs a
@@ -109,15 +101,12 @@ then:
 3. evaluates the final checkpoint on the same test tasks.
 
 Each evaluation prints its ID, resolved count, and endings. Use `--num-steps`,
-`--train-batch-size`, and `--group-size` for a longer run. A group whose attempts all get the
-same reward has no training signal, so training keeps sampling, for up to six hours per step,
-until each step has a group with both resolved and unresolved attempts.
+`--train-batch-size`, and `--group-size` for a longer run. Training samples until each
+step has a group with both resolved and unresolved attempts, up to six hours per step.
 
 ### Run settings
 
-Every run passes the same settings, so the baseline and checkpoint scores are comparable.
-They fit the harness: a 50-minute agent budget, in which an attempt makes about 120 model calls
-at most, and a verifier that can take as long again.
+Every run passes the same settings for the 50-minute agent budget and subsequent verifier.
 
 ```python
 RUN_OPTIONS = {
@@ -166,10 +155,10 @@ If the local command stops, the runs continue; inspect them by ID as in the
 
 ## Expected scale and time
 
-An attempt pulls a 0.6–4.7 GB compressed image, works for up to 50 minutes, and grades in a
-few minutes. The pull may take up to 30 minutes and the verifier up to 50, so
-`execution_timeout_seconds` allows two and a half hours. Each task sandbox uses 2 CPUs and 8 GB of memory. Attempts run in parallel, so a run
-takes about as long as its slowest wave of attempts.
+An attempt pulls a 0.6–4.7 GB compressed image, works for up to 50 minutes, and
+then grades the patch. The pull may take 30 minutes and the verifier up to 50, so
+`execution_timeout_seconds` allows two and a half hours. Each task sandbox uses
+2 CPUs and 8 GB of memory. Attempts run in parallel.
 
 Measured with Qwen 3.6 35B A3B and the settings above:
 
@@ -183,10 +172,8 @@ Measured with Qwen 3.6 35B A3B and the settings above:
 All four stages used one uploaded benchmark version. Baseline and checkpoint evaluation used
 the same eight test tasks and options. All timed-out attempts above were graded.
 
-Attempts made 21–112 model calls. Eight held-out tasks with one attempt each cannot measure a
-change from two training steps; use more test tasks and `evaluation_samples_per_task` before
-reading a difference. The full 97-task test split runs in about two waves at the default 50
-concurrent attempts.
+Eight held-out tasks with one attempt each cannot measure a change from two training
+steps; use more test tasks and `evaluation_samples_per_task` before reading a difference.
 
 ## Inspect an attempt
 
@@ -204,6 +191,14 @@ for event in client.trajectories.list_events("YOUR_TRAJECTORY_ID"):
 ```
 
 The event also records the image digest, the model call count, and whether the patch applied.
+
+## Test the harness
+
+From the cookbook root, run the tests without Docker or the platform:
+
+```bash
+uv run --with trajectory-sdk --with jinja2 --with pyyaml --with pytest pytest examples/swe_bench_pro
+```
 
 ## License and attribution
 
