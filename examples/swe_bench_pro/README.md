@@ -7,46 +7,6 @@ TypeScript, pinned to upstream commit `66f92766bba642462d4bbe5479e83f91f9211862`
 The model reads a pull request description, edits the repository with a bash tool, and is
 graded by the task's hidden tests.
 
-## How an attempt runs
-
-All tasks share one runtime image with the Docker engine, this harness, and the upstream task
-instructions, prompt, and verifiers. Reference solutions are left out. For one attempt, the
-[harness](runtime/swe_bench_pro_harness.py):
-
-1. pulls the task's public image, `ghcr.io/scaleapi/swe-bench_pro-v2:<instance_id>`;
-2. starts the repository in a container with no network, so neither the internet nor the
-   hidden tests are within the model's reach;
-3. runs the model with mini-swe-agent's tool-call protocol and upstream's `mini_toolcall.yaml`
-   from [`v2/tooling/configs`](https://github.com/scaleapi/SWE-bench_Pro-os/tree/66f92766bba642462d4bbe5479e83f91f9211862/v2/tooling/configs):
-   its prompts, one `bash` tool, and the `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`
-   submission;
-4. captures the patch with `git add -A && git diff --cached`, applies it to a fresh container
-   from the same image, and runs the task's unchanged `tests/test.sh`, which applies the hidden
-   test patch and checks its `fail_to_pass` and `pass_to_pass` tests;
-5. records the verifier's `reward.txt` as the `resolved` reward (1 or 0) and completes the
-   trajectory.
-
-This follows upstream's locked protocol: an offline agent with a 50-minute budget, re-graded on
-a pristine image. As in upstream's `locked_mini_swe` run, there is no step limit, each command
-runs with `sh -c` for at most 30 seconds, and a reply without a valid `bash` call is dropped and
-answered with the config's format-error message.
-
-| Ending | When |
-| --- | --- |
-| `ENV_DONE` | The model ran the submission command, or sent three replies in a row without a valid `bash` call. |
-| `TIMEOUT` | The 50-minute agent budget ran out. |
-| `TRUNCATION` | A reply hit its output-token limit, so its tool calls are not run, or the attempt reached a run's turn or token limit. |
-| `ERROR` | The image pull, a container, or the verifier failed. No reward is recorded. |
-
-Every ending except `ERROR` grades the patch the model left behind, and evaluation scores each
-graded attempt. Training uses `TIMEOUT` attempts only with `train_on_timeout`, which `train.py`
-sets because many attempts use the full 50 minutes. The trajectory's
-`swe_bench_pro_result` event keeps the native grade, the patch, and the verifier output.
-
-Tasks are split by repository: 15% of each repository's tasks, ordered by the SHA-256 of their
-instance ID, form the 97-task `test` split, and the other 545 form `train`. The split depends
-only on the instance IDs, so every upload keeps the same held-out tasks.
-
 ## Prerequisites
 
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/getting-started/installation/).
@@ -56,14 +16,20 @@ only on the instance IDs, so every upload keeps the same held-out tasks.
 - This cookbook checkout.
 
 No other secrets are needed: the images pull anonymously, and the model runs through Trajectory.
-Export your API key, then create an agent named `swe-bench-pro` if you do not already have one.
-If you use another agent, pass its name to both scripts below.
+Export your API key:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
+```
+
+If you do not already have an agent named `swe-bench-pro`, create one:
+
+```bash
 uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="swe-bench-pro", description="SWE-Bench Pro code repair")'
 ```
+
+If you use another agent, pass its name to both scripts below.
 
 ## 1. Upload two tasks and check them
 
@@ -174,6 +140,46 @@ the same eight test tasks and options. All timed-out attempts above were graded.
 
 Eight held-out tasks with one attempt each cannot measure a change from two training
 steps; use more test tasks and `evaluation_samples_per_task` before reading a difference.
+
+## How an attempt runs
+
+All tasks share one runtime image with the Docker engine, this harness, and the upstream task
+instructions, prompt, and verifiers. Reference solutions are left out. For one attempt, the
+[harness](runtime/swe_bench_pro_harness.py):
+
+1. pulls the task's public image, `ghcr.io/scaleapi/swe-bench_pro-v2:<instance_id>`;
+2. starts the repository in a container with no network, so neither the internet nor the
+   hidden tests are within the model's reach;
+3. runs the model with mini-swe-agent's tool-call protocol and upstream's `mini_toolcall.yaml`
+   from [`v2/tooling/configs`](https://github.com/scaleapi/SWE-bench_Pro-os/tree/66f92766bba642462d4bbe5479e83f91f9211862/v2/tooling/configs):
+   its prompts, one `bash` tool, and the `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`
+   submission;
+4. captures the patch with `git add -A && git diff --cached`, applies it to a fresh container
+   from the same image, and runs the task's unchanged `tests/test.sh`, which applies the hidden
+   test patch and checks its `fail_to_pass` and `pass_to_pass` tests;
+5. records the verifier's `reward.txt` as the `resolved` reward (1 or 0) and completes the
+   trajectory.
+
+This follows upstream's locked protocol: an offline agent with a 50-minute budget, re-graded on
+a pristine image. As in upstream's `locked_mini_swe` run, there is no step limit, each command
+runs with `sh -c` for at most 30 seconds, and a reply without a valid `bash` call is dropped and
+answered with the config's format-error message.
+
+| Ending | When |
+| --- | --- |
+| `ENV_DONE` | The model ran the submission command, or sent three replies in a row without a valid `bash` call. |
+| `TIMEOUT` | The 50-minute agent budget ran out. |
+| `TRUNCATION` | A reply hit its output-token limit, so its tool calls are not run, or the attempt reached a run's turn or token limit. |
+| `ERROR` | The image pull, a container, or the verifier failed. No reward is recorded. |
+
+Every ending except `ERROR` grades the patch the model left behind, and evaluation scores each
+graded attempt. Training uses `TIMEOUT` attempts only with `train_on_timeout`, which `train.py`
+sets because many attempts use the full 50 minutes. The trajectory's
+`swe_bench_pro_result` event keeps the native grade, the patch, and the verifier output.
+
+Tasks are split by repository: 15% of each repository's tasks, ordered by the SHA-256 of their
+instance ID, form the 97-task `test` split, and the other 545 form `train`. The split depends
+only on the instance IDs, so every upload keeps the same held-out tasks.
 
 ## Inspect an attempt
 
