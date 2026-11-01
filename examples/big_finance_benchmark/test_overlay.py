@@ -37,6 +37,16 @@ def test_python_exec_hides_harness_environment(monkeypatch):
     assert "None" in out
 
 
+def test_python_exec_keeps_numpy_calculations_available():
+    out = asyncio.run(
+        python_exec.PythonExecTool().run(
+            {"code": "import numpy as np; print(np.sum([2, 3, 5]))"}
+        )
+    )
+    assert "exit_code: 0" in out
+    assert "stdout:\n10" in out
+
+
 @pytest.mark.skipif(os.geteuid() != 0, reason="the image runs the harness as root")
 def test_python_exec_child_cannot_read_root_secrets(tmp_path):
     secret = tmp_path / "root-only"

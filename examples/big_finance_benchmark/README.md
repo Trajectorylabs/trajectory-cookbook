@@ -33,10 +33,11 @@ harness by commit:
   - `big_finance_harness/models/trajectory.py` is the new session adapter.
   - `scripts/run_eval_set.py` gains `--task-id` and the single-task `--trajectory` mode, which
     must start as root (the task sets `agent_user="root"`).
-  - `big_finance_harness/tools/python_exec.py` runs agent-written code with an empty
-    environment, as `nobody` in a fresh temporary directory. The harness's API keys are neither
-    in the child's environment nor readable from the root-owned `/proc/<parent>/environ`. The
-    snippet cannot start child processes, and its process group is killed when the call ends.
+  - `big_finance_harness/tools/python_exec.py` runs agent-written code as `nobody` in a fresh
+    temporary directory, passing only a non-secret OpenBLAS thread limit. The harness's API keys
+    are neither in the child's environment nor readable from the root-owned
+    `/proc/<parent>/environ`. The snippet cannot start child processes, and its process group is
+    killed when the call ends.
     Its output is capped as it is read.
 - [`ingest.py`](ingest.py) reads the subset's question IDs at the same commit and uploads one
   task per question.

@@ -1,4 +1,4 @@
-# Modified by Trajectory: isolates agent code (nobody, no env), reaps it, and caps buffered output.
+# Modified by Trajectory: isolates agent code (nobody, no secrets), reaps it, and caps output.
 from __future__ import annotations
 
 import asyncio
@@ -37,7 +37,7 @@ class PythonExecTool(Tool):
         "for arithmetic, unit conversions, and small calculations against values you have "
         "already retrieved. The interpreter runs with a 5-second timeout in an isolated "
         "child process; it is not a security sandbox. There is no persistent state "
-        "between calls — each call runs a fresh interpreter."
+        "between calls — each call runs a fresh interpreter. Subprocesses are unavailable."
     )
     input_schema = {
         "type": "object",
@@ -73,7 +73,7 @@ class PythonExecTool(Tool):
                 code,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env={},
+                env={"OPENBLAS_NUM_THREADS": "1"},
                 cwd=cwd,
                 start_new_session=True,
                 **drop,
