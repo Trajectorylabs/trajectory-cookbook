@@ -28,6 +28,11 @@ JUDGE_KEYS = {
 def build_benchmark(
     name: str, judges: tuple[str, ...] = JUDGES, judge_base_url: str | None = None
 ) -> BenchmarkSpec:
+    if any(judge.startswith("openai/") for judge in judges) and any(
+        judge.lower().startswith(("gpt", "o1", "o3", "o4", "o5"))
+        for judge in judges
+    ):
+        raise ValueError("Cannot mix OpenRouter and direct OpenAI judge IDs in one task")
     if judge_base_url is None and any(judge.startswith("openai/") for judge in judges):
         judge_base_url = "https://openrouter.ai/api/v1"
     ordered = sorted(

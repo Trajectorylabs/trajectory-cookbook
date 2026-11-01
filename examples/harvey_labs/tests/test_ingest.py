@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 EXAMPLE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("ingest", EXAMPLE / "ingest.py")
 ingest = importlib.util.module_from_spec(spec)
@@ -20,6 +22,11 @@ def test_openrouter_judge_needs_only_the_openai_key_and_model_flag():
     assert task.run_command.endswith("--judges openai/gpt-6-luna")
     assert "ANTHROPIC_API_KEY" not in task.env_vars
     assert task.env_vars["OPENAI_BASE_URL"] == "https://openrouter.ai/api/v1"
+
+
+def test_openrouter_and_direct_openai_judges_cannot_share_one_endpoint():
+    with pytest.raises(ValueError, match="Cannot mix OpenRouter and direct OpenAI"):
+        ingest.build_benchmark("harvey", ("openai/gpt-6-luna", "gpt-5.5"))
 
 
 def test_dockerfile_downloads_source_commit():

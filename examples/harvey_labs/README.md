@@ -50,13 +50,16 @@ uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 
 `--judges` takes one or two models, as in Harvey LAB's own evaluation CLI. Claude models use
 `ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, Mistral models `MISTRAL_API_KEY`, and the others `OPENAI_API_KEY`. For an OpenRouter judge, store its key as `OPENAI_API_KEY` and pass the
-provider's `openai/` model ID; the uploader selects OpenRouter's endpoint. For another
-OpenAI-compatible provider, use `--judge-base-url` to select its endpoint:
+provider's `openai/` model ID; the uploader selects OpenRouter's endpoint:
 
 ```bash
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
   --judges openai/gpt-6-luna
 ```
+
+Use `--judge-base-url` to select another OpenAI-compatible endpoint.
+One task uses one OpenAI-compatible endpoint, so do not mix an `openai/` OpenRouter ID
+with a direct OpenAI judge ID in the same pair; the uploader rejects that combination.
 
 The script prints the benchmark ID and waits for the runtime image, which downloads the
 3 GB source archive. Image readiness alone doesn't verify model inference, grading, or reward
