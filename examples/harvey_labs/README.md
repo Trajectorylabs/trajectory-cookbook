@@ -136,9 +136,9 @@ final = client.evals.create(
 )
 ```
 
-The reward is the fraction of rubric criteria passed, averaged over the two judges.
-The all-pass score is logged with weight zero because it gives training little signal;
-retrieve it with `include_reward_components=True`. Check `no_signal_groups` in the
+`criteria_fraction` is the fraction of rubric criteria passed, averaged over the two
+judges. `all_pass` is logged with weight zero because it gives training little signal;
+retrieve both with `include_reward_components=True`. Check `no_signal_groups` in the
 [training guide](https://docs.trajectory.ai/guides/training). A context overflow ends an
 attempt as `TRUNCATION`; training skips those attempts by default.
 
