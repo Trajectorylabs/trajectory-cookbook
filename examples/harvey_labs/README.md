@@ -1,21 +1,15 @@
 # Harvey LAB
 
-This example adapts an existing multi-turn benchmark without replacing its agent loop, tools,
-grader, or Podman sandbox. It runs the public
+This example runs the public
 [Harvey LAB repository](https://github.com/harveyai/harvey-labs) at commit
-`1dd81403b2fbb60596f7aea3fcecafad7bf73143` with a small Trajectory overlay.
-
-Use this pattern when a benchmark already owns its task lifecycle and evaluation logic. The SDK
-adapter only needs to connect that lifecycle to a Trajectory session:
-
-1. Create one trajectory when a task starts.
-2. Forward the solving agent's model requests with the same trajectory ID.
-3. Run the benchmark's original judge after the agent loop.
-4. Log the resulting reward and complete the trajectory.
+`1dd81403b2fbb60596f7aea3fcecafad7bf73143` with a Trajectory overlay. The
+upstream agent loop, tools, judges and Podman sandbox remain in place. Each task uses one
+Trajectory session for model calls and its final grade.
 
 ## Files
 
-- [`ingest.py`](ingest.py): assign splits and upload the benchmark.
+- [`ingest.py`](ingest.py): upload all 2,010 upstream tasks, with a stable split of
+  1,890 training and 120 held-out test tasks.
 - [`tasks.txt`](tasks.txt): the 2,010 task directories at the pinned commit.
 - [`runtime/Dockerfile`](runtime/Dockerfile): download the pinned source and copy the overlay
   over it.
@@ -31,7 +25,11 @@ adapter only needs to connect that lifecycle to a Trajectory session:
 [Choose or create an agent](https://docs.trajectory.ai/agent). Harvey LAB grades each run with
 two judges, Claude Sonnet 4.6 and GPT-5.5, and averages their scores. For that default pair,
 register the organization secrets `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`. A single-judge
-override needs only its provider's key. Secret values never enter the image or upload.
+override needs only its provider's key. Export your organization API key first:
+
+```bash
+export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
+```
 
 ```python
 from trajectory import Client
@@ -44,20 +42,22 @@ client.secrets.create(name="OPENAI_API_KEY", value="YOUR_OPENAI_API_KEY")
 From the repository root, upload the benchmark:
 
 ```bash
-export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
-`--judges` takes one or two models, as in Harvey LAB's own evaluation CLI. Claude models use
-`ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, and Mistral models `MISTRAL_API_KEY`.
-GPT and O-series models use `OPENAI_API_KEY`; other IDs require `--judge-base-url` and use
-that key too. For an OpenRouter judge, store its key as `OPENAI_API_KEY` and pass the
-provider's `openai/` model ID; the uploader selects OpenRouter's endpoint:
+For an override, use this upload command instead of the default. Register
+`OPENAI_API_KEY` with your OpenRouter credential; the uploader selects OpenRouter's
+endpoint for the `openai/` model ID:
 
 ```bash
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
   --judges openai/gpt-6-luna
 ```
+
+`--judges` takes one or two models, as in Harvey LAB's own evaluation CLI. Claude models use
+`ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, and Mistral models `MISTRAL_API_KEY`.
+GPT and O-series models use `OPENAI_API_KEY`; other IDs require `--judge-base-url` and use
+that key too.
 
 Use `--judge-base-url` to select another OpenAI-compatible endpoint for OpenAI-client judges.
 Claude, Gemini, and Mistral IDs still use their native providers and keys when it is set.
@@ -94,14 +94,6 @@ diagnostic = client.diagnostics.start_benchmark(
     bench_id=bench_id, base_model_slug=model, options=diagnostic_options
 )
 print(diagnostic.benchmark_diagnostic_id)
-```
-
-The unit tests run in the runtime image:
-
-```bash
-docker build -t harvey-lab-trajectory examples/harvey_labs/runtime
-docker run --rm -v "$PWD/examples/harvey_labs:/example:ro" harvey-lab-trajectory \
-  sh -c 'pip install -q pytest && cd /tmp && python -m pytest -q -p no:cacheprovider /example/tests'
 ```
 
 ## Evaluate and train
@@ -144,15 +136,13 @@ final = client.evals.create(
 )
 ```
 
-The reward is the fraction of rubric criteria passed, averaged over the two judges. Harvey LAB's
-all-pass score rarely differs across a group of attempts at one task, so it gives training little
-signal; it is logged as the zero-weight `all_pass` component, available when retrieving a
-trajectory with `include_reward_components=True`. Check the step summaries' `no_signal_groups`
-early (see the [training guide](https://docs.trajectory.ai/guides/training)).
-An attempt that prints the whole document store in one command can overflow the context and
-end as `TRUNCATION`; training skips those attempts by default.
+The reward is the fraction of rubric criteria passed, averaged over the two judges.
+The all-pass score is logged with weight zero because it gives training little signal;
+retrieve it with `include_reward_components=True`. Check `no_signal_groups` in the
+[training guide](https://docs.trajectory.ai/guides/training). A context overflow ends an
+attempt as `TRUNCATION`; training skips those attempts by default.
 
-In a production Qwen 3.6 35B A3B smoke run with the OpenRouter `openai/gpt-6-luna` judge
+In a Qwen 3.6 35B A3B smoke run with the OpenRouter `openai/gpt-6-luna` judge
 override, diagnostic `bmd_06ae6a05c31374648000e5553ab91809` graded all ten tasks with
 `ENV_DONE` endings. Baseline `evr_06ae6b1b47dc71ad8000ef30b2fcf7cf` graded seven of eight
 tasks, training `trn_06ae6b96664177f58000a38ed4c19a9e` succeeded for all three steps,
@@ -161,72 +151,17 @@ Both evaluations used the same task IDs and options. Each had one ungraded `TRUN
 different task; the platform run means, 0.647 and 0.645, count these as zeros. Eight tasks
 with missing grades cannot establish training lift.
 
-## Ingest the existing task tree
+The runtime downloads the pinned upstream source and applies the overlay. It requests
+`docker_engine=True` so Harvey LAB can run its document tools inside Podman. When a
+nested `crun` runtime lacks delegated cgroups, `HARVEY_PODMAN_DISABLE_CGROUPS=1`
+disables those inner cgroup limits; local runs keep upstream's defaults.
 
-[`tasks.txt`](tasks.txt) lists every upstream directory with a `task.json`, relative to the
-upstream `tasks/` directory. The uploader assigns a deterministic held-out split. Hashing
-the task path keeps the same 120 test tasks across repeated ingestions:
+## Test the overlay
 
-```python
-ordered = sorted(
-    tasks,
-    key=lambda task: hashlib.sha256(f"harvey-test-v1:{task}".encode()).digest(),
-)
-test_tasks = set(ordered[:120])
+From the cookbook root, run the tests in the runtime image:
+
+```bash
+docker build -t harvey-lab-trajectory examples/harvey_labs/runtime
+docker run --rm -v "$PWD/examples/harvey_labs:/example:ro" harvey-lab-trajectory \
+  sh -c 'pip install -q pytest && cd /tmp && python -m pytest -q -p no:cacheprovider /example/tests'
 ```
-
-Each task runs the original harness through the overlay's Trajectory adapter, which takes its
-judges from `--judges`. Secrets come from the platform, not the benchmark source. In managed
-runs, the run sets sampling and per-step output tokens, and its `reasoning_effort` takes
-precedence over `--reasoning-effort`:
-
-```python
-from trajectory import SecretRef, TaskSpec
-from trajectory.types.benchmarks.task_spec import EnvResources
-
-TaskSpec(
-    name=task,
-    split="test" if task in test_tasks else "train",
-    run_command=(
-        "python -m lab_core.harness.run --model trajectory/session "
-        f"--task {task} --run-id trajectory --max-turns 200 "
-        "--reasoning-effort low --judges claude-sonnet-4-6 gpt-5.5"
-    ),
-    env_vars={
-        "ANTHROPIC_API_KEY": SecretRef(secret_ref="ANTHROPIC_API_KEY"),
-        "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
-        "HARVEY_PODMAN_DISABLE_CGROUPS": "1",
-    },
-    env_resources=EnvResources(network_mode="public", docker_engine=True),
-)
-```
-
-The public benchmark contains 2,010 tasks: 1,890 training tasks and 120 held-out test tasks.
-
-## Preserve the original harness
-
-The added model adapter creates one TID and sends the harness's existing Responses API calls
-through `trajectory-session`. After the run, it grades with Harvey LAB's own
-`evaluate_run_dual`, or `evaluate_run` for a single judge, records the fraction of criteria
-passed as `criteria_fraction` and the all-pass rate as the zero-weight `all_pass`, and completes
-the same trajectory. If the agent loop or the judge fails, it completes the trajectory with
-`ERROR` and logs no reward. This keeps prompts, tools, output files, and grading behavior owned
-by the upstream benchmark.
-
-The [runtime image](runtime/Dockerfile) follows the same overlay approach: download a pinned
-public source revision, then copy only the SDK adapter and the narrow harness changes into the
-image. Pinning the source prevents upstream changes from silently changing an ingested
-benchmark. The overlay's Python files keep upstream's formatting, so each one diffs cleanly
-against the pinned commit.
-
-## Run Podman inside the benchmark runtime
-
-Harvey LAB already isolates document tools in Podman. The outer benchmark runtime therefore
-requests a container engine with `docker_engine=True`, and the original harness launches its
-inner Podman container as usual.
-The flag starts `dockerd`, so the runtime image must include `dockerd` and the Docker CLI.
-
-Some nested environments use `crun` without delegated cgroup controllers. When
-`HARVEY_PODMAN_DISABLE_CGROUPS=1`, the overlay's sandbox change checks `podman info` for `crun`
-and adds `--cgroups=disabled`, skipping the CPU, memory, and process limits that need cgroups.
-Local runs leave the variable unset and keep their default cgroup behavior.
