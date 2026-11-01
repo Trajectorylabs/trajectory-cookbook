@@ -36,18 +36,19 @@ def load_task_ids() -> list[str]:
 def build_benchmark(
     name: str, task_ids: list[str], judge: str, judge_secret: str | None = None
 ) -> BenchmarkSpec:
-    if judge_secret is None:
-        provider, _, model = judge.partition(":")
-        if provider in {"vertex", "vertex-anthropic"}:
-            judge_secret = "VERTEXAI_CREDENTIALS"
-        elif provider == "openai":
-            judge_secret = (
-                "OPENROUTER_API_KEY"
-                if model.startswith("openrouter/")
-                else "OPENAI_API_KEY"
-            )
-        else:
-            raise ValueError(f"Pass --judge-secret for judge provider {provider!r}")
+    provider, _, model = judge.partition(":")
+    judge_env = {
+        "anthropic": "ANTHROPIC_API_KEY",
+        "google": "GEMINI_API_KEY",
+        "vertex": "VERTEXAI_CREDENTIALS",
+        "vertex-anthropic": "VERTEXAI_CREDENTIALS",
+        "openai": "OPENAI_API_KEY",
+        "gateway": "VERCEL_AI_GATEWAY_API_KEY",
+    }.get(provider)
+    if provider == "openai" and model.startswith("openrouter/"):
+        judge_env = "OPENROUTER_API_KEY"
+    if judge_env is None:
+        raise ValueError(f"Unsupported judge provider {provider!r}")
     return BenchmarkSpec(
         name=name,
         description="Public Big Finance Benchmark subset graded by the upstream rubric judge.",
@@ -59,7 +60,7 @@ def build_benchmark(
                 run_command=RUN_COMMAND.format(judge=shlex.quote(judge)),
                 env_vars={
                     "BFB_TASK_ID": task_id,
-                    judge_secret: SecretRef(secret_ref=judge_secret),
+                    judge_env: SecretRef(secret_ref=judge_secret or judge_env),
                     # Upstream otherwise sends Vertex calls to Provisioned Throughput only.
                     "VERTEX_DISABLE_DEDICATED": "1",
                     "TAVILY_API_KEY": SecretRef(secret_ref="TAVILY_API_KEY"),
@@ -85,7 +86,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--judge-secret",
-        help="Organization secret holding the judge provider's credential (inferred for Vertex, OpenAI, and OpenRouter).",
+        help="Organization secret name if different from the provider's credential variable.",
     )
     args = parser.parse_args()
     benchmark = build_benchmark(

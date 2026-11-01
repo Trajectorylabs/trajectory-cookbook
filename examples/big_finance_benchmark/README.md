@@ -43,6 +43,8 @@ harness by commit:
 - [`.dockerignore`](.dockerignore) limits the build context to the Dockerfile and the overlay.
 - [`test_overlay.py`](test_overlay.py) checks the adapter, the reward and ending, the
   `python_exec` isolation, and the dataset removal inside the built image.
+- [`test_ingest.py`](test_ingest.py) checks the default, OpenRouter, and custom-secret
+  credential mapping without contacting a judge.
 
 The pinned commit precedes upstream's change that returns model reasoning between turns; the
 session adapter does not carry reasoning back into the history.
@@ -83,9 +85,9 @@ otherwise sends them to Provisioned Throughput only.
 
 ### Choose the judge
 
-`--judge` takes any `provider:model` the harness accepts. The uploader infers the credential
-secret for Vertex, OpenAI, and OpenRouter; use `--judge-secret` for another provider or a
-different secret name. The harness has no `openrouter` provider, but its `openai` provider
+`--judge` takes any `provider:model` the harness accepts. The uploader maps the judge's
+credential variable to the matching organization secret; use `--judge-secret` if that secret
+has a different name. The harness has no `openrouter` provider, but its `openai` provider
 passes the model name to LiteLLM unchanged, so an `openrouter/` model grades through OpenRouter.
 Register `OPENROUTER_API_KEY` and run:
 
@@ -127,6 +129,12 @@ docker build -t big-finance-trajectory examples/big_finance_benchmark/runtime
 docker run --rm \
   -v "$PWD/examples/big_finance_benchmark/test_overlay.py:/opt/big_finance/test_overlay.py:ro" \
   big-finance-trajectory sh -c "pip install -q pytest && python -m pytest -q test_overlay.py"
+```
+
+Check the uploader's judge-secret mapping from the cookbook root:
+
+```sh
+uv run --with trajectory-sdk --with pytest pytest examples/big_finance_benchmark/test_ingest.py
 ```
 
 ## Evaluate
