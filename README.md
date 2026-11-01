@@ -27,7 +27,7 @@ recorded reward, and completed trajectory.
 | [Number guessing](examples/number_guessing/README.md) | Multi-turn execution, efficiency rewards, and context compaction. |
 | [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
 | [Harvey LAB](examples/harvey_labs.md) | An existing harness, native judge, and nested Podman. |
-| [Big Finance Benchmark](examples/big_finance_benchmark.md) | An existing research agent, web tools, and rubric grading. |
+| [Big Finance Benchmark](examples/big_finance_benchmark/README.md) | An existing research agent, web tools, and rubric grading. |
 | [Tau 3 Banking](examples/tau3_banking/banking.md) | An upstream evaluator and multi-turn customer-agent task. |
 
 [Reward integration](examples/reward_integration.md) works through an adapter that preserves
