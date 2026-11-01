@@ -113,6 +113,25 @@ def test_python_exec_kills_timed_out_snippet():
         )
 
 
+def test_python_exec_kills_timed_out_output_flood():
+    async def run():
+        async with asyncio.timeout(3):
+            await python_exec.PythonExecTool(timeout_s=0.1).run(
+                {
+                    "code": (
+                        "import os\n"
+                        "data = b'x' * 65536\n"
+                        "while True:\n"
+                        "    os.write(1, data)\n"
+                        "    os.write(2, data)"
+                    )
+                }
+            )
+
+    with pytest.raises(python_exec.ToolError, match="timed out"):
+        asyncio.run(run())
+
+
 def test_python_exec_caps_output_while_reading():
     code = (
         "import sys\nfor _ in range(200): sys.stdout.write('x' * 10**6)\nprint('end')"

@@ -80,19 +80,17 @@ class PythonExecTool(Tool):
                 start_new_session=True,
                 **drop,
             )
+            stdout_task = asyncio.create_task(_read_capped(proc.stdout))
+            stderr_task = asyncio.create_task(_read_capped(proc.stderr))
             try:
-                stdout_b, stderr_b, _ = await asyncio.wait_for(
-                    asyncio.gather(
-                        _read_capped(proc.stdout), _read_capped(proc.stderr), proc.wait()
-                    ),
-                    timeout=self.timeout_s,
-                )
+                await asyncio.wait_for(proc.wait(), timeout=self.timeout_s)
             except asyncio.TimeoutError:
                 raise ToolError(f"python_exec timed out after {self.timeout_s}s") from None
             finally:
                 # Processes the snippet started must not outlive the call.
                 with contextlib.suppress(ProcessLookupError):
                     os.killpg(proc.pid, signal.SIGKILL)
+                stdout_b, stderr_b = await asyncio.gather(stdout_task, stderr_task)
                 await proc.wait()
 
         stdout = stdout_b.decode("utf-8", errors="replace")[:MAX_OUTPUT_CHARS]
