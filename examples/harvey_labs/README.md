@@ -29,9 +29,9 @@ adapter only needs to connect that lifecycle to a Trajectory session:
 ## Run it
 
 [Choose or create an agent](https://docs.trajectory.ai/agent). Harvey LAB grades each run with
-two judges, Claude Sonnet 4.6 and GPT-5.5, and averages their scores. Register the organization
-secrets `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` for them. Their values never enter the image or
-the upload.
+two judges, Claude Sonnet 4.6 and GPT-5.5, and averages their scores. For that default pair,
+register the organization secrets `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`. A single-judge
+override needs only its provider's key. Secret values never enter the image or upload.
 
 ```python
 from trajectory import Client
@@ -49,14 +49,13 @@ uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
 `--judges` takes one or two models, as in Harvey LAB's own evaluation CLI. Claude models use
-`ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, Mistral models `MISTRAL_API_KEY`, and the others `OPENAI_API_KEY`. For a single judge on another
-OpenAI-compatible provider, store its key as `OPENAI_API_KEY` and pass the provider's model ID
-and endpoint. The endpoint becomes each task's `OPENAI_BASE_URL`, and the judge sends the ID to
-that endpoint unchanged:
+`ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, Mistral models `MISTRAL_API_KEY`, and the others `OPENAI_API_KEY`. For an OpenRouter judge, store its key as `OPENAI_API_KEY` and pass the
+provider's `openai/` model ID; the uploader selects OpenRouter's endpoint. For another
+OpenAI-compatible provider, use `--judge-base-url` to select its endpoint:
 
 ```bash
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
-  --judges openai/gpt-6-luna --judge-base-url https://openrouter.ai/api/v1
+  --judges openai/gpt-6-luna
 ```
 
 The script prints the benchmark ID and waits for the runtime image, which downloads the

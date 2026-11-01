@@ -14,10 +14,8 @@ def test_default_judges_are_the_standard_pair_with_both_keys():
     assert {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"} <= task.env_vars.keys()
 
 
-def test_compatible_endpoint_judge_needs_only_the_openai_key():
-    task = ingest.build_benchmark(
-        "harvey", ("openai/gpt-6-luna",), "https://openrouter.ai/api/v1"
-    ).tasks[0]
+def test_openrouter_judge_needs_only_the_openai_key_and_model_flag():
+    task = ingest.build_benchmark("harvey", ("openai/gpt-6-luna",)).tasks[0]
 
     assert task.run_command.endswith("--judges openai/gpt-6-luna")
     assert "ANTHROPIC_API_KEY" not in task.env_vars

@@ -28,6 +28,8 @@ JUDGE_KEYS = {
 def build_benchmark(
     name: str, judges: tuple[str, ...] = JUDGES, judge_base_url: str | None = None
 ) -> BenchmarkSpec:
+    if judge_base_url is None and any(judge.startswith("openai/") for judge in judges):
+        judge_base_url = "https://openrouter.ai/api/v1"
     ordered = sorted(
         TASKS,
         key=lambda task: hashlib.sha256(f"harvey-test-v1:{task}".encode()).digest(),
