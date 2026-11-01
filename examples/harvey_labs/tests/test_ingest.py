@@ -72,3 +72,11 @@ def test_each_judge_provider_gets_its_key():
     ).tasks[0]
     assert {"GEMINI_API_KEY", "MISTRAL_API_KEY"} <= task.env_vars.keys()
     assert "OPENAI_API_KEY" not in task.env_vars
+
+
+def test_base_url_keeps_native_claude_key_alongside_openai_key():
+    task = ingest.build_benchmark(
+        "harvey", ("claude-sonnet-4-6", "gpt-5.5"), judge_base_url="https://example.com/v1"
+    ).tasks[0]
+    assert {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"} <= task.env_vars.keys()
+    assert task.env_vars["OPENAI_BASE_URL"] == "https://example.com/v1"

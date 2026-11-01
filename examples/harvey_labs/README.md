@@ -49,7 +49,9 @@ uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
 `--judges` takes one or two models, as in Harvey LAB's own evaluation CLI. Claude models use
-`ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, Mistral models `MISTRAL_API_KEY`, and the others `OPENAI_API_KEY`. For an OpenRouter judge, store its key as `OPENAI_API_KEY` and pass the
+`ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, and Mistral models `MISTRAL_API_KEY`.
+GPT and O-series models use `OPENAI_API_KEY`; other IDs require `--judge-base-url` and use
+that key too. For an OpenRouter judge, store its key as `OPENAI_API_KEY` and pass the
 provider's `openai/` model ID; the uploader selects OpenRouter's endpoint:
 
 ```bash
@@ -57,7 +59,8 @@ uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
   --judges openai/gpt-6-luna
 ```
 
-Use `--judge-base-url` to select another OpenAI-compatible endpoint.
+Use `--judge-base-url` to select another OpenAI-compatible endpoint for OpenAI-client judges.
+Claude, Gemini, and Mistral IDs still use their native providers and keys when it is set.
 One task uses one OpenAI-compatible endpoint, so do not mix an `openai/` OpenRouter ID
 with a direct OpenAI judge ID in the same pair; the uploader rejects that combination.
 
