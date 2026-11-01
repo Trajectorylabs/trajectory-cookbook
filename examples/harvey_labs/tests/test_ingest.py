@@ -43,6 +43,23 @@ def test_invalid_judge_selection_fails_before_upload(judges):
         ingest.build_benchmark("harvey", judges)
 
 
+def test_unknown_bare_judge_requires_a_base_url():
+    with pytest.raises(ValueError, match="--judge-base-url"):
+        ingest.build_benchmark("harvey", ("llama-3.3",))
+
+    task = ingest.build_benchmark(
+        "harvey", ("llama-3.3",), judge_base_url="https://example.com/v1"
+    ).tasks[0]
+    assert task.env_vars["OPENAI_BASE_URL"] == "https://example.com/v1"
+
+
+def test_judge_id_is_shell_quoted():
+    task = ingest.build_benchmark(
+        "harvey", ("gpt-5.5; echo unsafe",), judge_base_url="https://example.com/v1"
+    ).tasks[0]
+    assert task.run_command.endswith("--judges 'gpt-5.5; echo unsafe'")
+
+
 def test_dockerfile_downloads_source_commit():
     dockerfile = (EXAMPLE / "runtime" / "Dockerfile").read_text()
 

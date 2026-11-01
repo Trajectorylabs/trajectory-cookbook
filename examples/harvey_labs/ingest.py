@@ -6,6 +6,7 @@
 
 import argparse
 import hashlib
+import shlex
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, SecretRef, TaskSpec
@@ -36,6 +37,11 @@ def build_benchmark(
         raise ValueError("Provider-qualified judge IDs are supported only in single-judge runs")
     if judge_base_url is None and any(judge.startswith("openai/") for judge in judges):
         judge_base_url = "https://openrouter.ai/api/v1"
+    if judge_base_url is None and any(
+        not judge.lower().startswith(("claude", "gemini", "gpt", "o1", "o3", "o4", "o5", "mistral"))
+        for judge in judges
+    ):
+        raise ValueError("Unknown judge provider; pass --judge-base-url for a compatible endpoint")
     ordered = sorted(
         TASKS,
         key=lambda task: hashlib.sha256(f"harvey-test-v1:{task}".encode()).digest(),
@@ -68,7 +74,7 @@ def build_benchmark(
                 run_command=(
                     "python -m lab_core.harness.run --model trajectory/session "
                     f"--task {task} --run-id trajectory --max-turns 200 "
-                    f"--reasoning-effort low --judges {' '.join(judges)}"
+                    f"--reasoning-effort low --judges {' '.join(map(shlex.quote, judges))}"
                 ),
                 env_vars=env_vars,
                 env_resources=EnvResources(network_mode="public", docker_engine=True),
