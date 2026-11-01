@@ -28,6 +28,10 @@ JUDGE_KEYS = {
 def build_benchmark(
     name: str, judges: tuple[str, ...] = JUDGES, judge_base_url: str | None = None
 ) -> BenchmarkSpec:
+    if not 1 <= len(judges) <= 2:
+        raise ValueError("--judges accepts one or two models")
+    if len(set(judges)) != len(judges):
+        raise ValueError("--judges requires distinct models")
     if len(judges) > 1 and any("/" in judge for judge in judges):
         raise ValueError("Provider-qualified judge IDs are supported only in single-judge runs")
     if judge_base_url is None and any(judge.startswith("openai/") for judge in judges):

@@ -37,6 +37,12 @@ def test_provider_qualified_judge_cannot_run_in_dual_mode(judges):
         ingest.build_benchmark("harvey", judges, judge_base_url="https://openrouter.ai/api/v1")
 
 
+@pytest.mark.parametrize("judges", [(), ("gpt-5.5",) * 2, ("gpt-5.5", "claude-sonnet-4-6", "gemini-3-flash-preview")])
+def test_invalid_judge_selection_fails_before_upload(judges):
+    with pytest.raises(ValueError, match="--judges"):
+        ingest.build_benchmark("harvey", judges)
+
+
 def test_dockerfile_downloads_source_commit():
     dockerfile = (EXAMPLE / "runtime" / "Dockerfile").read_text()
 

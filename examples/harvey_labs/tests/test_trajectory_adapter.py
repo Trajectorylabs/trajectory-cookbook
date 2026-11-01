@@ -82,6 +82,20 @@ def test_single_judge_reward_is_the_criteria_fraction():
     }
 
 
+def test_incomplete_final_turn_takes_precedence_over_turn_limit():
+    adapter = _adapter()
+
+    with patch.object(trajectory, "evaluate_run_dual", return_value=DUAL_SCORES):
+        adapter.finalize(
+            "run", "task",
+            {"finish_reason": "max_turns_exceeded", "incomplete_details": {"reason": "max_output_tokens"}},
+        )
+
+    adapter.trajectory.trajectories.complete.assert_called_once_with(
+        "tid_test", termination_reason="TRUNCATION"
+    )
+
+
 def test_grader_failure_leaves_exit_hook_an_error_completion_without_reward():
     adapter = _adapter()
 
