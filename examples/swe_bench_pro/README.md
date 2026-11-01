@@ -159,9 +159,9 @@ training = client.training.create(
 )
 ```
 
-After training succeeds, evaluate
-`client.training.checkpoints.retrieve(training.training_run_id, 2).checkpoint_id` with
-`parent_checkpoint_id` and the same `RUN_OPTIONS`.
+After training succeeds, select the checkpoint with the highest `step_index` from
+`client.training.checkpoints.list(training.training_run_id)`. Evaluate its `checkpoint_id`
+with `parent_checkpoint_id` and the same `RUN_OPTIONS`.
 
 If the local command stops, the runs continue; inspect them by ID as in the
 [GSM8K walkthrough](../gsm8k/README.md#inspect-a-run).
@@ -175,13 +175,15 @@ takes about as long as its slowest wave of attempts.
 
 Measured with Qwen 3.6 35B A3B and the settings above:
 
-| Step | Wall time | Result |
-| --- | --- | --- |
-| Two-task upload and diagnostic | 1 minute to build, 55 minutes to diagnose | 2 of 2 graded, 1 resolved |
-| 48-task demo upload and diagnostic | 1 minute to build, 55 minutes to diagnose | 10 of 10 graded, 5 resolved |
-| Baseline on 8 test tasks | 56 minutes | 5 of 8 resolved; 5 `TIMEOUT`, 3 `ENV_DONE` |
-| Training, 2 steps | 2 hours 50 minutes | 5 task groups sampled; 2 trained on, 2 resolved in every attempt |
-| Checkpoint on the same 8 tasks | 55 minutes | 3 of 8 resolved; 2 `TIMEOUT`, 6 `ENV_DONE` |
+| Step | Run ID | Wall time | Result |
+| --- | --- | --- | --- |
+| 48-task upload diagnostic | `evr_06ae672362937a73800049df9a6c4892` | 54 minutes | 10 of 10 graded, 5 resolved; 3 `TIMEOUT`, 7 `ENV_DONE` |
+| Baseline on 8 test tasks | `evr_06ae641f4bc1746180009483cbd00e43` | 41 minutes | 4 of 8 resolved; 8 `ENV_DONE` |
+| Training, 2 steps | `trn_06ae64beb76c7c07800041296291bd52` | About 100 minutes | Both steps succeeded |
+| Checkpoint on the same 8 tasks | `evr_06ae6634cecf7699800050f3bdca83ec` | 53 minutes | 6 of 8 resolved; 2 `TIMEOUT`, 6 `ENV_DONE` |
+
+The diagnostic was run on a later upload of the same recipe; the baseline, training, and
+checkpoint runs used one benchmark version. All timed-out attempts above were graded.
 
 Attempts made 25–75 model calls. Eight held-out tasks with one attempt each cannot measure a
 change from two training steps; use more test tasks and `evaluation_samples_per_task` before
