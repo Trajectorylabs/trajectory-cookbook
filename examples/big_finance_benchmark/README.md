@@ -11,8 +11,9 @@ uploads the subset, runs a diagnostic, and evaluates a model or checkpoint on it
 use the `test` split.
 
 The adapter sends the harness's model requests through one Trajectory session per question,
-then records the native rubric score. The pinned upstream commit predates reasoning being
-returned between turns, so the adapter does not carry reasoning into the next request.
+then records the native rubric score as `reward_accuracy`. The pinned upstream commit
+predates reasoning being returned between turns, so the adapter does not carry reasoning
+into the next request.
 
 ## What this example contains
 
