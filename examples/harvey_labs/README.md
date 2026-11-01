@@ -146,25 +146,26 @@ final = client.evals.create(
 
 The reward is the fraction of rubric criteria passed, averaged over the two judges. Harvey LAB's
 all-pass score rarely differs across a group of attempts at one task, so it gives training little
-signal; it is logged as the zero-weight `all_pass` component, shown with each trajectory's reward. Check the step
-summaries' `no_signal_groups` early (see the [training guide](https://docs.trajectory.ai/guides/training)).
+signal; it is logged as the zero-weight `all_pass` component, available when retrieving a
+trajectory with `include_reward_components=True`. Check the step summaries' `no_signal_groups`
+early (see the [training guide](https://docs.trajectory.ai/guides/training)).
 An attempt that prints the whole document store in one command can overflow the context and
 end as `TRUNCATION`; training skips those attempts by default.
 
-In a Qwen 3.6 35B A3B smoke run with the settings above, training
-`trn_06ae6450675677bf8000db5489ad3917` completed all three steps. The baseline
-`evr_06ae63faa3c57aed800058760a953f7a` graded six of eight tasks; two attempts ended
-`TRUNCATION` without a reward. Checkpoint evaluation
-`evr_06ae655b8a36745d8000313d9a132baf` graded all eight tasks, with mean reward 0.61.
-The diagnostic on the current overlay, `bmd_06ae673f68bd71b98000f63c85b243e0`,
-graded all ten tasks with `ENV_DONE` endings. The baseline and checkpoint means are not
-directly comparable because their graded task counts differ.
+In a production Qwen 3.6 35B A3B smoke run with the OpenRouter `openai/gpt-6-luna` judge
+override, diagnostic `bmd_06ae6a05c31374648000e5553ab91809` graded all ten tasks with
+`ENV_DONE` endings. Baseline `evr_06ae6b1b47dc71ad8000ef30b2fcf7cf` graded seven of eight
+tasks, training `trn_06ae6b96664177f58000a38ed4c19a9e` succeeded for all three steps,
+and checkpoint evaluation `evr_06ae6c84bb6272b5800076c31dc85487` graded seven of eight.
+Both evaluations used the same task IDs and options. Each had one ungraded `TRUNCATION` on a
+different task; the platform run means, 0.647 and 0.645, count these as zeros. Eight tasks
+with missing grades cannot establish training lift.
 
 ## Ingest the existing task tree
 
-[`tasks.txt`](tasks.txt) lists every upstream directory with a `task.json`, and the uploader
-assigns a deterministic held-out split. Hashing the task path keeps the same 120 test tasks
-across repeated ingestions:
+[`tasks.txt`](tasks.txt) lists every upstream directory with a `task.json`, relative to the
+upstream `tasks/` directory. The uploader assigns a deterministic held-out split. Hashing
+the task path keeps the same 120 test tasks across repeated ingestions:
 
 ```python
 ordered = sorted(
