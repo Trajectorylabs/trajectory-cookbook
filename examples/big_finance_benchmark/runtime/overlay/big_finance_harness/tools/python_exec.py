@@ -16,9 +16,11 @@ MAX_OUTPUT_CHARS = 8000
 NOBODY = 65534
 # A UTF-8 character is at most 4 bytes, so this many bytes always cover MAX_OUTPUT_CHARS.
 MAX_OUTPUT_BYTES = 4 * MAX_OUTPUT_CHARS
-NO_CHILDREN = (
+LIMITED_SNIPPET = (
     "import resource, sys; "
     "resource.setrlimit(resource.RLIMIT_NPROC, (1, 1)); "
+    "resource.setrlimit(resource.RLIMIT_AS, (512 << 20, 512 << 20)); "
+    "resource.setrlimit(resource.RLIMIT_FSIZE, (1 << 20, 1 << 20)); "
     "exec(compile(sys.argv[1], '<python_exec>', 'exec'))"
 )
 
@@ -69,7 +71,7 @@ class PythonExecTool(Tool):
                 sys.executable,
                 "-I",  # isolated mode: ignore PYTHON* env vars and user site-packages
                 "-c",
-                NO_CHILDREN,
+                LIMITED_SNIPPET,
                 code,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,

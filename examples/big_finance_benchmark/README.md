@@ -37,7 +37,8 @@ harness by commit:
     temporary directory, passing only a non-secret OpenBLAS thread limit. The harness's API keys
     are neither in the child's environment nor readable from the root-owned
     `/proc/<parent>/environ`. The snippet cannot start child processes, and its process group is
-    killed when the call ends.
+    killed when the call ends. Address-space and file-size limits keep a snippet from exhausting
+    the task's resources before its five-second timeout.
     Its output is capped as it is read.
 - [`ingest.py`](ingest.py) reads the subset's question IDs at the same commit and uploads one
   task per question.

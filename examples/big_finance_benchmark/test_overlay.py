@@ -47,6 +47,22 @@ def test_python_exec_keeps_numpy_calculations_available():
     assert "stdout:\n10" in out
 
 
+def test_python_exec_limits_memory_and_files_outside_working_directory():
+    tool = python_exec.PythonExecTool()
+    memory = asyncio.run(tool.run({"code": "bytearray(600 << 20)"}))
+    assert "exit_code: 1" in memory
+    assert "MemoryError" in memory
+
+    file_growth = asyncio.run(
+        tool.run(
+            {"code": "with open('/tmp/python-exec-limit-check', 'wb') as f: "
+             "f.write(b'x' * (2 << 20))"}
+        )
+    )
+    assert "exit_code: 1" in file_growth
+    assert "File too large" in file_growth
+
+
 @pytest.mark.skipif(os.geteuid() != 0, reason="the image runs the harness as root")
 def test_python_exec_child_cannot_read_root_secrets(tmp_path):
     secret = tmp_path / "root-only"
