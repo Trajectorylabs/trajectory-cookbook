@@ -1,0 +1,381 @@
+"""Check the harness endings, grade parsing, and split without Docker or the platform."""
+
+import hashlib
+import importlib.util
+import json
+import tarfile
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import httpx2
+import pytest
+from trajectory import Client
+
+ROOT = Path(__file__).parent
+PROMPTS = {
+    "system_template": "You are on {{system}}.",
+    "instance_template": "Please solve this issue: {{task}}",
+    "observation_template": "{{output.returncode}}: {{output.output}}",
+    "format_error_template": "Tool call error: {{error}}",
+    "env": {},
+}
+
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, ROOT / path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+harness = load("swe_bench_pro_harness", "runtime/swe_bench_pro_harness.py")
+ingest = load("swe_bench_pro_ingest", "ingest.py")
+train = load("swe_bench_pro_train", "train.py")
+
+
+def bash(command, call_id="call_1"):
+    arguments = json.dumps({"command": command})
+    return {
+        "id": call_id,
+        "type": "function",
+        "function": {"name": "bash", "arguments": arguments},
+    }
+
+
+def reply(*tool_calls, finish_reason="tool_calls", content=None, metadata=None):
+    body = {
+        "id": "chat_test",
+        "model": "policy",
+        "object": "chat.completion",
+        "created": 0,
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": finish_reason,
+                "message": {
+                    "role": "assistant",
+                    "content": content,
+                    "tool_calls": list(tool_calls),
+                },
+            }
+        ],
+    }
+    if metadata:
+        body["metadata"] = metadata
+    return body
+
+
+def sdk_client(replies, requests):
+    def respond(request):
+        body = json.loads(request.content or b"{}")
+        requests.append((request.url.path, body))
+        if request.url.path == "/api/v1/trajectories":
+            return httpx2.Response(200, json={"tid": "tid_test"})
+        if request.url.path == "/v1/chat/completions":
+            return httpx2.Response(200, json=replies.pop(0))
+        status = "finalizing" if request.url.path.endswith("/complete") else "active"
+        return httpx2.Response(
+            200, json={"ok": True, "trajectory_id": "tid_test", "status": status}
+        )
+
+    return Client(
+        api_key="test",
+        base_url="https://example.com",
+        max_retries=0,
+        http_client=httpx2.Client(transport=httpx2.MockTransport(respond)),
+    )
+
+
+def run_agent(replies, outputs=(), time_limit=3000):
+    requests, executed = [], []
+    outputs = list(outputs)
+
+    def execute(command, timeout):
+        executed.append(command)
+        return outputs.pop(0)
+
+    with sdk_client(list(replies), requests) as client:
+        ending = harness.run_agent(
+            client, "tid_test", PROMPTS, "Fix it.", execute, time_limit
+        )
+    calls = [body for path, body in requests if path == "/v1/chat/completions"]
+    return ending, executed, calls
+
+
+def output(text, returncode=0):
+    return {"output": text, "returncode": returncode, "exception_info": ""}
+
+
+def test_submit_command_ends_normally():
+    ending, executed, calls = run_agent(
+        [reply(bash("ls")), reply(bash(f"echo {harness.SUBMIT_MARKER}"))],
+        [output("src\n"), output(f"{harness.SUBMIT_MARKER}\n")],
+    )
+    assert ending == ("ENV_DONE", 2)
+    assert executed == ["ls", f"echo {harness.SUBMIT_MARKER}"]
+    assert calls[0]["messages"][1]["content"] == "Please solve this issue: Fix it."
+    assert calls[0]["tools"] == [harness.BASH_TOOL]
+    assert calls[1]["messages"][-1] == {
+        "role": "tool",
+        "tool_call_id": "call_1",
+        "content": "0: src\n",
+    }
+
+
+def test_failed_submit_command_does_not_end():
+    ending, _, _ = run_agent(
+        [
+            reply(bash(f"echo {harness.SUBMIT_MARKER}; false")),
+            reply(finish_reason="length"),
+        ],
+        [output(f"{harness.SUBMIT_MARKER}\n", returncode=1)],
+    )
+    assert ending == ("TRUNCATION", 2)
+
+
+@pytest.mark.parametrize("finish_reason", ["length", "max_tokens"])
+def test_cut_off_reply_runs_no_tools(finish_reason):
+    ending, executed, _ = run_agent(
+        [reply(bash("rm -rf /app"), finish_reason=finish_reason)]
+    )
+    assert ending == ("TRUNCATION", 1)
+    assert executed == []
+
+
+def call(name="bash", arguments='{"command": "ls"}', call_id="call_2"):
+    return {
+        "id": call_id,
+        "type": "function",
+        "function": {"name": name, "arguments": arguments},
+    }
+
+
+@pytest.mark.parametrize(
+    "tool_calls, error",
+    [
+        (
+            [],
+            "No tool calls found in the response. Every response MUST include at least one tool call.",
+        ),
+        (
+            [bash("ls"), call(arguments="{")],
+            (
+                "Error parsing tool call arguments: Expecting property name enclosed in "
+                "double quotes: line 1 column 2 (char 1).Missing 'command' argument in bash tool call."
+            ),
+        ),
+        ([bash("ls"), call(name="python")], "Unknown tool 'python'."),
+        (
+            [bash("ls"), call(arguments='{"cmd": "ls"}')],
+            "Missing 'command' argument in bash tool call.",
+        ),
+    ],
+)
+def test_format_error_drops_the_reply_and_runs_no_calls(tool_calls, error):
+    ending, executed, calls = run_agent(
+        [
+            reply(*tool_calls, content="Thinking."),
+            reply(bash(f"echo {harness.SUBMIT_MARKER}")),
+        ],
+        [output(f"{harness.SUBMIT_MARKER}\n")],
+    )
+    assert ending == ("ENV_DONE", 2)
+    assert executed == [f"echo {harness.SUBMIT_MARKER}"]
+    assert calls[1]["messages"][1:] == [
+        {"role": "user", "content": "Please solve this issue: Fix it."},
+        {"role": "user", "content": f"Tool call error: {error}"},
+    ]
+
+
+def test_three_format_errors_in_a_row_end_the_attempt():
+    ending, executed, _ = run_agent(
+        [reply(content="a"), reply(bash("ls")), *[reply(content="b")] * 3],
+        [output("src\n")],
+    )
+    assert ending == ("ENV_DONE", 5)
+    assert executed == ["ls"]
+
+
+def test_platform_limit_stops_the_loop():
+    cancelled = reply(
+        finish_reason="stop",
+        content="",
+        metadata={"trajectory_termination_reason": "trajectory_cancelled"},
+    )
+    ending, executed, _ = run_agent([cancelled])
+    assert ending == ("TRUNCATION", 1)
+    assert executed == []
+
+
+def test_time_limit_ends_with_timeout():
+    ending, executed, _ = run_agent([reply(bash("ls"))], time_limit=0)
+    assert ending == ("TIMEOUT", 0)
+    assert executed == []
+
+
+@pytest.mark.parametrize("as_python_literal", [False, True])
+def test_read_grade_counts_required_tests(tmp_path, as_python_literal):
+    (tmp_path / "reward.txt").write_text("1\n")
+    tests = [{"name": "a", "status": "PASSED"}, {"name": "b", "status": "FAILED"}]
+    (tmp_path / "output.json").write_text(json.dumps({"tests": tests}))
+    fail_to_pass = "['a', 'b']" if as_python_literal else json.dumps(["a", "b"])
+    reward, counts = harness.read_grade(
+        tmp_path, {"fail_to_pass": fail_to_pass, "pass_to_pass": "[]"}
+    )
+    assert reward == 1.0
+    assert counts == {
+        "fail_to_pass": {"passed": 1, "total": 2},
+        "pass_to_pass": {"passed": 0, "total": 0},
+    }
+
+
+def test_read_grade_rejects_missing_or_invalid_reward(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        harness.read_grade(tmp_path, {})
+    (tmp_path / "reward.txt").write_text("0.5")
+    with pytest.raises(ValueError):
+        harness.read_grade(tmp_path, {})
+
+
+@pytest.mark.parametrize("ending", ["ENV_DONE", "TIMEOUT"])
+def test_main_completes_with_the_agent_ending(monkeypatch, tmp_path, ending):
+    (tmp_path / "tasks/instance_x").mkdir(parents=True)
+    (tmp_path / "tasks/instance_x/task.toml").write_text("")
+    monkeypatch.setattr(harness, "UPSTREAM", tmp_path)
+    monkeypatch.setattr(harness, "run_task", lambda client, tid, instance_id: ending)
+    monkeypatch.setattr("sys.argv", ["harness", "instance_x"])
+    requests = []
+    with sdk_client([], requests) as client:
+        monkeypatch.setattr(harness, "Client", lambda **kwargs: client)
+        harness.main()
+    assert requests[-1] == (
+        "/api/v1/trajectories/tid_test/complete",
+        {"termination_reason": ending},
+    )
+
+
+def test_harness_failure_completes_error_without_reward(monkeypatch, tmp_path):
+    (tmp_path / "tasks/instance_x").mkdir(parents=True)
+    (tmp_path / "tasks/instance_x/task.toml").write_text("")
+    monkeypatch.setattr(harness, "UPSTREAM", tmp_path)
+
+    def fail(client, tid, instance_id):
+        raise RuntimeError("docker pull failed")
+
+    monkeypatch.setattr(harness, "run_task", fail)
+    monkeypatch.setattr("sys.argv", ["harness", "instance_x"])
+    requests = []
+    with sdk_client([], requests) as client:
+        monkeypatch.setattr(harness, "Client", lambda **kwargs: client)
+        with pytest.raises(RuntimeError, match="docker pull failed"):
+            harness.main()
+    assert not any(path.endswith("/rewards") for path, _ in requests)
+    assert requests[-1] == (
+        "/api/v1/trajectories/tid_test/complete",
+        {"termination_reason": "ERROR"},
+    )
+
+
+def test_diagnostic_uses_the_run_settings():
+    assert ingest.RUN_OPTIONS == train.RUN_OPTIONS
+
+
+def test_diagnostic_fails_when_a_task_has_no_reward(monkeypatch):
+    client = MagicMock()
+    client.diagnostics.get_status.return_value.status = "completed"
+    tasks = [SimpleNamespace(task_id=t, status="completed", failure=None) for t in "ab"]
+    client.diagnostics.get_diagnostics.return_value = MagicMock(
+        status="completed", failure=None, tasks=tasks
+    )
+    client.evals.rewards.list_trajectory_rewards.return_value = [
+        SimpleNamespace(task_id="a", reward=1.0)
+    ]
+    monkeypatch.setattr(ingest, "Client", lambda: client)
+
+    with pytest.raises(RuntimeError, match="did not pass"):
+        ingest.benchmark_diagnostic("bm_test")
+
+
+def test_command_that_cannot_run_becomes_an_error_observation():
+    output = harness.container_executor("container", "/app", {})(1, 30)
+
+    assert output["returncode"] == -1
+    assert output["exception_info"].startswith(
+        "An error occurred while executing the command: "
+    )
+
+
+def test_split_holds_out_each_repository_deterministically():
+    ids = [
+        f"instance_{owner}__{name}-{index:040x}"
+        for owner, name, count in [
+            ("ansible", "ansible", 40),
+            ("flipt-io", "flipt", 20),
+        ]
+        for index in range(count)
+    ]
+    splits = ingest.split_tasks(ids)
+    assert splits == ingest.split_tasks(list(reversed(ids)))
+    assert set(splits["train"]).isdisjoint(splits["test"])
+    assert sorted(splits["train"] + splits["test"]) == sorted(ids)
+    held_out = [ingest.repository(instance_id) for instance_id in splits["test"]]
+    assert held_out.count("ansible/ansible") == 6
+    assert held_out.count("flipt-io/flipt") == 3
+
+
+def fake_checkout(root):
+    task = "tasks/instance_ansible__ansible-" + "0" * 40
+    files = {
+        "tooling/configs/mini_toolcall.yaml": "agent: {}\n",
+        "README.md": "V2\n",
+        f"{task}/instruction.md": "Fix it.\n",
+        f"{task}/task.toml": "[agent]\n",
+        f"{task}/tests/test.sh": "exit 0\n",
+        f"{task}/solution/gold_patch.diff": "the answer\n",
+        f"{task}/environment/Dockerfile": "FROM scratch\n",
+    }
+    for path, text in files.items():
+        (root / "v2" / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / "v2" / path).write_text(text)
+    (root / "v2/SHA256SUMS").write_text(
+        "".join(
+            f"{hashlib.sha256(text.encode()).hexdigest()}  {path}\n"
+            for path, text in files.items()
+        )
+    )
+    (root / "LICENSE").write_text("MIT\n")
+
+
+def test_staging_keeps_verifiers_and_drops_solutions(monkeypatch, tmp_path):
+    upstream, context = tmp_path / "upstream", tmp_path / "context"
+    upstream.mkdir()
+    context.mkdir()
+    fake_checkout(upstream)
+    monkeypatch.setattr(ingest, "TASK_COUNT", 1)
+    ids = ingest.stage_runtime(upstream, context)
+    assert ids == ["instance_ansible__ansible-" + "0" * 40]
+    assert {path.name for path in context.iterdir()} == {
+        "Dockerfile",
+        "swe_bench_pro_harness.py",
+        ingest.STAGED_ARCHIVE,
+    }
+    with tarfile.open(context / ingest.STAGED_ARCHIVE) as archive:
+        names = sorted(archive.getnames())
+    task = f"v2/tasks/{ids[0]}"
+    assert names == [
+        "LICENSE",
+        "v2/SHA256SUMS",
+        f"{task}/instruction.md",
+        f"{task}/task.toml",
+        f"{task}/tests/test.sh",
+        "v2/tooling/configs/mini_toolcall.yaml",
+    ]
+
+
+def test_staging_rejects_edited_files(monkeypatch, tmp_path):
+    fake_checkout(tmp_path)
+    next(tmp_path.glob("v2/tasks/*/tests/test.sh")).write_text("exit 1\n")
+    monkeypatch.setattr(ingest, "TASK_COUNT", 1)
+    with pytest.raises(ValueError, match="differs from the pinned release"):
+        ingest.stage_runtime(tmp_path, tmp_path)
