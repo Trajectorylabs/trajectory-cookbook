@@ -24,10 +24,17 @@ def test_openrouter_judge_needs_only_the_openai_key_and_model_flag():
     assert task.env_vars["OPENAI_BASE_URL"] == "https://openrouter.ai/api/v1"
 
 
-@pytest.mark.parametrize("other", ["gpt-5.5", "claude-sonnet-4-6"])
-def test_openrouter_judge_cannot_run_in_dual_mode(other):
+@pytest.mark.parametrize(
+    "judges",
+    [
+        ("openai/gpt-6-luna", "gpt-5.5"),
+        ("openai/gpt-6-luna", "claude-sonnet-4-6"),
+        ("meta-llama/llama-3.3-70b-instruct", "claude-sonnet-4-6"),
+    ],
+)
+def test_provider_qualified_judge_cannot_run_in_dual_mode(judges):
     with pytest.raises(ValueError, match="supported only in single-judge runs"):
-        ingest.build_benchmark("harvey", ("openai/gpt-6-luna", other))
+        ingest.build_benchmark("harvey", judges, judge_base_url="https://openrouter.ai/api/v1")
 
 
 def test_dockerfile_downloads_source_commit():

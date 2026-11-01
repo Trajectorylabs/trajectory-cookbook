@@ -28,8 +28,8 @@ JUDGE_KEYS = {
 def build_benchmark(
     name: str, judges: tuple[str, ...] = JUDGES, judge_base_url: str | None = None
 ) -> BenchmarkSpec:
-    if len(judges) > 1 and any(judge.startswith("openai/") for judge in judges):
-        raise ValueError("OpenRouter judge IDs are supported only in single-judge runs")
+    if len(judges) > 1 and any("/" in judge for judge in judges):
+        raise ValueError("Provider-qualified judge IDs are supported only in single-judge runs")
     if judge_base_url is None and any(judge.startswith("openai/") for judge in judges):
         judge_base_url = "https://openrouter.ai/api/v1"
     ordered = sorted(
