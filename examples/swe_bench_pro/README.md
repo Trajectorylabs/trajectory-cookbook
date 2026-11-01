@@ -129,9 +129,7 @@ RUN_OPTIONS = {
 }
 ```
 
-On the production runs [below](#expected-scale-and-time), an attempt used 5,000–20,000 output
-tokens in total, at most about 4,000 in one reply, and up to 65,000 prompt tokens. To start the
-runs yourself:
+To start the runs yourself:
 
 ```python
 from trajectory import Client
