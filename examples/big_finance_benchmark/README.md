@@ -153,8 +153,9 @@ print(run.eval_run_id)
 
 With these options and the OpenRouter `openai/gpt-6-luna` judge override, a 50-question
 Qwen 3.6 35B A3B evaluation (`evr_06ae69b90a4776e08000776ed3b1e34f`) finished in 28
-minutes. All 50 tasks received rewards (mean 0.481); 49 ended `ENV_DONE` and one graded
-attempt ended `TRUNCATION`. Much lower per-step limits
+minutes. All 50 tasks recorded rewards: 49 ended `ENV_DONE` and one graded attempt ended
+`TRUNCATION`. The platform's run mean was 0.479; it counts the truncated attempt as zero
+despite its partial rubric reward. Much lower per-step limits
 cut replies off: in a 50-question Qwen 3.5 4B run with 4,096 tokens per step, 13 attempts ended
 `TRUNCATION`. The snippet runs all 50 questions; add `"evaluation_max_samples": 10` to the
 options for a smaller check.
