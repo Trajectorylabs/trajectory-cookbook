@@ -78,9 +78,9 @@ Every run passes the same settings for the 50-minute agent budget and subsequent
 RUN_OPTIONS = {
     "reasoning_effort": "on",
     "max_turns_per_trajectory": 200,
-    "max_output_tokens_per_step": 16_384,
-    "max_total_tokens_per_trajectory": 262_144,
-    "execution_timeout_seconds": 9_000,
+    "max_output_tokens_per_turn": 16_384,
+    "max_output_tokens_per_trajectory": 262_144,
+    "trajectory_timeout_seconds": 9_000,
 }
 ```
 
@@ -102,12 +102,12 @@ training = client.training.create(
     options={
         **RUN_OPTIONS,
         "num_steps": 2,
-        "train_batch_size": 1,
+        "batch_size": 1,
         "group_size": 4,
-        "max_active_rollouts": 16,
-        "batch_collection_idle_timeout_seconds": 21_600,
+        "max_concurrent_trajectories": 16,
+        "batch_timeout_seconds": 21_600,
         "train_on_timeout": True,
-        "evaluation_enabled": False,
+        "val_enabled": False,
     },
 )
 ```
@@ -123,7 +123,7 @@ If the local command stops, the runs continue; inspect them by ID as in the
 
 An attempt pulls a 0.6–4.7 GB compressed image, works for up to 50 minutes, and
 then grades the patch. The pull may take 30 minutes and the verifier up to 50, so
-`execution_timeout_seconds` allows two and a half hours. Each task sandbox uses
+`trajectory_timeout_seconds` allows two and a half hours. Each task sandbox uses
 2 CPUs and 8 GB of memory. Attempts run in parallel.
 
 Measured with Qwen 3.6 35B A3B and the settings above:
@@ -139,7 +139,7 @@ All four stages used one uploaded benchmark version. Baseline and checkpoint eva
 the same eight test tasks and options. All timed-out attempts above were graded.
 
 Eight held-out tasks with one attempt each cannot measure a change from two training
-steps; use more test tasks and `evaluation_samples_per_task` before reading a difference.
+steps; use more test tasks and `val_trajectories_per_task` before reading a difference.
 
 ## How an attempt runs
 

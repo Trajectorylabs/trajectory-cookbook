@@ -34,7 +34,7 @@ diagnostic = start_task_diagnostic(
     agent_name="YOUR_AGENT_NAME",
     root=Path("examples/t_factory"),
     base_model_slug="Qwen/Qwen3.5-4B",
-    options={"reasoning_effort": "off", "max_output_tokens_per_step": 2048},
+    options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
 )
 print(diagnostic.benchmark_diagnostic_id, diagnostic.bench_id)
 ```
@@ -63,7 +63,7 @@ for task_result in result.tasks:
 ```
 
 `options` takes the settings an evaluation accepts, apart from sample counts, such as
-`reasoning_effort`, `max_output_tokens_per_step`, and `execution_timeout_seconds`. Pass the
+`reasoning_effort`, `max_output_tokens_per_turn`, and `trajectory_timeout_seconds`. Pass the
 model and settings you will evaluate and train with. Each task reports its trajectory ID,
 ending, and reward, which is null when the trajectory ended before the harness recorded one.
 Inspect both the run's failure and each task's result before moving on to a full evaluation
@@ -79,7 +79,7 @@ without executing a full evaluation.
 diagnostic = client.diagnostics.start_benchmark(
     bench_id="YOUR_BENCH_ID",
     base_model_slug="Qwen/Qwen3.5-4B",
-    options={"reasoning_effort": "off", "max_output_tokens_per_step": 2048},
+    options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
 )
 print(diagnostic.benchmark_diagnostic_id)
 ```

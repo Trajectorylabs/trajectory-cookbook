@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.37"]
+# dependencies = ["trajectory-sdk>=0.10.0"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 

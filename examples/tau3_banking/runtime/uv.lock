@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.12.*"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -347,8 +347,8 @@ name = "httpcore2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11", marker = "sys_platform != 'emscripten'" },
-    { name = "truststore", marker = "sys_platform != 'emscripten'" },
+    { name = "h11" },
+    { name = "truststore" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz", hash = "sha256:e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103", size = 68071, upload-time = "2026-09-23T07:47:22.372Z" }
 wheels = [
@@ -1023,7 +1023,7 @@ dependencies = [
 requires-dist = [
     { name = "tau2", extras = ["knowledge"], git = "https://github.com/sierra-research/tau2-bench?rev=fc0055dc4e0a316c3f83133267fbd6faaa770992" },
     { name = "tenacity", specifier = "==9.1.4" },
-    { name = "trajectory-sdk", specifier = ">=0.9.32" },
+    { name = "trajectory-sdk", specifier = ">=0.10.0" },
 ]
 
 [[package]]
@@ -1104,7 +1104,7 @@ wheels = [
 
 [[package]]
 name = "trajectory-sdk"
-version = "0.9.32"
+version = "0.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx2" },
@@ -1112,9 +1112,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/11/0f/2b2e5d66ac028c5d0436d553d701c04b0f9930e80134da7a62bd045d3d12/trajectory_sdk-0.9.32.tar.gz", hash = "sha256:723f2a30aae7e4487097497be508a5ed875f3e8f02e8bbe42f01e27ea984c3f6", size = 194634, upload-time = "2026-10-28T03:40:30.561Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/25/14605f4dcb814ae6d9e784dfcf796726f426fbcfce062124034f60b8f0a2/trajectory_sdk-0.10.0.tar.gz", hash = "sha256:18c94c0d9a81aa56beeb3d5ede59c64d621bf545ddebbce54bb9eef12175c51b", size = 210896, upload-time = "2026-11-02T21:03:13.223Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/a3/824862ca097c6d93c1ea4564328850dac0d214d9c5c15aa6e64af253e62c/trajectory_sdk-0.9.32-py3-none-any.whl", hash = "sha256:bd0cd6a8f0784c5b740b520d94bc109727ba7ec030084b146bcdafdf8b1a4f85", size = 301028, upload-time = "2026-10-28T03:40:29.239Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/28/e0ef259f900d52ae7e140e17423028c569e15c990782c0757ad23a221ae7/trajectory_sdk-0.10.0-py3-none-any.whl", hash = "sha256:9d20964d0195699dd97a992fde71055e01dd176e102ab6dab16d45cdc642a0a6", size = 322821, upload-time = "2026-11-02T21:03:11.039Z" },
 ]
 
 [[package]]

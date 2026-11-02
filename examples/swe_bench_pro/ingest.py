@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.33"]
+# dependencies = ["trajectory-sdk>=0.10.0"]
 # ///
 """Upload SWE-Bench Pro V2 tasks with a fixed train/test split, then run a diagnostic."""
 
@@ -32,9 +32,9 @@ MODEL = "Qwen/Qwen3.6-35B-A3B"
 RUN_OPTIONS = {
     "reasoning_effort": "on",
     "max_turns_per_trajectory": 200,
-    "max_output_tokens_per_step": 16_384,
-    "max_total_tokens_per_trajectory": 262_144,
-    "execution_timeout_seconds": 9_000,
+    "max_output_tokens_per_turn": 16_384,
+    "max_output_tokens_per_trajectory": 262_144,
+    "trajectory_timeout_seconds": 9_000,
 }
 BENCHMARK_NAME = "swe-bench-pro"
 RUNTIME_ROOT = Path(__file__).parent / "runtime"

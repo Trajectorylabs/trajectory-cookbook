@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.33"]
+# dependencies = ["trajectory-sdk>=0.10.0"]
 # ///
 """Evaluate, train, and compare Qwen 3.5 4B on the prompted T-starting-word task."""
 
@@ -48,9 +48,9 @@ def train_and_evaluate(
         options={
             "reasoning_effort": "off",
             "num_steps": num_steps,
-            "train_batch_size": 4,
-            "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
-            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+            "batch_size": 4,
+            "max_concurrent_trajectories": _MAX_ACTIVE_ROLLOUTS,
+            "max_output_tokens_per_turn": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
         },
     )
@@ -116,10 +116,10 @@ def _start_evaluation(
         display_name=display_name,
         options={
             "reasoning_effort": "off",
-            "evaluation_max_samples": _TEST_TASKS,
+            "val_num_tasks": _TEST_TASKS,
             # Run every held-out task at once.
-            "evaluation_max_active_rollouts": _TEST_TASKS,
-            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+            "val_max_concurrent_trajectories": _TEST_TASKS,
+            "max_output_tokens_per_turn": _MAX_OUTPUT_TOKENS,
         },
     )
     eval_id = evaluation.eval_run_id

@@ -54,14 +54,14 @@ Client().evals.create(
         "temperature": 1.0,
         "top_p": 0.95,
         "top_k": 20,
-        "max_output_tokens_per_step": 16384,
+        "max_output_tokens_per_turn": 16384,
         "max_turns_per_trajectory": 200,
-        "max_total_tokens_per_trajectory": 262144,
+        "max_output_tokens_per_trajectory": 262144,
     },
 )
 ```
 
-For evaluations during training, set `evaluation_top_p` and `evaluation_top_k` in the training
+For evaluations during training, set `val_top_p` and `val_top_k` in the training
 options if you need the same sampling. Sierra's source is MIT-licensed; the pinned source and
 its [license](https://github.com/sierra-research/tau2-bench/blob/fc0055dc4e0a316c3f83133267fbd6faaa770992/LICENSE)
 are included in the runtime image.
