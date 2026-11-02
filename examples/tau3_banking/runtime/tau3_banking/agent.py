@@ -28,7 +28,7 @@ def _termination_reason(reason: object) -> str:
     return {
         "AGENT_STOP": "ENV_DONE",
         "USER_STOP": "ENV_DONE",
-        "MAX_STEPS": "MAX_STEPS",
+        "MAX_STEPS": "TRUNCATION",
         "TIMEOUT": "TIMEOUT",
         "CONTEXT_WINDOW_EXCEEDED": "TRUNCATION",
         "TOO_MANY_ERRORS": "ENV_DONE",

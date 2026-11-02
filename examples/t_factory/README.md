@@ -1,5 +1,12 @@
 # T Factory
 
+## Dataset
+
+The uploader uses ordinary questions, split into 128 training and 64 held-out test tasks.
+The task list and split are defined in [`ingest.py`](ingest.py).
+
+## Harness
+
 T Factory asks the model to maximize the fraction of words beginning with `T` while answering
 ordinary questions. It uses this system prompt:
 
@@ -18,7 +25,7 @@ def t_word_density(answer: str) -> float:
     return sum(word.lower().startswith("t") for word in words) / len(words) if words else 0.0
 ```
 
-## Run one task
+### Run one task
 
 You need Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/), and an
 organization API key from **Settings → API keys** in the [platform](https://platform.trajectory.ai).
@@ -64,9 +71,36 @@ The command prints the response, trajectory ID, reward, and completion status.
 Success means a reward is recorded (including zero) and `status` is `completed`, or
 `finalizing` while the platform finishes saving the trajectory.
 
-**Next:** [upload and validate T Factory](training.md#upload-and-validate) on the platform,
-then evaluate, train, and inspect results with this reward. The
-[GSM8K walkthrough](../gsm8k/README.md) covers the full workflow with a real math benchmark.
+## Ingestion
+
+After the one-task check, create an agent and upload the benchmark from the repository root:
+
+```bash
+uv run --with trajectory-sdk python -c \
+  'from trajectory import Client; Client().agents.create(name="t-factory-cookbook")'
+uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
+```
+
+The uploader builds the runtime and diagnoses up to 10 tasks. It fails if a task does not
+complete with a recorded reward. See [upload and validation details](training.md#upload-and-validate).
+
+## Evaluation
+
+Use the printed benchmark ID with [`train.py`](train.py). It evaluates Qwen 3.5 4B on the
+held-out tasks before training and evaluates the final checkpoint on the same tasks.
+
+## Training
+
+```bash
+uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID
+```
+
+The script trains for 10 steps and prints the baseline, final, and delta rewards. The
+[training guide](training.md#evaluate-and-train) covers the run, deployment, and observed results.
+
+## Appendix
 
 The runtime and grader are in
 [`t_factory_harness.py`](runtime/t_factory_harness.py).
+T Factory is a cookbook-owned toy benchmark; the [GSM8K example](../gsm8k/README.md)
+shows the same workflow with a public math dataset.

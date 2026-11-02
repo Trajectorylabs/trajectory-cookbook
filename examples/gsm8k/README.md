@@ -1,13 +1,18 @@
 # GSM8K
 
+## Dataset
+
 This example adapts a reproducible sample of the public
 [GSM8K dataset](https://github.com/openai/grade-school-math/tree/3101c7d5072418e28b9008a6636bde82a006892c)
 to the Trajectory SDK. The selected rows are stored in [`runtime/tasks.jsonl`](runtime/tasks.jsonl).
+The upload contains 64 training and 16 held-out test problems.
+
+## Harness
 
 The model must call `submit_answer`. The harness compares that numeric answer with the private
 reference, records `reward_accuracy`, and completes the trajectory as `ENV_DONE` or `TRUNCATION`.
 
-## Setup Runtime with Trajectory SDK
+## Ingestion
 
 Run commands from the repository root with a Trajectory API key:
 
@@ -17,7 +22,7 @@ uv run --with trajectory-sdk python -c \
   'import trajectory; trajectory.Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 
-## Diagnose with one task
+### Diagnose one task
 
 Build the runtime and run one training problem before uploading the full benchmark:
 
@@ -28,7 +33,7 @@ uv run --with trajectory-sdk python -c \
 
 The command prints the diagnostic ID and fails if execution or grading does not complete.
 
-## Upload benchmark
+### Upload the benchmark
 
 ```bash
 uv run examples/gsm8k/ingest.py \
@@ -39,7 +44,12 @@ uv run examples/gsm8k/ingest.py \
 The uploader registers the 80 tasks, waits for the runtime image, and runs a benchmark
 diagnostic. Save the printed benchmark ID.
 
-## Evaluate, train, and compare
+## Evaluation
+
+The training script first evaluates the base model on the held-out tasks. It later evaluates
+the final checkpoint on those same tasks.
+
+## Training
 
 ```bash
 uv run examples/gsm8k/train.py \
@@ -52,3 +62,9 @@ The script starts a baseline evaluation and training run, waits for both, resolv
 checkpoint, and evaluates it on the same 16 held-out tasks. It prints all run IDs and the
 baseline, final, and delta rewards. A short run validates the workflow; it is not evidence of
 training improvement.
+
+## Appendix
+
+The SDK adapter owns the trajectory and model calls; the harness keeps the dataset's private
+answer and exact-match grade. The pinned dataset revision and selected rows above make the
+uploaded tasks reproducible.
