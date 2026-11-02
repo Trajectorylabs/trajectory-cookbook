@@ -135,6 +135,22 @@ def _wait_for_evaluation(
     result = client.evals.runs.retrieve(eval_id)
     if result.reward_mean is None:
         raise RuntimeError(f"completed evaluation {eval_id} has no reward")
+    cursor = None
+    attempts = []
+    while True:
+        query = {"eval_run_id": eval_id, "limit": 100}
+        if cursor:
+            query["cursor"] = cursor
+        page = client.trajectories.list(**query)
+        attempts.extend(page.items)
+        if not page.has_more:
+            break
+        cursor = page.next_cursor
+    if len(attempts) != progress.total_rollouts or any(
+        attempt.reward is None or attempt.termination_reason == "ERROR"
+        for attempt in attempts
+    ):
+        raise RuntimeError(f"evaluation {eval_id} has missing or failed grades")
     return result.reward_mean
 
 
