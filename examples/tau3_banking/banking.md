@@ -9,8 +9,8 @@ instead of the source release's GPT-4.1 defaults. The cookbook sorts task IDs in
 and 17 held-out test tasks; this split is for training, not the full 97-task, five-repeat
 leaderboard evaluation.
 
-The SDK supplies agent inference and records the source evaluator's reward, including when an
-earlier model reply reached its output limit. Error endings are ungraded. The one simulator
+The SDK supplies agent inference. Sierra's runner continues after an output-limited model reply,
+so this example records its final evaluator grade. Error endings are ungraded. The one simulator
 change makes up to three attempts to get a nonempty user response without adding empty replies
 to the conversation; exhaustion still fails the task.
 
