@@ -68,3 +68,5 @@ training improvement.
 The SDK adapter owns the trajectory and model calls; the harness keeps the dataset's private
 answer and exact-match grade. The pinned dataset revision and selected rows above make the
 uploaded tasks reproducible.
+The pinned GSM8K source is [MIT-licensed](https://github.com/openai/grade-school-math/blob/3101c7d5072418e28b9008a6636bde82a006892c/LICENSE);
+the runtime includes its [license text](runtime/LICENSE-GSM8K).
