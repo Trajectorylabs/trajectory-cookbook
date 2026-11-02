@@ -1,24 +1,28 @@
 # GSM8K
 
-This example adapts a sample of the public
+Evaluate and train a model to solve grade-school math problems from
 [GSM8K dataset](https://github.com/openai/grade-school-math/tree/3101c7d5072418e28b9008a6636bde82a006892c)
-to the Trajectory SDK. The selected rows are stored in [`runtime/tasks.jsonl`](runtime/tasks.jsonl).
+with Trajectory. This walkthrough takes you from running one problem to uploading a benchmark
+and starting evaluation and training runs.
 
-The model must call `submit_answer`. The harness compares that numeric answer with the private
-reference, records `reward_accuracy`, and completes the trajectory as `ENV_DONE` or `TRUNCATION`.
+For each problem, the model submits its answer through a `submit_answer` tool. The
+[harness](runtime/gsm8k_harness.py) checks it against the reference answer and records a reward
+of 1 for a correct answer or 0 otherwise. Problems and reference answers live in
+[`runtime/tasks.jsonl`](runtime/tasks.jsonl); only the question is sent to the model.
 
 ## Setup Runtime with Trajectory SDK
 
-The runtime is the Docker image shared by every task. Each task starts the same harness with a
-different row ID from `tasks.jsonl`. From the repository root:
+The runtime packages the harness, task data, and SDK into a Docker image. Start a Python session
+from the repository root, then run the snippets below in order in that same session:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with 'trajectory-sdk>=0.10.0' python
 ```
 
-Import the SDK, create a client, and point the benchmark at its Docker build context and harness
-launch command:
+Connect to Trajectory and select the runtime folder. `DockerfileBuild` tells Trajectory how to
+build the image; `run_command` tells it how to start the harness inside that image. Set
+`agent_name` to the agent that will own this benchmark:
 
 ```python
 from pathlib import Path
@@ -35,8 +39,9 @@ run_command = "python -u /opt/gsm8k/gsm8k_harness.py"
 
 ## Diagnose with one task
 
-A task diagnostic builds the runtime and executes one task before the full benchmark is
-registered. Use it to catch packaging, model-call, or grading problems quickly.
+Try the first problem before uploading the full benchmark. This diagnostic builds the image and
+starts the harness with `--task_id 0`, which selects the first row of the JSONL file. Use the
+returned diagnostic ID to inspect whether the task ran and recorded a grade:
 
 ```python
 diagnostic_task = trajectory.TaskSpec(
@@ -63,8 +68,9 @@ print(diagnostic.benchmark_diagnostic_id)
 
 ## Upload benchmark
 
-The benchmark manifest maps local row IDs into explicit training and held-out splits. `push`
-uploads that manifest, builds the shared runtime, and returns an immutable benchmark ID.
+Define which problems to train on and which to reserve for evaluation. Each `TaskSpec` selects
+one row from the same JSONL file, and all tasks share the runtime. The upload returns a
+`bench_id` that identifies this benchmark version; use it for the runs below:
 
 ```python
 tasks = [
@@ -101,11 +107,8 @@ print(bench_id)
 
 ## Evaluate, train, and compare
 
-Evaluation runs the held-out split without changing the model. Training uses the training split
-to create checkpoints. Keep both run IDs so their progress and results can be compared in the
-product UI.
-
-Start a baseline evaluation on the held-out split:
+First, evaluate the base model on the held-out problems. This gives you a baseline to compare
+against trained checkpoints:
 
 ```python
 evaluation = client.evals.create(
@@ -118,7 +121,8 @@ evaluation = client.evals.create(
 )
 ```
 
-Start a training run on the training split:
+Next, train the same model on the training split for three steps. Training produces checkpoints
+that you can evaluate on the same held-out problems:
 
 ```python
 training = client.training.create(
@@ -134,7 +138,8 @@ training = client.training.create(
 )
 ```
 
-Build direct product links from the current organization's URL key and the returned run IDs:
+Open these links to follow the evaluation and training runs in Trajectory. Once training
+finishes, evaluate a checkpoint on this benchmark to compare its score with the baseline:
 
 ```python
 organization = client.organizations.retrieve_current()
