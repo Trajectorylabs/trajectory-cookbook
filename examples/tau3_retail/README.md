@@ -1,6 +1,7 @@
 # Tau 3 Retail
 
-This example packages Sierra's public 114-task Retail benchmark from Tau 2 commit
+This example packages Sierra's public 114-task Retail benchmark from
+[Tau 2](https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992) commit
 `fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1) with upstream's official 74 train / 40 test
 split, and trains `Qwen/Qwen3.5-4B` on it. The agent is a customer-service representative with
 17 tools; upstream's simulated customer drives each conversation from private instructions, and
