@@ -25,7 +25,9 @@ licensed CC BY 4.0. The runtime pins the upstream harness by commit:
   orchestrator script, and `data/big_finance_subset.jsonl`, then copies the overlay on top.
 - [`runtime/overlay/`](runtime/overlay/) adds the session adapter and single-task mode at
   their upstream paths. Its `python_exec` change runs agent-written code as `nobody`
-  without harness credentials, with process, resource, output and time limits.
+  without harness credentials, with process, resource, output and time limits. This boundary
+  protects the judge credentials and question's reference answer in the same runtime; it also
+  restricts Python snippets that the upstream tool would allow.
 - [`ingest.py`](ingest.py) reads the subset's question IDs at the same commit and uploads one
   task per question.
 - [`.dockerignore`](.dockerignore) limits the build context to the Dockerfile and the overlay.
