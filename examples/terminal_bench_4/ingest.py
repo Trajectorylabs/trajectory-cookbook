@@ -154,6 +154,7 @@ def diagnose(bench_id: str, timeout: int | None) -> None:
     if (
         report.status != "completed"
         or report.failure
+        or not report.tasks
         or any(
             task.status != "completed" or task.failure or task.reward is None
             for task in report.tasks
