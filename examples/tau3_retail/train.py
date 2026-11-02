@@ -14,7 +14,7 @@ _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 # Retail conversations take up to ~80 agent, user, and tool messages; leave headroom.
 _ROLLOUT_OPTIONS = {
-    "disable_thinking": True,
+    "reasoning_effort": "off",
     "max_output_tokens_per_step": 2048,
     "max_turns_per_trajectory": 100,
 }
