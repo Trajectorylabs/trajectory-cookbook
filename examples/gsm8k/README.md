@@ -27,27 +27,6 @@ agent_name = "gsm8k-cookbook"
 runtime_root = Path("examples/gsm8k/runtime")
 runtime = trajectory.lib.DockerfileBuild("Dockerfile")
 run_command = "python -u /opt/gsm8k/gsm8k_harness.py"
-
-tasks = [
-    trajectory.TaskSpec(
-        name=f"gsm8k/{split}_{index:04d}",
-        split=split,
-        run_command=f"{run_command} --task_id {task_id}",
-        tags=["gsm8k"],
-    )
-    for split, start, count in (
-        ("train", 0, 64),
-        ("test", 64, 16),
-    )
-    for index, task_id in enumerate(range(start, start + count))
-]
-
-benchmark = trajectory.BenchmarkSpec(
-    name="gsm8k-trajectory-sdk",
-    description="GSM8K exact-match training benchmark.",
-    runtime=runtime,
-    tasks=tasks,
-)
 ```
 
 ## Diagnose with one task
@@ -78,6 +57,27 @@ print(diagnostic.benchmark_diagnostic_id)
 ## Upload benchmark
 
 ```python
+tasks = [
+    trajectory.TaskSpec(
+        name=f"gsm8k/{split}_{index:04d}",
+        split=split,
+        run_command=f"{run_command} --task_id {task_id}",
+        tags=["gsm8k"],
+    )
+    for split, start, count in (
+        ("train", 0, 64),
+        ("test", 64, 16),
+    )
+    for index, task_id in enumerate(range(start, start + count))
+]
+
+benchmark = trajectory.BenchmarkSpec(
+    name="gsm8k-trajectory-sdk",
+    description="GSM8K exact-match training benchmark.",
+    runtime=runtime,
+    tasks=tasks,
+)
+
 result = trajectory.lib.push(
     client,
     benchmark,
