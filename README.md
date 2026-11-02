@@ -22,6 +22,7 @@ recorded reward, and completed trajectory.
 | Benchmark | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Validate one task, evaluate and train, compare a checkpoint, and optionally deploy. |
+| [Chess mates](examples/chess/README.md) | Balanced Lichess mates in 1–5 with reasoning and Python agents, model evaluation, and checkpoint comparison. |
 | [Harvey LAB](examples/harvey_labs/README.md) | An existing harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | An upstream evaluator and multi-turn customer-agent task. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
