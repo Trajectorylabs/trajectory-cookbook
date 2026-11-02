@@ -1,34 +1,30 @@
 # Harvey LAB
 
-This example runs the public
-[Harvey LAB repository](https://github.com/harveyai/harvey-labs) at commit
-`1dd81403b2fbb60596f7aea3fcecafad7bf73143` with a Trajectory overlay. The
-upstream agent loop, tools, judges and Podman sandbox remain in place. Each task uses one
-Trajectory session for model calls and its final grade.
-For ambiguous deliverable filenames, the overlay uses the selected rubric judge instead of
-upstream's separate Claude call. A failed match raises a grading error rather than silently
+## Dataset
+
+This example uses the public [Harvey LAB source](https://github.com/harveyai/harvey-labs)
+at commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`. It uploads all 2,010
+tasks in [`tasks.txt`](tasks.txt), with a stable split of 1,890 training and 120
+held-out test tasks.
+
+## Harness
+
+The source agent loop, tools, judges, and Podman sandbox remain in place. The overlay
+connects one Trajectory session to each task: it forwards the agent's model calls,
+runs the original rubric judge, logs the grade, and completes the trajectory.
+`criteria_fraction` is the training reward; `all_pass` is recorded with weight zero
+for inspection.
+
+Harvey LAB normally grades with Claude Sonnet 4.6 and GPT-5.5 and averages their
+scores. Ambiguous deliverable filenames use the selected rubric judge instead of a
+separate Claude call; a failed match raises a grading error rather than silently
 counting a deliverable as missing.
 
-## Files
+## Ingestion
 
-- [`ingest.py`](ingest.py): upload all 2,010 upstream tasks, with a stable split of
-  1,890 training and 120 held-out test tasks.
-- [`tasks.txt`](tasks.txt): the 2,010 task directories at the pinned commit.
-- [`runtime/Dockerfile`](runtime/Dockerfile): download the pinned source and copy the overlay
-  over it.
-- [`runtime/lab_core/`](runtime/lab_core/): the overlay. It adds the
-  [Trajectory adapter](runtime/lab_core/harness/adapters/trajectory.py) and changes the harness,
-  judge, and sandbox files it hooks into.
-  [`runtime/NOTICE`](runtime/NOTICE) carries Harvey LAB's MIT license.
-- [`tests/`](tests/): unit tests for the adapter, judge routing and deliverable matching, the
-  sandbox's cgroups switch, and the upload's judge settings.
-
-## Run it
-
-[Choose or create an agent](https://docs.trajectory.ai/agent). Harvey LAB grades each run with
-two judges, Claude Sonnet 4.6 and GPT-5.5, and averages their scores. For that default pair,
-register the organization secrets `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`. A single-judge
-override needs only its provider's key. Export your organization API key first:
+[Choose or create an agent](https://docs.trajectory.ai/agent). For the default judge
+pair, register organization secrets `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`.
+A single-judge override needs only that provider's key. From the cookbook root:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
@@ -42,41 +38,34 @@ client.secrets.create(name="ANTHROPIC_API_KEY", value="YOUR_ANTHROPIC_API_KEY")
 client.secrets.create(name="OPENAI_API_KEY", value="YOUR_OPENAI_API_KEY")
 ```
 
-From the repository root, upload the benchmark:
+Then upload the benchmark:
 
 ```bash
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
-For an override, use this upload command instead of the default. Register
-`OPENAI_API_KEY` with your OpenRouter credential; the uploader selects OpenRouter's
-endpoint for the `openai/` model ID:
+The uploader prints the benchmark ID and waits for the runtime image, which downloads
+the 3 GB pinned source archive. Image readiness does not establish that inference or
+grading works, so run a [benchmark diagnostic](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec)
+before evaluation or training.
+
+For a single-judge OpenRouter override, register `OPENAI_API_KEY` with that credential
+and use this command instead:
 
 ```bash
 uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
   --judges openai/gpt-6-luna
 ```
 
-`--judges` takes one or two models, as in Harvey LAB's own evaluation CLI. Claude models use
-`ANTHROPIC_API_KEY`, Gemini models `GEMINI_API_KEY`, and Mistral models `MISTRAL_API_KEY`.
-GPT and O-series models use `OPENAI_API_KEY`; other IDs require `--judge-base-url` and use
-that key too.
+`--judges` accepts one or two models. Claude, Gemini, and Mistral IDs use their
+native providers; GPT and O-series IDs use `OPENAI_API_KEY`. See
+`uv run examples/harvey_labs/ingest.py --help` for endpoint overrides.
 
-Use `--judge-base-url` to select another OpenAI-compatible endpoint for OpenAI-client judges.
-Claude, Gemini, and Mistral IDs still use their native providers and keys when it is set.
-One task uses one OpenAI-compatible endpoint, so do not mix an `openai/` OpenRouter ID
-with a direct OpenAI judge ID in the same pair; the uploader rejects that combination.
+## Evaluation
 
-The script prints the benchmark ID and waits for the runtime image, which downloads the
-3 GB source archive. Image readiness alone doesn't verify model inference, grading, or reward
-logging, so run a [benchmark diagnostic](../task_diagnostics.md#check-an-uploaded-benchmark)
-before an evaluation or training run, with the model and settings you plan to evaluate with.
-
-Harvey LAB tasks are long: an attempt can take dozens of tool calls, and a reasoning model's
-reply can run to thousands of tokens. These settings ran on Qwen 3.6 35B A3B, with a
-three-step smoke training run. They leave each reply the model's full context and give each
-attempt two hours. The diagnostic chooses its own sample; the eight-task evaluation sample
-keeps the first run short. Remove `evaluation_max_samples` to evaluate all 120 held-out tasks:
+Harvey LAB tasks can take dozens of tool calls. These Qwen 3.6 35B A3B limits were
+used for the diagnostic, an eight-task baseline, and the checkpoint evaluation.
+Remove `evaluation_max_samples` to evaluate all 120 held-out tasks.
 
 ```python
 from trajectory import Client
@@ -91,7 +80,7 @@ limits = {
     "execution_timeout_seconds": 7200,
 }
 diagnostic_options = {**limits, "max_turns_per_trajectory": 200}
-evaluation = {**diagnostic_options, "evaluation_max_samples": 8}
+evaluation_options = {**diagnostic_options, "evaluation_max_samples": 8}
 
 diagnostic = client.diagnostics.start_benchmark(
     bench_id=bench_id, base_model_slug=model, options=diagnostic_options
@@ -99,15 +88,24 @@ diagnostic = client.diagnostics.start_benchmark(
 print(diagnostic.benchmark_diagnostic_id)
 ```
 
-## Evaluate and train
-
-Evaluate with the diagnostic's model and runtime limits on eight held-out tasks, then train
-with the same limits:
+After the diagnostic completes with grades, continue in the same Python session:
 
 ```python
 baseline = client.evals.create(
-    bench_id=bench_id, base_model_slug=model, options=evaluation
+    bench_id=bench_id, base_model_slug=model, options=evaluation_options
 )
+print(baseline.eval_run_id)
+```
+
+The source's `criteria_fraction` and `all_pass` components are available with
+`include_reward_components=True`. A context overflow ends an attempt as
+`TRUNCATION`; training skips those attempts by default.
+
+## Training
+
+Continue in the same Python session after the diagnostic and baseline complete:
+
+```python
 training = client.training.create(
     bench_id=bench_id,
     base_model_slug=model,
@@ -121,10 +119,11 @@ training = client.training.create(
         "evaluation_enabled": False,
     },
 )
+print(training.training_run_id)
 ```
 
-After training succeeds, evaluate its final checkpoint with the baseline's options, since a
-checkpoint evaluation otherwise inherits the training settings:
+After training succeeds, select the highest-step checkpoint and evaluate it with
+the same held-out tasks and options as the baseline:
 
 ```python
 checkpoint = max(
@@ -135,33 +134,29 @@ final = client.evals.create(
     bench_id=bench_id,
     base_model_slug=checkpoint.base_model_slug,
     parent_checkpoint_id=checkpoint.checkpoint_id,
-    options=evaluation,
+    options=evaluation_options,
 )
+print(final.eval_run_id)
 ```
 
-`criteria_fraction` is the fraction of rubric criteria passed, averaged over the two
-judges. `all_pass` is logged with weight zero because it gives training little signal;
-retrieve both with `include_reward_components=True`. Check `no_signal_groups` in the
-[training guide](https://docs.trajectory.ai/guides/training). A context overflow ends an
-attempt as `TRUNCATION`; training skips those attempts by default.
+A Qwen 3.6 35B A3B smoke run using the OpenRouter `openai/gpt-6-luna` judge
+override graded all ten diagnostic tasks (`bmd_06ae6a05c31374648000e5553ab91809`).
+The baseline (`evr_06ae6b1b47dc71ad8000ef30b2fcf7cf`) and checkpoint evaluation
+(`evr_06ae6c84bb6272b5800076c31dc85487`) each graded seven of eight tasks;
+training `trn_06ae6b96664177f58000a38ed4c19a9e` succeeded for all three steps.
+The evaluations used the same task IDs and options. Their platform means, 0.647 and
+0.645, count one different ungraded `TRUNCATION` each as zero. This sample does
+not establish training lift.
 
-In a Qwen 3.6 35B A3B smoke run with the OpenRouter `openai/gpt-6-luna` judge
-override, diagnostic `bmd_06ae6a05c31374648000e5553ab91809` graded all ten tasks with
-`ENV_DONE` endings. Baseline `evr_06ae6b1b47dc71ad8000ef30b2fcf7cf` graded seven of eight
-tasks, training `trn_06ae6b96664177f58000a38ed4c19a9e` succeeded for all three steps,
-and checkpoint evaluation `evr_06ae6c84bb6272b5800076c31dc85487` graded seven of eight.
-Both evaluations used the same task IDs and options. Each had one ungraded `TRUNCATION` on a
-different task; the platform run means, 0.647 and 0.645, count these as zeros. Eight tasks
-with missing grades cannot establish training lift.
+## Appendix
 
-The runtime downloads the pinned upstream source and applies the overlay. It requests
-`docker_engine=True` so Harvey LAB can run its document tools inside Podman. When a
-nested `crun` runtime lacks delegated cgroups, `HARVEY_PODMAN_DISABLE_CGROUPS=1`
-disables those inner cgroup limits; local runs keep upstream's defaults.
+The runtime [Dockerfile](runtime/Dockerfile) downloads the pinned source and copies
+the narrow [overlay](runtime/lab_core/) into it. It requests `docker_engine=True`
+for Harvey LAB's Podman document tools. When nested `crun` lacks delegated cgroups,
+`HARVEY_PODMAN_DISABLE_CGROUPS=1` disables those inner limits; local runs retain
+the source default. [`runtime/NOTICE`](runtime/NOTICE) carries the source's MIT license.
 
-## Test the overlay
-
-From the cookbook root, run the tests in the runtime image:
+Run the overlay tests from the cookbook root:
 
 ```bash
 docker build -t harvey-lab-trajectory examples/harvey_labs/runtime
