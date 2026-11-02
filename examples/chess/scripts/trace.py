@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-ROOT = Path(__file__).parent
-sys.path.insert(0, str(ROOT / "runtime"))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "harness"))
 from chess_harness import play
 
 
@@ -67,7 +67,7 @@ def main():
     args = parser.parse_args()
     puzzle = next(
         json.loads(line)
-        for line in (ROOT / "puzzles.jsonl").read_text().splitlines()
+        for line in (ROOT / "data" / "puzzles.jsonl").read_text().splitlines()
         if json.loads(line)["puzzle_id"] == args.puzzle_id
     )
     result = reference_trace(puzzle)

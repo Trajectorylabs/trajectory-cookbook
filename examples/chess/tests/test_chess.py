@@ -11,9 +11,9 @@ import pytest
 import httpx2
 from trajectory import Client
 
-ROOT = Path(__file__).parent
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "runtime"))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "harness"))
 
 import dataset
 import chess_harness as harness
@@ -148,11 +148,11 @@ def test_variants_have_matching_source_tasks(puzzle):
     right = ingest.build_benchmark([puzzle], "python")
     assert left.tasks[0].env_vars["CHESS_PUZZLE"] == right.tasks[0].env_vars["CHESS_PUZZLE"]
     assert left.tasks[0].split == right.tasks[0].split == "train"
-    assert (ROOT / "runtime" / left.runtime.source.dockerfile_path).exists()
+    assert (ROOT / "harness" / left.runtime.source.dockerfile_path).exists()
 
 
 def test_frozen_dataset():
-    path = ROOT / "puzzles.jsonl"
+    path = ROOT / "data" / "puzzles.jsonl"
     if not path.exists():
         pytest.skip("Build the dataset to audit all selected puzzles")
     records = [json.loads(line) for line in path.read_text().splitlines()]
@@ -229,7 +229,7 @@ def test_another_legal_checkmate_is_rejected():
 
 @pytest.mark.parametrize("variant", ["reasoning", "python"])
 def test_five_move_continuation_plays_every_opponent_reply(variant):
-    puzzle = next(json.loads(line) for line in (ROOT / "puzzles.jsonl").read_text().splitlines()
+    puzzle = next(json.loads(line) for line in (ROOT / "data" / "puzzles.jsonl").read_text().splitlines()
                   if json.loads(line)["puzzle_id"] == "eYtxb")
     line = puzzle["solution"]
     client, requests = client_for([response("submit_move", {"move": uci}) for uci in line[::2]])
@@ -254,7 +254,7 @@ def test_wrong_second_move_only_keeps_the_correct_prefix(puzzle):
 
 
 def test_shared_balanced_hundred_puzzle_subset():
-    records = [json.loads(line) for line in (ROOT / "puzzles.jsonl").read_text().splitlines()]
+    records = [json.loads(line) for line in (ROOT / "data" / "puzzles.jsonl").read_text().splitlines()]
     selected = dataset.evaluation_subset(records)
     assert selected == dataset.evaluation_subset(list(reversed(records)))
     assert len(selected) == 100

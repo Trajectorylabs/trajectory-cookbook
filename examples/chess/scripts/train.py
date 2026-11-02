@@ -15,7 +15,7 @@ from statistics import mean
 
 from trajectory import Client
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent.parent
 TRAIN_MODELS = ("Qwen/Qwen3.5-4B", "Qwen/Qwen3.6-35B-A3B")
 OPTIONS = {
     "max_output_tokens_per_turn": 4000,

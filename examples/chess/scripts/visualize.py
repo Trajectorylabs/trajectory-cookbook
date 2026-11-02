@@ -13,7 +13,7 @@ import chess
 import chess.svg
 from playwright.sync_api import sync_playwright
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent.parent
 BANDS = ("0-999", "1000-1499", "1500-1999", "2000-3000")
 
 
@@ -83,7 +83,7 @@ article svg{display:block;width:100%;height:auto}
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, default=ROOT / "puzzles.jsonl")
+    parser.add_argument("--source", type=Path, default=ROOT / "data" / "puzzles.jsonl")
     parser.add_argument("--output", type=Path, default=ROOT / "visuals")
     parser.add_argument("--browser-path", type=Path)
     args = parser.parse_args()

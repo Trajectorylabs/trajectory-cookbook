@@ -8,9 +8,21 @@ The example uses SDK **0.9.37**. Run the commands from the cookbook root with
 [uv](https://docs.astral.sh/uv/). Local tests and reference replays have passed;
 the managed evaluations, training runs, and platform screenshots are still pending.
 
+The files are grouped by purpose:
+
+```text
+chess/
+├── README.md
+├── data/       # Full puzzle dataset and manifest
+├── harness/    # Two agents, shared grader, Python worker, and Dockerfile
+├── scripts/    # Dataset preparation, ingestion, evaluation, training, and previews
+├── tests/      # Local checks
+└── visuals/    # Puzzle images, serialized previews, traces, and result plots
+```
+
 ## Dataset
 
-Start with [`puzzles.jsonl`](puzzles.jsonl). Each line holds one puzzle. Here are the
+Start with [`puzzles.jsonl`](data/puzzles.jsonl). Each line holds one puzzle. Here are the
 task fields from puzzle `00KYU`; the file also keeps the source game and setup move.
 
 ```jsonl
@@ -26,7 +38,7 @@ replies `f8e8`, and White finishes with `d6e7#`.
 Replay that line through the harness without an API key:
 
 ```bash
-uv run examples/chess/trace.py --puzzle-id 00KYU
+uv run examples/chess/scripts/trace.py --puzzle-id 00KYU
 ```
 
 The script prints the prompt, tool calls, board updates, and final grade. It replays
@@ -59,7 +71,7 @@ To rebuild the image and individual puzzle screenshots:
 
 ```bash
 uv run --with playwright playwright install chromium
-uv run examples/chess/visualize.py
+uv run examples/chess/scripts/visualize.py
 ```
 
 ## Harness
@@ -85,7 +97,7 @@ analysis, but it does not give partial reward.
 
 ### Reasoning
 
-[`runtime/reasoning_harness.py`](runtime/reasoning_harness.py) starts the shared
+[`harness/reasoning_harness.py`](harness/reasoning_harness.py) starts the shared
 loop with only `submit_move` available:
 
 ```python
@@ -99,7 +111,7 @@ The model gets one response per solver move, up to five responses for mate in 5.
 
 ### Python
 
-[`runtime/python_harness.py`](runtime/python_harness.py) adds `python_chess`:
+[`harness/python_harness.py`](harness/python_harness.py) adds `python_chess`:
 
 ```python
 from chess_harness import main
@@ -125,8 +137,8 @@ Both agents allow 4,000 output tokens per response. Python runs in an isolated
 Linux x86-64 worker with no network, credentials, or reference files. Each call
 has 10 CPU seconds, 15 wall seconds, 256 MiB memory, and 16 KiB output.
 
-Read [`runtime/chess_harness.py`](runtime/chess_harness.py) for the model loop and
-grader, and [`runtime/python_tool.py`](runtime/python_tool.py) for the worker.
+Read [`harness/chess_harness.py`](harness/chess_harness.py) for the model loop and
+grader, and [`harness/python_tool.py`](harness/python_tool.py) for the worker.
 
 <!-- Add visuals/platform-harnesses.png here after diagnostics. Show one real
      trajectory from each harness, including submissions and opponent replies. -->
@@ -141,8 +153,8 @@ export TRAJECTORY_BASE_URL="https://staging.api.trajectory.ai"
 export TRAJECTORY_API_KEY="YOUR_STAGING_KEY"
 AGENT_NAME="CHESSSS"
 
-uv run examples/chess/ingest.py --agent-name "$AGENT_NAME" --variant reasoning
-uv run examples/chess/ingest.py --agent-name "$AGENT_NAME" --variant python
+uv run examples/chess/scripts/ingest.py --agent-name "$AGENT_NAME" --variant reasoning
+uv run examples/chess/scripts/ingest.py --agent-name "$AGENT_NAME" --variant python
 ```
 
 Each command first diagnoses one task, then uploads 5,000 training puzzles and the
@@ -169,7 +181,7 @@ only the current FEN and the model's code.
 
 Save the printed operation and benchmark IDs. If an upload is interrupted, check
 its operation ID before starting another one. Use the same benchmark versions for
-all evaluations and training comparisons. See [`ingest.py`](ingest.py).
+all evaluations and training comparisons. See [`ingest.py`](scripts/ingest.py).
 
 ```bash
 REASONING_BENCH_ID="YOUR_REASONING_BENCH_ID"
@@ -184,12 +196,12 @@ PYTHON_BENCH_ID="YOUR_PYTHON_BENCH_ID"
 Run the evaluation script with those two benchmark IDs:
 
 ```bash
-uv run examples/chess/evaluate.py \
+uv run examples/chess/scripts/evaluate.py \
   --reasoning-bench-id "$REASONING_BENCH_ID" \
   --python-bench-id "$PYTHON_BENCH_ID"
 ```
 
-The model list in [`evaluate.py`](evaluate.py) contains six open-weight models and
+The model list in [`evaluate.py`](scripts/evaluate.py) contains six open-weight models and
 four closed-weight models:
 
 | Open weights | Closed weights |
@@ -257,7 +269,7 @@ Use the same benchmark IDs to train Qwen3.5-4B and Qwen3.6-35B-A3B with both
 harnesses. This creates four training runs:
 
 ```bash
-uv run examples/chess/train.py \
+uv run examples/chess/scripts/train.py \
   --reasoning-bench-id "$REASONING_BENCH_ID" \
   --python-bench-id "$PYTHON_BENCH_ID" \
   --num-steps 100
@@ -289,7 +301,7 @@ therefore total **9,600 rollouts**, separate from training.
 Once the checkpoint evaluations finish, regenerate the plots:
 
 ```bash
-uv run examples/chess/evaluate.py --plot-only
+uv run examples/chess/scripts/evaluate.py --plot-only
 ```
 
 This adds `visuals/before-after.png`, comparing solve rates and correct half-move
@@ -297,7 +309,7 @@ prefixes for the four runs. Reports and job IDs are saved under `results/`. Keep
 those files to resume a command. Use a new results directory when changing benchmark
 versions or settings, so an old run cannot be mistaken for the new comparison.
 
-See [`train.py`](train.py) for checkpoint evaluation and result collection.
+See [`train.py`](scripts/train.py) for checkpoint evaluation and result collection.
 
 <!-- Add visuals/platform-training.png, visuals/before-after.png, and a platform
      training-curve screenshot here after the four runs finish. Include the actual
@@ -310,10 +322,10 @@ See [`train.py`](train.py) for checkpoint evaluation and result collection.
 - [Lichess puzzle dataset and format](https://database.lichess.org/#puzzles): source
   fields, UCI moves, ratings, and the setup move that must be applied before solving.
 - [Lichess puzzle download](https://database.lichess.org/lichess_db_puzzle.csv.zst):
-  the source CSV used by [`dataset.py`](dataset.py).
+  the source CSV used by [`dataset.py`](scripts/dataset.py).
 - [CC0 license](https://creativecommons.org/publicdomain/zero/1.0/): the license for
   the Lichess database exports.
-- [`puzzles.manifest.json`](puzzles.manifest.json): the source URL, checksum of the
+- [`puzzles.manifest.json`](data/puzzles.manifest.json): the source URL, checksum of the
   generated puzzle file, split counts, and forcing-move filter.
 - [Trajectory Cookbook README](../../README.md): SDK setup, examples, and guides.
 
@@ -323,5 +335,5 @@ Run the tests locally without starting managed jobs:
 
 ```bash
 uv run --with trajectory-sdk==0.9.37 --with chess==1.11.2 --with zstandard --with pytest \
-  pytest -q examples/chess/test_chess.py
+  pytest -q examples/chess/tests/test_chess.py
 ```

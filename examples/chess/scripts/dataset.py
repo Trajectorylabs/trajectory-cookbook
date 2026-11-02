@@ -267,7 +267,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", default=SOURCE)
     parser.add_argument(
-        "--output", type=Path, default=Path(__file__).parent / "puzzles.jsonl"
+        "--output", type=Path, default=Path(__file__).resolve().parent.parent / "data" / "puzzles.jsonl"
     )
     args = parser.parse_args()
     with source_rows(args.source) as rows:

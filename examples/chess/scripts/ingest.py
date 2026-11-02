@@ -14,7 +14,7 @@ from trajectory.lib import DockerfileBuild, start_push, start_task_diagnostic
 
 from dataset import audit, evaluation_subset
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent.parent
 MODEL = "Qwen/Qwen3.5-4B"
 OPTIONS = {
     "reasoning_effort": "off",
@@ -76,7 +76,7 @@ def diagnose_task(client, record, variant, agent_name, model=MODEL):
         client,
         one,
         agent_name=agent_name,
-        root=ROOT / "runtime",
+        root=ROOT / "harness",
         base_model_slug=model,
         options=OPTIONS,
         timeout_seconds=2700,
@@ -94,7 +94,7 @@ def ingest(client, records, variant, agent_name, name=None):
         client,
         build_benchmark(selected, variant, name),
         agent_name=agent_name,
-        root=ROOT / "runtime",
+        root=ROOT / "harness",
         build_images=True,
     )
     print(f"operation_id={operation.id}", flush=True)
@@ -105,7 +105,7 @@ def ingest(client, records, variant, agent_name, name=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", type=Path, default=ROOT / "puzzles.jsonl")
+    parser.add_argument("--dataset", type=Path, default=ROOT / "data" / "puzzles.jsonl")
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--variant", choices=["reasoning", "python"], required=True)
     args = parser.parse_args()
