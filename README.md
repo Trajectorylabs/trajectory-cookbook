@@ -52,4 +52,5 @@ source evaluator before scaling up.
 
 ## License
 
-Apache 2.0. See [LICENSE](LICENSE).
+Cookbook-authored code is Apache 2.0; see [LICENSE](LICENSE). External benchmarks and
+datasets retain their source licenses, linked from their example READMEs.
