@@ -35,6 +35,11 @@ agent_name = "gsm8k-cookbook"
 runtime_root = Path("examples/gsm8k/runtime")
 runtime = trajectory.lib.DockerfileBuild("Dockerfile")
 run_command = "python -u /opt/gsm8k/gsm8k_harness.py"
+model = "Qwen/Qwen3.5-4B"
+model_options = {
+    "reasoning_effort": "off",
+    "max_output_tokens_per_turn": 2048,
+}
 ```
 
 ## Diagnose with one task
@@ -57,11 +62,8 @@ diagnostic = trajectory.lib.start_task_diagnostic(
     diagnostic_task,
     agent_name=agent_name,
     root=runtime_root,
-    base_model_slug="Qwen/Qwen3.5-4B",
-    options={
-        "reasoning_effort": "off",
-        "max_output_tokens_per_turn": 2_048,
-    },
+    base_model_slug=model,
+    options=model_options,
 )
 print(diagnostic.benchmark_diagnostic_id)
 ```
@@ -73,19 +75,16 @@ one row from the same JSONL file, and all tasks share the runtime. The upload re
 `bench_id` that identifies this benchmark version; use it for the runs below:
 
 ```python
-tasks = [
-    trajectory.TaskSpec(
-        name=f"gsm8k/{split}_{index:04d}",
+tasks = []
+for task_id in range(80):
+    split = "train" if task_id < 64 else "test"
+    task = trajectory.TaskSpec(
+        name=f"gsm8k/{task_id}",
         split=split,
         run_command=f"{run_command} --task_id {task_id}",
         tags=["gsm8k"],
     )
-    for split, start, count in (
-        ("train", 0, 64),
-        ("test", 64, 16),
-    )
-    for index, task_id in enumerate(range(start, start + count))
-]
+    tasks.append(task)
 
 benchmark = trajectory.BenchmarkSpec(
     name="gsm8k-trajectory-sdk",
@@ -113,11 +112,8 @@ against trained checkpoints:
 ```python
 evaluation = client.evals.create(
     bench_id=bench_id,
-    base_model_slug="Qwen/Qwen3.5-4B",
-    options={
-        "reasoning_effort": "off",
-        "max_output_tokens_per_turn": 2_048,
-    },
+    base_model_slug=model,
+    options=model_options,
 )
 ```
 
@@ -127,13 +123,12 @@ that you can evaluate on the same held-out problems:
 ```python
 training = client.training.create(
     bench_id=bench_id,
-    base_model_slug="Qwen/Qwen3.5-4B",
+    base_model_slug=model,
     options={
-        "reasoning_effort": "off",
+        **model_options,
         "num_steps": 3,
         "batch_size": 4,
         "max_concurrent_trajectories": 32,
-        "max_output_tokens_per_turn": 2_048,
     },
 )
 ```
@@ -144,6 +139,6 @@ finishes, evaluate a checkpoint on this benchmark to compare its score with the 
 ```python
 organization = client.organizations.retrieve_current()
 product_url = f"https://platform.trajectory.ai/{organization['organization_key']}"
-print(f"{product_url}/evaluate/runs/{evaluation.eval_run_id}")
-print(f"{product_url}/models/{training.training_run_id}")
+print("Evaluation:", f"{product_url}/evaluate/runs/{evaluation.eval_run_id}")
+print("Training:", f"{product_url}/models/{training.training_run_id}")
 ```
