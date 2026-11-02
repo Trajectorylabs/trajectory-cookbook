@@ -30,9 +30,14 @@ _SMOKE_TRAIN_INDEX = 20
 _TEST_TASKS = 16
 # The default smoke and full uploads are versions of one benchmark.
 _BENCHMARK_NAME = "gsm8k-trajectory-sdk"
+_DATASET_COMMIT = "3101c7d5072418e28b9008a6636bde82a006892c"
+_DATASET_ROOT = (
+    f"https://raw.githubusercontent.com/openai/grade-school-math/{_DATASET_COMMIT}"
+    "/grade_school_math/data"
+)
 _DATASET_URLS = {
-    "train": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/train.jsonl",
-    "test": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/test.jsonl",
+    "train": f"{_DATASET_ROOT}/train.jsonl",
+    "test": f"{_DATASET_ROOT}/test.jsonl",
 }
 
 
