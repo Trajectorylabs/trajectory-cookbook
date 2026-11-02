@@ -17,22 +17,27 @@ uv run --no-project --with trajectory-sdk python -c 'import importlib.metadata a
 **Start here:** [Run one T Factory task](examples/t_factory/README.md) to see a model response,
 recorded reward, and completed trajectory.
 
-## Examples
+## Benchmarks
 
-| Example | What it shows |
+| Benchmark | What it shows |
 | --- | --- |
-| [T Factory: first task](examples/t_factory/README.md) | One response, reward, and completion. |
-| [GSM8K: full workflow](examples/gsm8k/README.md) | Validate one task, evaluate and train, compare a checkpoint, and optionally deploy. |
-| [T Factory: evaluation and training](examples/t_factory/training.md) | A small training walkthrough with a toy reward. |
-| [Inspect](inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
+| [GSM8K](examples/gsm8k/README.md) | Validate one task, evaluate and train, compare a checkpoint, and optionally deploy. |
 | [Harvey LAB](examples/harvey_labs/README.md) | An existing harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/banking.md) | An upstream evaluator and multi-turn customer-agent task. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
+| [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
 
-[Reward integration](reward_integration.md) works through an adapter that preserves
-the source scorer. [Cut-off reply handling](termination_reasons.md) shows when to
-stop the actor loop. [Task diagnostics](task_diagnostics.md) and
-[diagnostic artifacts](diagnostic_artifacts.md) show how to inspect a packaged run.
+## Guides
+
+| Guide | What it shows |
+| --- | --- |
+| [Reward integration](reward_integration.md) | Preserve a benchmark's source scorer behind an adapter. |
+| [Cut-off reply handling](termination_reasons.md) | Stop the actor loop and record termination correctly. |
+| [Task diagnostics](task_diagnostics.md) | Validate a packaged task before evaluation or training. |
+| [Diagnostic artifacts](diagnostic_artifacts.md) | Retain and inspect task output from a packaged run. |
+| [Inspect integration](inspect.md) | Route actors, preserve native scoring, and handle errors and judges. |
+| [T Factory training](examples/t_factory/training.md) | Evaluate and train against a small reward-hacking example. |
+
 For application traffic, use the [production traces guide](https://docs.trajectory.ai/guides/production-traces)
 (private beta).
 
