@@ -25,7 +25,7 @@ recorded reward, and completed trajectory.
 | [GSM8K: full workflow](examples/gsm8k/README.md) | Validate one task, evaluate and train, compare a checkpoint, and optionally deploy. |
 | [T Factory: evaluation and training](examples/t_factory/training.md) | A small training walkthrough with a toy reward. |
 | [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
-| [Harvey LAB](examples/harvey_labs.md) | An existing harness, native judge, and nested Podman. |
+| [Harvey LAB](examples/harvey_labs/README.md) | An existing harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/banking.md) | An upstream evaluator and multi-turn customer-agent task. |
 
 [Reward integration](examples/reward_integration.md) works through an adapter that preserves
