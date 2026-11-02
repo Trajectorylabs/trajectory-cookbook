@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.33"]
+# dependencies = ["trajectory-sdk>=0.9.37"]
 # ///
 """Evaluate, train, and compare the final checkpoint on GSM8K."""
 
@@ -34,8 +34,7 @@ def train_and_evaluate(
 ) -> RewardComparison:
     eval_options = {
         "reasoning_effort": "off",
-        "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
-        "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+        "max_output_tokens_per_turn": _MAX_OUTPUT_TOKENS,
     }
     baseline_run = client.evals.create(
         agent_name=agent_name,
@@ -56,9 +55,9 @@ def train_and_evaluate(
         options={
             "reasoning_effort": "off",
             "num_steps": num_steps,
-            "train_batch_size": 4,
-            "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
-            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+            "batch_size": 4,
+            "max_concurrent_trajectories": _MAX_ACTIVE_ROLLOUTS,
+            "max_output_tokens_per_turn": _MAX_OUTPUT_TOKENS,
         },
     )
     run_id = created.training_run_id
@@ -111,10 +110,8 @@ def eval_smoketest(
         display_name="GSM8K smoketest",
         options={
             "reasoning_effort": "off",
-            "evaluation_max_samples": 1,
-            "evaluation_max_active_rollouts": 1,
-            "execution_timeout_seconds": 600,
-            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+            "val_num_tasks": 1,
+            "max_output_tokens_per_turn": _MAX_OUTPUT_TOKENS,
         },
     )
     return _wait_for_evaluation(
