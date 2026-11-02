@@ -1,5 +1,7 @@
 # Train a model to solve Lichess Mating Tactics
 
+Let's teach a model to deliver checkmate!
+
 Claude Shannon's 1950 paper,
 [*Programming a Computer for Playing Chess*](https://www.computerhistory.org/chess/doc-431614f453dde/),
 studied how to program a computer to play chess. Here, we train models on a smaller
@@ -9,22 +11,25 @@ This tutorial takes a chess puzzle from a local replay through evaluation and
 training with the Trajectory SDK. You'll compare an agent that reasons without
 calculation tools with one that can run Python and `python-chess`.
 
-The files are grouped by purpose:
-
-```text
-chess/
-├── README.md
-├── data/       # Full puzzle dataset and manifest
-├── harness/    # Two agents, shared grader, Python worker, and Dockerfile
-├── scripts/    # Dataset preparation, ingestion, evaluation, training, and previews
-├── tests/      # Local checks
-└── visuals/    # Puzzle images, serialized previews, traces, and result plots
-```
-
 ## Dataset
 
-Start with [`puzzles.jsonl`](data/puzzles.jsonl). Each line holds one puzzle. Here are the
-task fields from puzzle `00KYU`; the file also keeps the source game and setup move.
+We use puzzles from the [Lichess open database](https://database.lichess.org/#puzzles),
+released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Each asks for
+mate in 1–5 moves, with every solver move giving check.
+
+| Split | Puzzles | Per mate length |
+| --- | ---: | ---: |
+| Training | 5,000 | 1,000 |
+| Held-out pool | 500 | 100 |
+| Evaluation, selected from the held-out pool | 100 | 20 |
+
+Puzzle ratings range from 0 to 3000. Each split is evenly divided across four
+bands: **below 1000**, **1000–1499**, **1500–1999**, and **2000–3000**. Counts vary
+within each mate category because easy mate-in-5 puzzles are scarce.
+
+Each line in [`data/puzzles.jsonl`](data/puzzles.jsonl) holds one puzzle. Here are
+example `00KYU`'s task fields: `fen` is the starting board, and `solution` is the
+full continuation in UCI notation, including the opponent's replies.
 
 ```jsonl
 {"puzzle_id":"00KYU","split":"test","mate_in":2,"rating":1272,"rating_band":"1000-1499","fen":"3r1k2/p2n3p/1p2Bpp1/2r2N2/4q3/6QP/P5P1/5R1K w - - 2 41","solution":["g3d6","f8e8","d6e7"]}
@@ -32,64 +37,10 @@ task fields from puzzle `00KYU`; the file also keeps the source game and setup m
 
 ![Mate in two: starting position, Qd6+ and Black's reply Ke8, then Qe7# for reward 1.0](visuals/mate-in-2.png)
 
-The three boards replay the exact reference line. After White's first submission,
-the harness plays Black's reply. White's second submission completes checkmate and
-earns reward **1.0**.
-
-`fen` describes the position the model sees. `solution` lists the moves in UCI
-notation, alternating White and Black. In this puzzle, White plays `g3d6`, Black
-replies `f8e8`, and White finishes with `d6e7#`.
-
-Replay that line through the harness without an API key:
-
-```bash
-uv run examples/chess/scripts/trace.py --puzzle-id 00KYU
-```
-
-The script prints the prompt, tool calls, board updates, and final grade. It replays
-the reference moves and makes zero model calls. The full transcript is saved in
-[`visuals/reasoning-trace.json`](visuals/reasoning-trace.json).
-
-The dataset contains 5,000 training puzzles, with 1,000 each for mate in 1 through
-mate in 5. There are also 500 held-out puzzles. For this tutorial, both harnesses
-use the same 100-puzzle evaluation subset:
-
-| Split used in the tutorial | Puzzles per mate length | Total |
-| --- | ---: | ---: |
-| Training | 1,000 | 5,000 |
-| Evaluation | 20 | 100 |
-
-The evaluation subset has 25 puzzles in each rating band: below 1000, 1000–1499,
-1500–1999, and 2000–3000. These are puzzle ratings. Bands are balanced overall,
-but not within every mate category: the source has only ten all-check mate-in-5
-puzzles below 1000.
+Play **Qd6+**, let the harness reply **Ke8**, then finish with **Qe7#**.
+Match the full reference line to earn **reward 1.0**.
 
 ![Dataset counts by mate length and rating band for training, the held-out pool, and the evaluation subset](visuals/dataset-distribution.png)
-
-Each cell shows the puzzle count. Row and column labels include totals. The rating
-bands are balanced in each split, while counts within a mate category vary. The
-100 evaluation puzzles are selected from the 500 held-out puzzles. The chart uses
-the checked-in dataset; its counts are saved in
-[`visuals/dataset-distribution.json`](visuals/dataset-distribution.json).
-
-The loader checks move legality, line length, checks, and final checkmate. It also
-keeps puzzle IDs, source games, and starting positions separate between training
-and evaluation. Mate labels come from Lichess; replaying a line does not prove the
-shortest mate against every possible defense. The data is from
-[Lichess](https://database.lichess.org/#puzzles), released under
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
-
-Here are ten puzzle previews, with two examples for each mate length:
-
-![Ten puzzles, with two examples for each mate length](visuals/puzzles.png)
-
-Their records are in [`visuals/puzzles.jsonl`](visuals/puzzles.jsonl).
-To rebuild the distribution chart, walkthrough, and puzzle screenshots:
-
-```bash
-uv run --with playwright playwright install chromium
-uv run examples/chess/scripts/visualize.py
-```
 
 ## Harness
 
@@ -377,6 +328,39 @@ See [`train.py`](scripts/train.py) for checkpoint evaluation and result collecti
 - [`puzzles.manifest.json`](data/puzzles.manifest.json): the source URL, checksum of the
   generated puzzle file, split counts, and forcing-move filter.
 - [Trajectory Cookbook README](../../README.md): SDK setup, examples, and guides.
+
+### Dataset checks and previews
+
+The loader checks legal moves, line length, checks, and final checkmate. Training
+and held-out puzzles share no puzzle IDs, source games, or starting positions.
+Mate labels come from Lichess; replay does not prove the shortest mate against
+every defense. Only ten source puzzles are all-check mate-in-5 below rating 1000.
+
+See the [distribution counts](visuals/dataset-distribution.json) and
+[ten preview records](visuals/puzzles.jsonl) for the data behind the images.
+
+![Ten puzzles, with two examples for each mate length](visuals/puzzles.png)
+
+Rebuild the distribution chart, walkthrough, and previews from the cookbook root:
+
+```bash
+uv run --with playwright playwright install chromium
+uv run examples/chess/scripts/visualize.py
+```
+
+### Files
+
+The files are grouped by purpose:
+
+```text
+chess/
+├── README.md
+├── data/       # Full puzzle dataset and manifest
+├── harness/    # Two agents, shared grader, Python worker, and Dockerfile
+├── scripts/    # Dataset preparation, ingestion, evaluation, training, and previews
+├── tests/      # Local checks
+└── visuals/    # Puzzle images, serialized previews, traces, and result plots
+```
 
 ### Local checks
 
