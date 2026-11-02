@@ -32,7 +32,7 @@ To use an OpenRouter customer and judge model, register `OPENROUTER_API_KEY` ins
 remains the default.
 
 Ingestion waits for a new runtime build. Follow the
-[benchmark diagnostic guidance](https://docs.trajectory.ai/guides/benchmarks#upload-and-diagnose-the-full-benchmark) to execute a subset before training,
+[benchmark diagnostic guidance](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec) to execute a subset before training,
 with the model and options you will evaluate with, such as
 `base_model_slug="Qwen/Qwen3.6-35B-A3B"` and the sampling options below. Without them, a
 diagnostic runs on the API's default diagnostic model. Image build readiness alone does not

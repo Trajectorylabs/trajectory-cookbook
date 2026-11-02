@@ -28,7 +28,7 @@ recorded reward, and completed trajectory.
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
 
 For another harness, see the SDK guides for [source graders](https://docs.trajectory.ai/guides/source-graders),
-[Inspect](https://docs.trajectory.ai/guides/inspect), [diagnostics](https://docs.trajectory.ai/guides/benchmarks#validate-one-task-before-uploading),
+[Inspect](https://docs.trajectory.ai/guides/inspect), [diagnostics](https://docs.trajectory.ai/guides/spec#validate-one-task-before-uploading),
 [diagnostic artifacts](https://docs.trajectory.ai/guides/diagnostic-artifacts), and
 [termination reasons](https://docs.trajectory.ai/guides/termination-reasons).
 For training, start with [T Factory](examples/t_factory/training.md). For application traffic,
