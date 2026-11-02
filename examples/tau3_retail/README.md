@@ -32,3 +32,6 @@ running 160 test conversations (four per task) before and after training. It use
 cap, learning rate `5e-5`, and 3 warmup steps; the model default of 15 warmup steps leaves a
 20-step run barely trained. These agent and sampling settings are cookbook choices, so scores
 here are not upstream leaderboard scores.
+
+Sierra's pinned source and its [MIT license](https://github.com/sierra-research/tau2-bench/blob/fc0055dc4e0a316c3f83133267fbd6faaa770992/LICENSE)
+are included in the runtime image.
