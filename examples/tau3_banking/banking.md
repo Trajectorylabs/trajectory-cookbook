@@ -5,7 +5,7 @@ This example packages Sierra's public 97-task Banking benchmark from Tau 2 commi
 `bm25_grep` retrieval, simulated-user prompts, and evaluator. Following the
 [Artificial Analysis methodology](https://artificialanalysis.ai/methodology/intelligence-benchmarking),
 the simulated user and `task_102` natural-language judge use GPT-5.4 Mini at medium reasoning
-instead of the source release's default judge. The cookbook sorts task IDs into 80 training
+instead of the source release's GPT-4.1 defaults. The cookbook sorts task IDs into 80 training
 and 17 held-out test tasks; this split is for training, not the full 97-task, five-repeat
 leaderboard evaluation.
 
