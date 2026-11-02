@@ -119,14 +119,20 @@ def test_malformed_tool_arguments_get_zero_grade(monkeypatch, output_limited_rep
     assert requests[-1][1] == {"termination_reason": "ENV_DONE"}
 
 
-@pytest.mark.parametrize("missing_reward", [False, True])
-def test_source_or_grading_failure_closes_trajectory(monkeypatch, missing_reward):
+@pytest.mark.parametrize(
+    "missing_reward, close_failure", [(False, False), (True, False), (False, True)]
+)
+def test_source_or_grading_failure_closes_trajectory(
+    monkeypatch, missing_reward, close_failure
+):
     requests = []
 
     def respond(request):
         requests.append((request.url.path, json.loads(request.content or b"{}")))
         if request.url.path == "/api/v1/trajectories":
             return httpx2.Response(200, json={"tid": "tid_test"})
+        if request.url.path.endswith("/complete") and close_failure:
+            return httpx2.Response(500, json={"error": "close failed"})
         return httpx2.Response(
             200, json={"ok": True, "trajectory_id": "tid_test", "status": "completed"}
         )
@@ -148,10 +154,15 @@ def test_source_or_grading_failure_closes_trajectory(monkeypatch, missing_reward
     with Client(
         api_key="test",
         base_url="https://example.com",
+        max_retries=0,
         http_client=httpx2.Client(transport=httpx2.MockTransport(respond)),
     ) as client:
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError) as error:
             agent.run_task(client, "0")
 
     assert all(not path.endswith("/rewards") for path, _ in requests)
     assert requests[-1][1] == {"termination_reason": "ERROR"}
+    if close_failure:
+        assert any(
+            "Failed to complete trajectory" in note for note in error.value.__notes__
+        )

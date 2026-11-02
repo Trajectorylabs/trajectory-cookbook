@@ -86,8 +86,8 @@ def run_task(client: Client, task_id: str) -> str:
         else:
             try:
                 client.trajectories.complete(trajectory_id, termination_reason="ERROR")
-            except Exception:
-                pass  # Preserve the original source or grading error.
+            except Exception as close_error:
+                error.add_note(f"Failed to complete trajectory as ERROR: {close_error}")
             raise
     if result is None:
         upstream_reward = 0.0
