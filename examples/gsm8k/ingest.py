@@ -10,7 +10,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from trajectory import BenchmarkSpec, Client, TaskSpec
+import trajectory
 from trajectory.lib import (
     DockerfileBuild,
     start_push,
@@ -41,13 +41,15 @@ _DATASET_URLS = {
 }
 
 
-def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> BenchmarkSpec:
-    return BenchmarkSpec(
+def build_benchmark(
+    rows_by_split: dict[str, list[dict]], name: str
+) -> trajectory.BenchmarkSpec:
+    return trajectory.BenchmarkSpec(
         name=name,
         description="GSM8K exact-match training benchmark.",
         runtime=DockerfileBuild(_RUNTIME_DOCKERFILE),
         tasks=[
-            TaskSpec(
+            trajectory.TaskSpec(
                 name=f"gsm8k/{split}_{index:04d}",
                 split=split,
                 run_command=_RUN_COMMAND,
@@ -78,7 +80,7 @@ def ingest_smoketest(agent_name: str) -> str:
 
 
 def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> str:
-    client = Client()
+    client = trajectory.Client()
     operation = start_push(
         client,
         build_benchmark(rows, name),
@@ -100,11 +102,11 @@ def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> 
 
 def task_diagnose(agent_name: str) -> None:
     # Catch packaging, execution, and grading errors on one task before benchmark upload.
-    client = Client()
+    client = trajectory.Client()
     (row,) = _load_rows("train", 1)
     diagnostic = start_task_diagnostic(
         client,
-        TaskSpec(
+        trajectory.TaskSpec(
             name="gsm8k/train_0000",
             split="train",
             runtime=DockerfileBuild(_RUNTIME_DOCKERFILE),
@@ -123,7 +125,7 @@ def task_diagnose(agent_name: str) -> None:
 
 def benchmark_diagnostic(bench_id: str) -> None:
     # Check a subset of uploaded tasks and runtimes before evaluation or training.
-    client = Client()
+    client = trajectory.Client()
     diagnostic = client.diagnostics.start_benchmark(
         bench_id=bench_id,
         base_model_slug="Qwen/Qwen3.5-4B",
@@ -132,7 +134,7 @@ def benchmark_diagnostic(bench_id: str) -> None:
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
 
 
-def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
+def _wait_for_diagnostic(client: trajectory.Client, diagnostic_id: str) -> None:
     print(f"diagnostic_id={diagnostic_id}", flush=True)
     while True:
         status = client.diagnostics.get_status(diagnostic_id)

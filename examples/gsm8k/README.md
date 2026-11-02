@@ -14,7 +14,7 @@ Run commands from the repository root with a Trajectory API key:
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with trajectory-sdk python -c \
-  'from trajectory import Client; Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
+  'import trajectory; trajectory.Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 
 If the agent already exists, reuse its name.

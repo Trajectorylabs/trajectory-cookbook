@@ -8,7 +8,7 @@ import argparse
 import time
 from dataclasses import dataclass
 
-from trajectory import Client
+import trajectory
 from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
@@ -25,7 +25,7 @@ class RewardComparison:
 
 
 def train_and_evaluate(
-    client: Client,
+    client: trajectory.Client,
     agent_name: str,
     bench_name: str,
     model: str,
@@ -96,7 +96,7 @@ def train_and_evaluate(
 
 
 def eval_smoketest(
-    client: Client,
+    client: trajectory.Client,
     bench_id: str,
     model: str = _DEFAULT_MODEL,
     poll_seconds: float = 10,
@@ -120,7 +120,7 @@ def eval_smoketest(
 
 
 def _wait_for_evaluation(
-    client: Client, eval_id: str, display_name: str, poll_seconds: float
+    client: trajectory.Client, eval_id: str, display_name: str, poll_seconds: float
 ) -> float:
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
 
@@ -143,12 +143,10 @@ def _wait_for_evaluation(
     trajectories = list(client.trajectories.list(eval_run_id=eval_id))
     graded = 0
     failed = 0
-    for trajectory in trajectories:
-        failed += (
-            trajectory.rollout is not None and trajectory.rollout.status == "FAILED"
-        )
+    for attempt in trajectories:
+        failed += attempt.rollout is not None and attempt.rollout.status == "FAILED"
         detail = client.trajectories.retrieve(
-            trajectory.trajectory_id, include_reward_components=True
+            attempt.trajectory_id, include_reward_components=True
         )
         graded += any(
             component.name == "reward_accuracy"
@@ -177,7 +175,7 @@ def _wait_for_evaluation(
 
 
 def _wait_for_training(
-    client: Client,
+    client: trajectory.Client,
     run_id: str,
     poll_seconds: float,
 ) -> TrainingRunResponse:
@@ -204,7 +202,7 @@ def main() -> int:
     args = parser.parse_args()
 
     train_and_evaluate(
-        Client(max_retries=20),
+        trajectory.Client(),
         args.agent_name,
         args.bench_name,
         args.model,

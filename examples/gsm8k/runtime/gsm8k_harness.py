@@ -5,7 +5,7 @@ import os
 import re
 from decimal import Decimal, InvalidOperation
 
-from trajectory import APIError, Client
+import trajectory
 from trajectory.types.inference.chat_completion_response import (
     ChatCompletionResponseToolCall,
 )
@@ -63,7 +63,7 @@ def main() -> None:
     question = os.environ["QUESTION"]
     expected = extract_number(os.environ["EXPECTED_ANSWER"])
 
-    client = Client(max_retries=20)
+    client = trajectory.Client()
     trajectory_id = client.trajectories.create().tid
     try:
         response = client.chat.completions.create(
@@ -76,7 +76,7 @@ def main() -> None:
             max_tokens=2_048,
             x_trajectory_id=trajectory_id,
         )
-    except APIError:
+    except trajectory.APIError:
         client.trajectories.complete(trajectory_id, termination_reason="ERROR")
         raise
     choice = response.choices[0]
