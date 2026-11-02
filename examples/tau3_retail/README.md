@@ -12,7 +12,7 @@ are the one grading exception: upstream raises, while this example records a zer
 completes the task so one bad model reply does not fail the whole evaluation. Agent errors and
 cut-off replies do not publish a reward.
 
-Choose an agent using the [Cookbook guidance](../../README.md#choose-or-create-an-agent).
+Choose an agent using the [GSM8K setup guide](../gsm8k/README.md#2-choose-or-create-an-agent).
 Register the organization secret `OPENAI_API_KEY` for the simulated customer and judge. The
 default is upstream's `gpt-4.1-2025-04-14` at temperature 0. To use another model, pass
 `--user-judge-model MODEL` to both ingestion commands; an `openrouter/` model uses the
