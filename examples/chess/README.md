@@ -22,9 +22,10 @@ The cookbook has six sections:
 
 ## Dataset
 
-We use puzzles from the [Lichess open database](https://database.lichess.org/#puzzles),
-released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Each asks for
-mate in 1–5 moves, with every solver move giving check.
+We downloaded the [Lichess puzzle CSV](https://database.lichess.org/lichess_db_puzzle.csv.zst)
+from the [Lichess open database](https://database.lichess.org/#puzzles), under
+[CC0](https://creativecommons.org/publicdomain/zero/1.0/). We kept mates in 1–5
+where every solver move gives check, then checked legality and final checkmate.
 
 | Split | Puzzles | Per mate length |
 | --- | ---: | ---: |
@@ -32,13 +33,12 @@ mate in 1–5 moves, with every solver move giving check.
 | Held-out pool | 500 | 100 |
 | Evaluation, selected from the held-out pool | 100 | 20 |
 
-Puzzle ratings range from 0 to 3000. Each split is evenly divided across four
-bands: **below 1000**, **1000–1499**, **1500–1999**, and **2000–3000**. Counts vary
-within each mate category because easy mate-in-5 puzzles are scarce.
+Each split has equal counts across four puzzle-rating bands: **0–999**,
+**1000–1499**, **1500–1999**, and **2000–3000**. Individual mate/rating cells vary.
 
-Each line in [`data/puzzles.jsonl`](data/puzzles.jsonl) holds one puzzle. Here are
-example `00KYU`'s task fields: `fen` is the starting board, and `solution` is the
-full continuation in UCI notation, including the opponent's replies.
+Each line in [`data/puzzles.jsonl`](data/puzzles.jsonl) holds one puzzle, including
+its source game and setup move. Here are the task fields for **mate-in-2 `00KYU`**:
+`fen` is the starting board; `solution` lists both sides' moves in UCI notation.
 
 ```jsonl
 {"puzzle_id":"00KYU","split":"test","mate_in":2,"rating":1272,"rating_band":"1000-1499","fen":"3r1k2/p2n3p/1p2Bpp1/2r2N2/4q3/6QP/P5P1/5R1K w - - 2 41","solution":["g3d6","f8e8","d6e7"]}
@@ -48,6 +48,9 @@ full continuation in UCI notation, including the opponent's replies.
 
 Play **Qd6+**, let the harness reply **Ke8**, then finish with **Qe7#**.
 Match the full reference line to earn **reward 1.0**.
+
+Explore [all five mate lengths in ten board previews](visuals/puzzles.png), with
+two puzzles per category and their [JSONL records](visuals/puzzles.jsonl).
 
 ![Dataset counts by mate length and rating band for training, the held-out pool, and the evaluation subset](visuals/dataset-distribution.png)
 
@@ -74,9 +77,8 @@ analysis, but it does not give partial reward.
 
 ### Example trace
 
-Open the [full reference replay](visuals/reasoning-trace.json) to see the exact
-prompt, move submissions, updated board, and final grade for puzzle `00KYU`.
-This is a scripted replay through the reasoning harness, with zero model calls.
+The [reference replay](visuals/reasoning-trace.json) shows `00KYU`'s prompt, moves,
+board updates, and grade. It is scripted and makes zero model calls.
 
 After `submit_move({"move": "g3d6"})`, the harness returns these fields, along with
 the updated board:
