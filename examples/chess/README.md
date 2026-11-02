@@ -64,6 +64,14 @@ The evaluation subset has 25 puzzles in each rating band: below 1000, 1000–149
 but not within every mate category: the source has only ten all-check mate-in-5
 puzzles below 1000.
 
+![Dataset counts by mate length and rating band for training, the held-out pool, and the evaluation subset](visuals/dataset-distribution.png)
+
+Each cell shows the puzzle count. Row and column labels include totals. The rating
+bands are balanced in each split, while counts within a mate category vary. The
+100 evaluation puzzles are selected from the 500 held-out puzzles. The chart uses
+the checked-in dataset; its counts are saved in
+[`visuals/dataset-distribution.json`](visuals/dataset-distribution.json).
+
 The loader checks move legality, line length, checks, and final checkmate. It also
 keeps puzzle IDs, source games, and starting positions separate between training
 and evaluation. Mate labels come from Lichess; replaying a line does not prove the
@@ -76,7 +84,7 @@ Here are ten puzzle previews, with two examples for each mate length:
 ![Ten puzzles, with two examples for each mate length](visuals/puzzles.png)
 
 Their records are in [`visuals/puzzles.jsonl`](visuals/puzzles.jsonl).
-To rebuild the walkthrough and puzzle screenshots:
+To rebuild the distribution chart, walkthrough, and puzzle screenshots:
 
 ```bash
 uv run --with playwright playwright install chromium

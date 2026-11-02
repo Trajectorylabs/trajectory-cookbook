@@ -1,20 +1,75 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["chess==1.11.2", "playwright>=1.58"]
+# dependencies = ["chess==1.11.2", "playwright>=1.58", "matplotlib>=3.10", "zstandard>=0.25.0"]
 # ///
-"""Render a mate-in-two walkthrough and ten serialized puzzle previews."""
+"""Render puzzle previews, a mate-in-two walkthrough, and dataset counts."""
 
 import argparse
 import html
 import json
+from collections import Counter
 from pathlib import Path
 
 import chess
 import chess.svg
 from playwright.sync_api import sync_playwright
 
+from dataset import BANDS, audit, evaluation_subset
+
 ROOT = Path(__file__).resolve().parent.parent
-BANDS = ("0-999", "1000-1499", "1500-1999", "2000-3000")
+
+
+def render_distribution(records, output):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import PercentFormatter
+
+    audit(records)
+    splits = {
+        "Training": [row for row in records if row["split"] == "train"],
+        "Held-out pool": [row for row in records if row["split"] == "test"],
+        "Evaluation subset": evaluation_subset(records),
+    }
+    figure, axes = plt.subplots(1, 3, figsize=(16, 5.7), layout="constrained")
+    serialized = {}
+    for axis, (name, puzzles) in zip(axes, splits.items()):
+        counts = Counter((row["mate_in"], row["rating_band"]) for row in puzzles)
+        matrix = [[counts[mate, band] for band in BANDS] for mate in range(1, 6)]
+        row_totals = [sum(row) for row in matrix]
+        column_totals = [sum(row[column] for row in matrix) for column in range(4)]
+        shares = [[count / total for count in row] for row, total in zip(matrix, row_totals)]
+        image = axis.imshow(shares, cmap="Blues", vmin=0, vmax=0.5, aspect="auto")
+        for row, values in enumerate(matrix):
+            for column, count in enumerate(values):
+                axis.text(
+                    column, row, f"{count:,}", ha="center", va="center", fontsize=13,
+                    color="white" if shares[row][column] >= 0.3 else "#172b4d",
+                )
+        axis.set_title(f"{name}\n{len(puzzles):,} puzzles", fontsize=14, pad=14)
+        axis.set_yticks(range(5), [f"Mate {mate} ({total:,})" for mate, total in enumerate(row_totals, 1)])
+        axis.set_xticks(range(4), [f"{band}\n({total:,})" for band, total in zip(BANDS, column_totals)])
+        axis.tick_params(axis="both", length=0, labelsize=9)
+        axis.set_xlabel("Puzzle rating band (total)", labelpad=10)
+        for spine in axis.spines.values():
+            spine.set_visible(False)
+        serialized[name] = {
+            "total": len(puzzles), "rating_bands": list(BANDS),
+            "mate_lengths": list(range(1, 6)), "counts": matrix,
+            "mate_totals": row_totals, "rating_totals": column_totals,
+        }
+    figure.suptitle(
+        "Lichess mating tactics: dataset distribution\n"
+        "Cell labels are puzzle counts. Totals appear in parentheses. Both agents use the same evaluation subset.",
+        fontsize=15,
+    )
+    colorbar = figure.colorbar(image, ax=axes, location="bottom", shrink=0.5, pad=0.08, aspect=45)
+    colorbar.set_label("Share of puzzles within each mate category")
+    colorbar.ax.xaxis.set_major_formatter(PercentFormatter(1))
+    figure.savefig(output / "dataset-distribution.png", dpi=180)
+    plt.close(figure)
+    (output / "dataset-distribution.json").write_text(json.dumps(serialized, indent=2) + "\n")
 
 
 def render_walkthrough(puzzle, output, page):
@@ -93,6 +148,7 @@ def render(source, output, browser_path=None):
                 )
             )
     output.mkdir(parents=True, exist_ok=True)
+    render_distribution(records, output)
     (output / "puzzles.jsonl").write_text(
         "".join(json.dumps(r, sort_keys=True) + "\n" for r in selected)
     )
@@ -138,7 +194,7 @@ article svg{display:block;width:100%;height:auto}
         )
         browser.close()
     print(
-        f"Serialized {len(selected)} puzzles and captured {len(selected) + 2} images in {output}"
+        f"Serialized {len(selected)} puzzles and generated {len(selected) + 3} images in {output}"
     )
 
 
