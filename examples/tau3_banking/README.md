@@ -10,10 +10,11 @@ and 17 held-out test tasks; this split is for training, not the full 97-task, fi
 leaderboard evaluation.
 
 The SDK supplies agent inference. Sierra's runner continues after an output-limited model reply,
-so this example records its final evaluator grade. Sierra's too-many-errors stop is graded;
-unexpected errors are ungraded. The one simulator
-change makes up to three attempts to get a nonempty user response without adding empty replies
-to the conversation; exhaustion still fails the task.
+so this example records its final evaluator grade. Sierra grades attempts that stop after too
+many agent errors as zero; the SDK records these as graded failed attempts and retains the
+source ending in a trace event. Model, environment, and grader failures remain ungraded. The
+simulator makes up to three attempts to get a nonempty user response without adding empty
+replies to the conversation; exhaustion still fails the task.
 
 Choose an existing agent and organization API key using the
 [agent guide](https://docs.trajectory.ai/agent). Register your OpenAI key once as the
@@ -37,9 +38,11 @@ with the model and options you will evaluate with, such as
 diagnostic runs on the API's default diagnostic model. Image build readiness alone does not
 verify policy inference, grading, or reward publication.
 
-Managed runs take sampling from run options, not harness requests. By default they sample with
-`top_p` 1 and `top_k` -1, so every token the learner trains on comes from the full distribution.
-To evaluate with Qwen 3.6 35B A3B's recommended sampling:
+Managed runs take sampling from run options, not the upstream harness. The following settings
+are for the tested Qwen 3.6 35B A3B evaluation, not a requirement of Tau 3 Banking. The
+16,384-token reply limit let the multi-turn diagnostic finish; the smaller 2,048-token limit
+cut off a model reply. The sampling values follow
+[Qwen's thinking-mode configuration](https://huggingface.co/Qwen/Qwen3.6-35B-A3B/blob/main/generation_config.json).
 
 ```python
 from trajectory import Client
@@ -58,5 +61,7 @@ Client().evals.create(
 )
 ```
 
-For the evaluations a training run makes during training, set `evaluation_top_p` and
-`evaluation_top_k` in its options.
+For evaluations during training, set `evaluation_top_p` and `evaluation_top_k` in the training
+options if you need the same sampling. Sierra's source is MIT-licensed; the pinned source and
+its [license](https://github.com/sierra-research/tau2-bench/blob/fc0055dc4e0a316c3f83133267fbd6faaa770992/LICENSE)
+are included in the runtime image.

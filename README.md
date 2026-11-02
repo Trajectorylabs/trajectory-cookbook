@@ -23,7 +23,7 @@ recorded reward, and completed trajectory.
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Validate one task, evaluate and train, compare a checkpoint, and optionally deploy. |
 | [Harvey LAB](examples/harvey_labs/README.md) | An existing harness, native judge, and nested Podman. |
-| [Tau 3 Banking](examples/tau3_banking/banking.md) | An upstream evaluator and multi-turn customer-agent task. |
+| [Tau 3 Banking](examples/tau3_banking/README.md) | An upstream evaluator and multi-turn customer-agent task. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
 
