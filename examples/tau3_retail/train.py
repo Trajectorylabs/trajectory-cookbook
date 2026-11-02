@@ -58,8 +58,9 @@ def train_and_evaluate(
             model,
             f"Tau 3 Retail {run_id} step {num_steps}",
             poll_seconds,
-            parent_checkpoint_id=client.training.checkpoints.retrieve(
-                run_id, num_steps
+            parent_checkpoint_id=max(
+                client.training.checkpoints.list(run_id),
+                key=lambda checkpoint: checkpoint.step_index,
             ).checkpoint_id,
         ),
     )
