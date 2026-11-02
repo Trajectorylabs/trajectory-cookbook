@@ -31,7 +31,7 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> RewardComparison:
-    baseline = evaluate(
+    baseline, bench_id = evaluate(
         client,
         agent_name,
         bench_name,
@@ -39,38 +39,36 @@ def train_and_evaluate(
         "Tau 3 Retail baseline",
         poll_seconds,
     )
-    run_id = start_training(client, agent_name, bench_name, model, num_steps)
+    run_id = start_training(client, bench_id, model, num_steps)
     run = wait_for_training(client, run_id, poll_seconds)
     if str(run.status) != "succeeded":
         raise RuntimeError(f"training ended with status={run.status}: {run.failure}")
 
-    comparison = RewardComparison(
-        baseline=baseline,
-        final=evaluate(
-            client,
-            agent_name,
-            bench_name,
-            model,
-            f"Tau 3 Retail {run_id} step {num_steps}",
-            poll_seconds,
-            parent_checkpoint_id=max(
-                client.training.checkpoints.list(run_id),
-                key=lambda checkpoint: checkpoint.step_index,
-            ).checkpoint_id,
-        ),
+    final, final_bench_id = evaluate(
+        client,
+        agent_name,
+        bench_name,
+        model,
+        f"Tau 3 Retail {run_id} step {num_steps}",
+        poll_seconds,
+        bench_id=bench_id,
+        parent_checkpoint_id=max(
+            client.training.checkpoints.list(run_id),
+            key=lambda checkpoint: checkpoint.step_index,
+        ).checkpoint_id,
     )
+    if final_bench_id != bench_id:
+        raise RuntimeError("checkpoint evaluation used a different benchmark version")
+    comparison = RewardComparison(baseline=baseline, final=final)
     print(f"baseline_reward={comparison.baseline:.6f}", flush=True)
     print(f"final_reward={comparison.final:.6f}", flush=True)
     print(f"reward_delta={comparison.final - comparison.baseline:+.6f}", flush=True)
     return comparison
 
 
-def start_training(
-    client: Client, agent_name: str, bench_name: str, model: str, num_steps: int
-) -> str:
+def start_training(client: Client, bench_id: str, model: str, num_steps: int) -> str:
     created = client.training.create(
-        agent_name=agent_name,
-        benchmark_name=bench_name,
+        bench_id=bench_id,
         base_model_slug=model,
         display_name=f"Tau 3 Retail {num_steps} steps",
         options={
@@ -93,13 +91,17 @@ def evaluate(
     model: str,
     display_name: str,
     poll_seconds: float,
+    bench_id: str | None = None,
     parent_checkpoint_id: str | None = None,
-) -> float:
+) -> tuple[float, str]:
     while True:
         try:
             evaluation = client.evals.create(
-                agent_name=agent_name,
-                benchmark_name=bench_name,
+                **(
+                    {"bench_id": bench_id}
+                    if bench_id
+                    else {"agent_name": agent_name, "benchmark_name": bench_name}
+                ),
                 base_model_slug=model,
                 parent_checkpoint_id=parent_checkpoint_id,
                 display_name=display_name,
@@ -117,7 +119,7 @@ def evaluate(
 
 def _wait_for_evaluation(
     client: Client, eval_id: str, display_name: str, poll_seconds: float
-) -> float:
+) -> tuple[float, str]:
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
     while True:
         progress = client.evals.runs.progress(eval_id)
@@ -151,7 +153,7 @@ def _wait_for_evaluation(
         for attempt in attempts
     ):
         raise RuntimeError(f"evaluation {eval_id} has missing or failed grades")
-    return result.reward_mean
+    return result.reward_mean, result.bench_id
 
 
 def wait_for_training(
