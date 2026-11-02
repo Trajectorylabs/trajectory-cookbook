@@ -1,78 +1,86 @@
 # SWE-Bench Pro
 
+## Dataset
+
 [SWE-Bench Pro](https://github.com/scaleapi/SWE-bench_Pro-os) is Scale AI's benchmark of
-long-horizon software engineering tasks taken from real pull requests. This example packages
-its public V2 release: 642 tasks from 11 repositories in Python, Go, JavaScript, and
-TypeScript, pinned to upstream commit `66f92766bba642462d4bbe5479e83f91f9211862` (`v2.0.0`).
+long-horizon software engineering tasks from real pull requests. This example uses its public
+V2 release: 642 tasks from 11 repositories in Python, Go, JavaScript, and TypeScript, pinned
+to commit `66f92766bba642462d4bbe5479e83f91f9211862` (`v2.0.0`).
+
+For this training example, a stable hash of each instance ID selects 15% of each repository's
+tasks for the 97-task held-out split; the other 545 tasks are for training. This is a cookbook
+split, not an upstream leaderboard split.
+
+## Harness
+
 The model reads a pull request description, edits the repository with a bash tool, and is
-graded by the task's hidden tests.
+graded by the task's hidden tests. For each attempt, the
+[harness](runtime/swe_bench_pro_harness.py):
 
-## Prerequisites
+1. pulls the task's public `ghcr.io/scaleapi/swe-bench_pro-v2:<instance_id>` image and starts
+   an offline repository container;
+2. uses mini-swe-agent's tool-call protocol and upstream's
+   [`mini_toolcall.yaml`](https://github.com/scaleapi/SWE-bench_Pro-os/tree/66f92766bba642462d4bbe5479e83f91f9211862/v2/tooling/configs)
+   prompts, bash tool, and submission command;
+3. captures the patch, applies it in a fresh container from the same image, and runs the
+   unchanged `tests/test.sh` verifier with its hidden test patch;
+4. records the verifier's `reward.txt` as `resolved` (1 or 0) and completes the trajectory.
 
-- Python 3.11+ and [uv](https://docs.astral.sh/uv/getting-started/installation/).
-- An organization API key from **Settings → API keys** in the
-  [platform](https://platform.trajectory.ai), with credits for evaluation and training.
-- An agent to own the benchmark; see [choose or create an agent](https://docs.trajectory.ai/agent).
-- This cookbook checkout.
+The task instructions, prompts, and verifiers come from upstream; reference solutions are
+excluded. The offline 50-minute agent budget and fresh-image grading remain. Commands run
+with `sh -c` for at most 30 seconds. A reply without a valid bash call gets the upstream
+format-error message. The managed run uses the turn, token, and time limits below instead of
+upstream's $3 model-call cap.
 
-No other secrets are needed: the images pull anonymously, and the model runs through Trajectory.
-Export your API key:
+| Ending | When |
+| --- | --- |
+| `ENV_DONE` | The model submitted, or sent three consecutive replies without a valid bash call. |
+| `TIMEOUT` | The 50-minute agent budget ran out. |
+| `TRUNCATION` | A reply or run hit an output, turn, or token limit. The cut-off reply's tool calls are not run. |
+| `ERROR` | The image pull, container, or verifier failed; no reward is recorded. |
+
+Every ending except `ERROR` grades the patch left behind. Training uses `TIMEOUT` attempts
+only with `train_on_timeout`, which [`train.py`](train.py) sets because many attempts use the
+full budget.
+
+## Ingestion
+
+You need Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/),
+this cookbook checkout, and an organization API key from
+**Settings → API keys** in the [platform](https://platform.trajectory.ai). The images pull
+anonymously; no other secrets are needed. [Choose or create an agent](https://docs.trajectory.ai/agent),
+then export your key from the repository root. If you need a new agent, run the create command:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-```
-
-If you do not already have an agent named `swe-bench-pro`, create one:
-
-```bash
 uv run --with trajectory-sdk python -c \
   'from trajectory import Client; Client().agents.create(name="swe-bench-pro", description="SWE-Bench Pro code repair")'
 ```
 
-If you use another agent, pass its name to both scripts below.
-
-## 1. Upload two tasks and check them
-
-From the cookbook repository root:
+Upload one task from each split, using your agent name if it differs:
 
 ```bash
 uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 1 --test-tasks 1
 ```
 
-[`ingest.py`](ingest.py) checks the pinned release against its `v2/SHA256SUMS` and
-packages the public task instructions and verifiers. It does not stage `solution/`.
+The uploader checks the pinned release against `v2/SHA256SUMS`, packages the task files
+without `solution/`, waits for the runtime image, and diagnoses the uploaded tasks with
+Qwen 3.6 35B A3B and the evaluation settings below. It prints the benchmark ID, task
+statuses, and rewards; a zero reward is a valid grade, while a missing reward fails the
+command. See the [SDK diagnostic guide](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec).
 
-The script uploads the selected tasks as benchmark `swe-bench-pro`, waits for the runtime image,
-and prints `bench_id`. It then runs a
-[benchmark diagnostic](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec) on Qwen 3.6 35B A3B
-with the settings `train.py` uses, and prints each task's status and reward. A reward of 0 is a
-valid grade. The command exits with an error if a task fails or has no reward.
-
-`--train-tasks` and `--test-tasks` take the first N tasks of each split, so repeated uploads
-select the same tasks. Omit both to upload all 642.
-
-## 2. Upload a demo subset, evaluate, and train
+For a larger demo, upload 40 training and 8 held-out tasks:
 
 ```bash
 uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 40 --test-tasks 8
-uv run examples/swe_bench_pro/train.py --agent-name swe-bench-pro
 ```
 
-The upload creates a new version of `swe-bench-pro` and diagnoses it. [`train.py`](train.py)
-then:
+This creates a new version of the benchmark. `--train-tasks` and `--test-tasks` select
+the first N tasks in each stable split; omit both to upload all 642.
 
-1. evaluates Qwen 3.6 35B A3B on the version's test tasks;
-2. trains for two steps of one task group with four attempts each, sampling four groups at a
-   time;
-3. evaluates the final checkpoint on the same test tasks.
+## Evaluation
 
-Each evaluation prints its ID, resolved count, and endings. Use `--num-steps`,
-`--train-batch-size`, and `--group-size` for a longer run. Training samples until each
-step has a group with both resolved and unresolved attempts, up to six hours per step.
-
-### Run settings
-
-Every run passes the same settings for the 50-minute agent budget and subsequent verifier.
+The example uses these run settings for the agent and subsequent verifier:
 
 ```python
 RUN_OPTIONS = {
@@ -84,47 +92,39 @@ RUN_OPTIONS = {
 }
 ```
 
-To start the runs yourself:
+In the same Python session, evaluate the uploaded version without training using its
+printed benchmark ID:
 
 ```python
 from trajectory import Client
 
-client = Client()
-baseline = client.evals.create(
-    agent_name="swe-bench-pro",
-    benchmark_name="swe-bench-pro",
+baseline = Client().evals.create(
+    bench_id="YOUR_BENCH_ID",
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options=RUN_OPTIONS,
 )
-training = client.training.create(
-    bench_id=baseline.bench_id,
-    base_model_slug="Qwen/Qwen3.6-35B-A3B",
-    options={
-        **RUN_OPTIONS,
-        "num_steps": 2,
-        "train_batch_size": 1,
-        "group_size": 4,
-        "max_active_rollouts": 16,
-        "batch_collection_idle_timeout_seconds": 21_600,
-        "train_on_timeout": True,
-        "evaluation_enabled": False,
-    },
-)
+print(baseline.eval_run_id)
 ```
 
-After training succeeds, select the checkpoint with the highest `step_index` from
-`client.training.checkpoints.list(training.training_run_id)`. Evaluate its `checkpoint_id`
-with `parent_checkpoint_id` and the same `RUN_OPTIONS`.
+An attempt can pull a 0.6–4.7 GB compressed image, work for up to 50 minutes, and then
+grade the patch. The pull may take 30 minutes and the verifier up to 50, so the run limit
+allows two and a half hours. Each task sandbox uses 2 CPUs and 8 GB of memory; attempts
+run in parallel.
 
-If the local command stops, the runs continue; inspect them by ID as in the
-[GSM8K walkthrough](../gsm8k/README.md#inspect-a-run).
+## Training
 
-## Expected scale and time
+After the 40/8 upload, run the small training example:
 
-An attempt pulls a 0.6–4.7 GB compressed image, works for up to 50 minutes, and
-then grades the patch. The pull may take 30 minutes and the verifier up to 50, so
-`execution_timeout_seconds` allows two and a half hours. Each task sandbox uses
-2 CPUs and 8 GB of memory. Attempts run in parallel.
+```bash
+uv run examples/swe_bench_pro/train.py --agent-name swe-bench-pro
+```
+
+The script evaluates Qwen 3.6 35B A3B on the eight test tasks, trains two steps with one
+group of four attempts per step and up to four groups running at once, then evaluates the
+final-step checkpoint on the same test tasks and settings. It prints run IDs, resolved
+counts, and endings. Use `--num-steps`, `--train-batch-size`, and `--group-size` to scale.
+Training samples until it finds a group with both resolved and unresolved attempts, up to
+six hours per step. If the local command stops, the runs continue on the platform.
 
 Measured with Qwen 3.6 35B A3B and the settings above:
 
@@ -135,77 +135,30 @@ Measured with Qwen 3.6 35B A3B and the settings above:
 | Training, 2 steps | `trn_06ae6a7737697f6f8000c6215ea26a00` | About 72 minutes | Both steps succeeded |
 | Checkpoint on the same 8 tasks | `evr_06ae6b86fe9f7e3d8000f59eeb7a4ac1` | 42 minutes | 8 of 8 graded, 5 resolved; 8 `ENV_DONE` |
 
-All four stages used one uploaded benchmark version. Baseline and checkpoint evaluation used
-the same eight test tasks and options. All timed-out attempts above were graded.
+All four stages used one benchmark version; baseline and checkpoint evaluation used the
+same eight tasks and options. Timed-out attempts were graded. Eight held-out tasks with
+one attempt each cannot measure lift from two training steps; use more tasks and
+`evaluation_samples_per_task` for a comparison.
 
-Eight held-out tasks with one attempt each cannot measure a change from two training
-steps; use more test tasks and `evaluation_samples_per_task` before reading a difference.
+## Appendix
 
-## How an attempt runs
-
-All tasks share one runtime image with the Docker engine, this harness, and the upstream task
-instructions, prompt, and verifiers. Reference solutions are left out. For one attempt, the
-[harness](runtime/swe_bench_pro_harness.py):
-
-1. pulls the task's public image, `ghcr.io/scaleapi/swe-bench_pro-v2:<instance_id>`;
-2. starts the repository in a container with no network, so neither the internet nor the
-   hidden tests are within the model's reach;
-3. runs the model with mini-swe-agent's tool-call protocol and upstream's `mini_toolcall.yaml`
-   from [`v2/tooling/configs`](https://github.com/scaleapi/SWE-bench_Pro-os/tree/66f92766bba642462d4bbe5479e83f91f9211862/v2/tooling/configs):
-   its prompts, one `bash` tool, and the `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`
-   submission;
-4. captures the patch with `git add -A && git diff --cached`, applies it to a fresh container
-   from the same image, and runs the task's unchanged `tests/test.sh`, which applies the hidden
-   test patch and checks its `fail_to_pass` and `pass_to_pass` tests;
-5. records the verifier's `reward.txt` as the `resolved` reward (1 or 0) and completes the
-   trajectory.
-
-This keeps upstream's offline 50-minute agent and fresh-image grading. As in upstream's
-`locked_mini_swe` run, there is no step limit, each command
-runs with `sh -c` for at most 30 seconds, and a reply without a valid `bash` call is dropped and
-answered with the config's format-error message.
-Unlike upstream's `mini_toolcall.yaml`, which stops an attempt after $3 in model calls, this
-managed run uses the turn, token, and time limits above; it does not enforce a dollar cap.
-
-| Ending | When |
-| --- | --- |
-| `ENV_DONE` | The model ran the submission command, or sent three replies in a row without a valid `bash` call. |
-| `TIMEOUT` | The 50-minute agent budget ran out. |
-| `TRUNCATION` | A reply hit its output-token limit, so its tool calls are not run, or the attempt reached a run's turn or token limit. |
-| `ERROR` | The image pull, a container, or the verifier failed. No reward is recorded. |
-
-Every ending except `ERROR` grades the patch the model left behind, and evaluation scores each
-graded attempt. Training uses `TIMEOUT` attempts only with `train_on_timeout`, which `train.py`
-sets because many attempts use the full 50 minutes. The trajectory's
-`swe_bench_pro_result` event keeps the native grade, the patch, and the verifier output.
-
-For this training example, tasks are split by repository: 15% of each repository's tasks, ordered by the SHA-256 of their
-instance ID, form the 97-task `test` split, and the other 545 form `train`. The split depends
-only on the instance IDs, so every upload keeps the same held-out tasks. This is a cookbook
-split, not an upstream leaderboard split.
-
-## Inspect an attempt
+The `swe_bench_pro_result` trajectory event retains the native grade, patch, verifier
+output, image digest, and model-call count. Inspect one attempt with:
 
 ```python
 from trajectory import Client
 
-client = Client()
-for event in client.trajectories.list_events("YOUR_TRAJECTORY_ID"):
+for event in Client().trajectories.list_events("YOUR_TRAJECTORY_ID"):
     if event.event["name"] == "swe_bench_pro_result":
         result = event.event["payload"]
         print(result["ending"], result["resolved"])
         print(result["fail_to_pass"], result["pass_to_pass"])
-        print(result["patch"])
-        print(result["verifier_output"])
+        print(result["patch"], result["verifier_output"])
 ```
 
-The event also records the image digest, the model call count, and whether the patch applied.
-
-## License and attribution
-
-The staged SWE-Bench Pro task files and tooling include
+The staged task files and tooling include
 [Scale AI's MIT license](https://github.com/scaleapi/SWE-bench_Pro-os/blob/66f92766bba642462d4bbe5479e83f91f9211862/LICENSE).
-Each task's base image contains a separate source repository, whose own license applies to
-that repository. Cite the benchmark as Deng et al., "SWE-Bench Pro: Can AI Agents Solve Long-Horizon
-Software Engineering Tasks?" ([arXiv:2509.16941](https://arxiv.org/abs/2509.16941)).
-Test-split scores from this example are not leaderboard results.
+Each task's base image contains a separate source repository, whose own license applies.
+Cite Deng et al., “SWE-Bench Pro: Can AI Agents Solve Long-Horizon Software Engineering
+Tasks?” ([arXiv:2509.16941](https://arxiv.org/abs/2509.16941)). Scores from this
+cookbook split are not leaderboard results.

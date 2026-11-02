@@ -1,5 +1,12 @@
 # Harvey LAB
 
+## Dataset
+
+The public [Harvey LAB benchmark](https://github.com/harveyai/harvey-labs) contains 2,010
+tasks: 1,890 training tasks and 120 held-out test tasks in this cookbook split.
+
+## Harness
+
 This recipe adapts an existing multi-turn benchmark without replacing its agent loop, tools,
 grader, or Podman sandbox. The integration is a small overlay on a pinned revision of the public
 [Harvey LAB repository](https://github.com/harveyai/harvey-labs).
@@ -12,7 +19,7 @@ adapter only needs to connect that lifecycle to a Trajectory session:
 3. Run the benchmark's original judge after the agent loop.
 4. Log the resulting reward and complete the trajectory.
 
-## Ingest the existing task tree
+## Ingestion
 
 The uploader discovers the benchmark's existing `task.json` files and assigns a deterministic
 held-out split. Hashing the task path keeps the same 120 test tasks across repeated ingestions:
@@ -50,9 +57,7 @@ TaskSpec(
 )
 ```
 
-The public benchmark contains 2,010 tasks: 1,890 training tasks and 120 held-out test tasks.
-
-## Preserve the original harness
+## Evaluation
 
 The added model adapter creates one TID and sends the harness's existing Responses API calls
 through `trajectory-session`. After the run, it invokes Harvey LAB's normal judge, records its
@@ -60,11 +65,17 @@ all-pass result as `reward_accuracy`, and completes the same trajectory. If the 
 the judge fails, it completes the trajectory with `ERROR` and logs no reward. This keeps prompts,
 tools, output files, and grading behavior owned by the upstream benchmark.
 
+## Training
+
+The split reserves 1,890 tasks for training. See the
+[SDK training guide](https://docs.trajectory.ai/guides/training) for running a benchmark
+after its uploaded tasks and grader pass a diagnostic.
+
+## Appendix
+
 The runtime image follows the same overlay approach: download a pinned public source revision,
 then copy only the SDK adapter and the narrow harness changes into the image. Pinning the source
 prevents upstream changes from silently changing an ingested benchmark.
-
-## Run Podman inside the benchmark runtime
 
 Harvey LAB already isolates document tools in Podman. The outer benchmark runtime therefore
 requests a container engine with `docker_engine=True`, and the original harness launches its

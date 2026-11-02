@@ -1,4 +1,6 @@
-# Public Tau 3 Banking
+# Tau 3 Banking
+
+## Dataset
 
 This example packages Sierra's public 97-task Banking benchmark from
 [tau2-bench v1.0.1](https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992). It keeps the source task bytes,
@@ -9,12 +11,16 @@ instead of the source release's GPT-4.1 defaults. The cookbook sorts task IDs in
 and 17 held-out test tasks; this split is for training, not the full 97-task, five-repeat
 leaderboard evaluation.
 
+## Harness
+
 The SDK supplies agent inference. Sierra's runner continues after an output-limited model reply,
 so this example records its final evaluator grade. Sierra grades attempts that stop after too
 many agent errors as zero; the SDK records these as graded failed attempts and retains the
 source ending in a trace event. Model, environment, and grader failures remain ungraded. The
 simulator makes up to three attempts to get a nonempty user response without adding empty
 replies to the conversation; exhaustion still fails the task.
+
+## Ingestion
 
 Choose an existing agent and organization API key using the
 [agent guide](https://docs.trajectory.ai/agent). Register your OpenAI key once as the
@@ -32,11 +38,14 @@ To use an OpenRouter customer and judge model, register `OPENROUTER_API_KEY` ins
 remains the default.
 
 Ingestion waits for a new runtime build. Follow the
-[benchmark diagnostic guidance](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec) to execute a subset before training,
+[benchmark diagnostic guidance](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec)
+to execute a subset before training,
 with the model and options you will evaluate with, such as
 `base_model_slug="Qwen/Qwen3.6-35B-A3B"` and the sampling options below. Without them, a
 diagnostic runs on the API's default diagnostic model. Image build readiness alone does not
 verify policy inference, grading, or reward publication.
+
+## Evaluation
 
 Managed runs take sampling from run options, not the upstream harness. The following settings
 are for the tested Qwen 3.6 35B A3B evaluation, not a requirement of Tau 3 Banking. The
@@ -61,7 +70,19 @@ Client().evals.create(
 )
 ```
 
+## Training
+
+The uploader includes 80 training tasks and 17 held-out test tasks. Use the uploaded benchmark
+ID with the [SDK training guide](https://docs.trajectory.ai/guides/training); the example does
+not include a separate training script.
+
 For evaluations during training, set `evaluation_top_p` and `evaluation_top_k` in the training
-options if you need the same sampling. Sierra's source is MIT-licensed; the pinned source and
-its [license](https://github.com/sierra-research/tau2-bench/blob/fc0055dc4e0a316c3f83133267fbd6faaa770992/LICENSE)
+options if you need the same sampling.
+
+## Appendix
+
+The source evaluator, simulator prompts, retrieval, and task bytes remain upstream-owned;
+the Trajectory adapter supplies model inference and records the native grade. Sierra's source
+is MIT-licensed; the pinned source and its
+[license](https://github.com/sierra-research/tau2-bench/blob/fc0055dc4e0a316c3f83133267fbd6faaa770992/LICENSE)
 are included in the runtime image.
