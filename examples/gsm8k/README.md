@@ -17,8 +17,6 @@ uv run --with trajectory-sdk python -c \
   'import trajectory; trajectory.Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
 ```
 
-If the agent already exists, reuse its name.
-
 ## Diagnose with one task
 
 Build the runtime and run one training problem before uploading the full benchmark:
