@@ -78,16 +78,15 @@ def load_task(task_id: str) -> object:
     return get_tasks(DOMAIN, task_ids=[task_id])[0]
 
 
-def configure_nl_assertion_judge() -> None:
-    """Pin the task_102 judge to the Artificial Analysis protocol."""
+def configure_nl_assertion_judge(model: str = USER_AND_JUDGE_MODEL) -> None:
+    """Use the selected model for source natural-language assertions."""
     import tau2.config as config  # noqa: PLC0415
     import tau2.evaluator.evaluator_nl_assertions as evaluator  # noqa: PLC0415
 
-    judge_args = {
-        "reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
-        "num_retries": MAX_RETRIES,
-    }
-    config.DEFAULT_LLM_NL_ASSERTIONS = USER_AND_JUDGE_MODEL
+    judge_args = {"num_retries": MAX_RETRIES}
+    if model == USER_AND_JUDGE_MODEL:
+        judge_args["reasoning_effort"] = USER_AND_JUDGE_REASONING_EFFORT
+    config.DEFAULT_LLM_NL_ASSERTIONS = model
     config.DEFAULT_LLM_NL_ASSERTIONS_ARGS = judge_args
-    evaluator.DEFAULT_LLM_NL_ASSERTIONS = USER_AND_JUDGE_MODEL
+    evaluator.DEFAULT_LLM_NL_ASSERTIONS = model
     evaluator.DEFAULT_LLM_NL_ASSERTIONS_ARGS = judge_args

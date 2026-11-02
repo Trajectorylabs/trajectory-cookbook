@@ -1,5 +1,6 @@
 """Run one exact public Tau 3 Banking task through the Trajectory SDK."""
 
+import os
 import sys
 
 from tau3_banking.policy_provider import register_policy
@@ -23,16 +24,14 @@ from tau3_banking.user_simulator import USER_SIMULATOR, register_user_simulator
 from trajectory import Client
 
 
-def _termination_reason(reason: object, truncated: bool) -> str:
-    if truncated:
-        return "TRUNCATION"
+def _termination_reason(reason: object) -> str:
     return {
         "AGENT_STOP": "ENV_DONE",
         "USER_STOP": "ENV_DONE",
         "MAX_STEPS": "MAX_STEPS",
         "TIMEOUT": "TIMEOUT",
         "CONTEXT_WINDOW_EXCEEDED": "TRUNCATION",
-        "TOO_MANY_ERRORS": "ERROR",
+        "TOO_MANY_ERRORS": "ENV_DONE",
         "AGENT_ERROR": "ERROR",
         "USER_ERROR": "ERROR",
         "INFRASTRUCTURE_ERROR": "ERROR",
@@ -46,7 +45,15 @@ def run_task(client: Client, task_id: str) -> str:
     from tau2.runner.batch import run_single_task  # noqa: PLC0415
 
     verify_source()
-    configure_nl_assertion_judge()
+    user_and_judge_model = os.getenv(
+        "TAU3_BANKING_USER_JUDGE_MODEL", USER_AND_JUDGE_MODEL
+    )
+    reasoning_effort = (
+        USER_AND_JUDGE_REASONING_EFFORT
+        if user_and_judge_model == USER_AND_JUDGE_MODEL
+        else None
+    )
+    configure_nl_assertion_judge(user_and_judge_model)
     task = load_task(task_id)
     trajectory_id = client.trajectories.create().tid
     provider = register_policy(client, trajectory_id)
@@ -62,9 +69,9 @@ def run_task(client: Client, task_id: str) -> str:
             "num_retries": 0,
         },
         user=USER_SIMULATOR,
-        llm_user=USER_AND_JUDGE_MODEL,
+        llm_user=user_and_judge_model,
         llm_args_user={
-            "reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
+            **({"reasoning_effort": reasoning_effort} if reasoning_effort else {}),
             "num_retries": MAX_RETRIES,
         },
         retrieval_config=RETRIEVAL_CONFIG,
@@ -81,9 +88,9 @@ def run_task(client: Client, task_id: str) -> str:
     if result.reward_info is None:
         raise RuntimeError("The upstream Tau 3 evaluator returned no reward")
 
-    reason = _termination_reason(result.termination_reason, provider.truncated)
-    # tau2 keeps running after a cut-off policy reply, so its final grade covers later turns.
-    if reason != "ERROR" and not provider.truncated:
+    reason = _termination_reason(result.termination_reason)
+    # Tau 2 continues after an output-limited reply; its final grade covers later turns.
+    if reason != "ERROR":
         client.trajectories.log_reward(
             trajectory_id,
             name="reward_accuracy",
@@ -99,12 +106,13 @@ def run_task(client: Client, task_id: str) -> str:
             "source_commit": SOURCE_COMMIT,
             "tasks_sha256": TASKS_SHA256,
             "retrieval": RETRIEVAL_CONFIG,
-            "user_and_judge_model": USER_AND_JUDGE_MODEL,
-            "user_and_judge_reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
+            "user_and_judge_model": user_and_judge_model,
+            "user_and_judge_reasoning_effort": reasoning_effort,
             "max_steps": MAX_STEPS,
             "max_errors": MAX_ERRORS,
             "seed": SEED,
             "policy_calls": provider.calls,
+            "output_limited_replies": provider.output_limited_replies,
             "empty_user_response_max_attempts": EMPTY_USER_RESPONSE_MAX_ATTEMPTS,
             "upstream_termination_reason": result.termination_reason.value,
             "reward_info": result.reward_info.model_dump(mode="json"),

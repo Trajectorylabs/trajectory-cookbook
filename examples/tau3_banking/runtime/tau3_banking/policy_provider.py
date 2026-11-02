@@ -13,7 +13,7 @@ class TrajectoryPolicy(CustomLLM):
         self.client = client
         self.trajectory_id = trajectory_id
         self.calls = 0
-        self.truncated = False
+        self.output_limited_replies = 0
 
     def completion(
         self,
@@ -33,7 +33,10 @@ class TrajectoryPolicy(CustomLLM):
             extra_body=params,
         )
         self.calls += 1
-        self.truncated |= response.choices[0].finish_reason in ("length", "max_tokens")
+        self.output_limited_replies += response.choices[0].finish_reason in (
+            "length",
+            "max_tokens",
+        )
         return ModelResponse(**response.model_dump(mode="json"))
 
 

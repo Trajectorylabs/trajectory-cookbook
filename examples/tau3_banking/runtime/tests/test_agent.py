@@ -47,14 +47,14 @@ def sdk_client(requests, finish_reason="stop"):
         (TerminationReason.USER_STOP, "ENV_DONE"),
         (TerminationReason.MAX_STEPS, "MAX_STEPS"),
         (TerminationReason.AGENT_ERROR, "ERROR"),
-        (TerminationReason.TOO_MANY_ERRORS, "ERROR"),
+        (TerminationReason.TOO_MANY_ERRORS, "ENV_DONE"),
     ],
 )
-def test_error_endings_complete_without_reward(monkeypatch, upstream, expected):
+def test_source_reward_and_endings(monkeypatch, upstream, expected):
     reward_info = RewardInfo(reward=0.0, info={"note": "test"})
     result = SimpleNamespace(termination_reason=upstream, reward_info=reward_info)
     monkeypatch.setattr(agent, "verify_source", lambda: None)
-    monkeypatch.setattr(agent, "configure_nl_assertion_judge", lambda: None)
+    monkeypatch.setattr(agent, "configure_nl_assertion_judge", lambda model: None)
     monkeypatch.setattr(agent, "load_task", lambda task_id: object())
     monkeypatch.setattr(agent, "register_user_simulator", lambda: None)
     monkeypatch.setattr("tau2.runner.batch.run_single_task", lambda *a, **k: result)
@@ -70,32 +70,36 @@ def test_error_endings_complete_without_reward(monkeypatch, upstream, expected):
     assert requests[-1][2] == {"termination_reason": expected}
 
 
-def test_cut_off_policy_reply_completes_truncation_without_reward(monkeypatch):
+def test_source_grade_survives_earlier_output_limit(monkeypatch):
     reward_info = RewardInfo(reward=1.0, info={"note": "test"})
     result = SimpleNamespace(
         termination_reason=TerminationReason.USER_STOP, reward_info=reward_info
     )
     monkeypatch.setattr(agent, "verify_source", lambda: None)
-    monkeypatch.setattr(agent, "configure_nl_assertion_judge", lambda: None)
+    monkeypatch.setattr(agent, "configure_nl_assertion_judge", lambda model: None)
     monkeypatch.setattr(agent, "load_task", lambda task_id: object())
     monkeypatch.setattr(agent, "register_user_simulator", lambda: None)
     monkeypatch.setattr(
-        agent, "register_policy", lambda *a: SimpleNamespace(truncated=True, calls=1)
+        agent,
+        "register_policy",
+        lambda *a: SimpleNamespace(output_limited_replies=1, calls=1),
     )
     monkeypatch.setattr("tau2.runner.batch.run_single_task", lambda *a, **k: result)
     requests = []
     with sdk_client(requests) as client:
         agent.run_task(client, "task_001")
 
-    assert "rewards" not in [endpoint for endpoint, _, _ in requests]
-    assert requests[-1][2] == {"termination_reason": "TRUNCATION"}
+    assert "rewards" in [endpoint for endpoint, _, _ in requests]
+    assert requests[-1][2] == {"termination_reason": "ENV_DONE"}
 
 
 @pytest.mark.parametrize(
-    "finish_reason, truncated",
-    [("stop", False), ("length", True), ("max_tokens", True)],
+    "finish_reason, output_limited_replies",
+    [("stop", 0), ("length", 1), ("max_tokens", 1)],
 )
-def test_policy_forwards_params_and_detects_cut_off(finish_reason, truncated):
+def test_policy_forwards_params_and_counts_output_limits(
+    finish_reason, output_limited_replies
+):
     requests = []
     with sdk_client(requests, finish_reason) as client:
         policy = TrajectoryPolicy(client, "tid_test")
@@ -110,4 +114,4 @@ def test_policy_forwards_params_and_detects_cut_off(finish_reason, truncated):
     assert "X-Model-Request-Id" not in headers
     assert body["max_tokens"] == 16
     assert "max_retries" not in body
-    assert policy.truncated is truncated
+    assert policy.output_limited_replies == output_limited_replies
