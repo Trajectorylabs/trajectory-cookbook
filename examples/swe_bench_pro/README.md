@@ -201,14 +201,6 @@ for event in client.trajectories.list_events("YOUR_TRAJECTORY_ID"):
 
 The event also records the image digest, the model call count, and whether the patch applied.
 
-## Test the harness
-
-From the cookbook root, run the tests without Docker or the platform:
-
-```bash
-uv run --with trajectory-sdk --with jinja2 --with pyyaml --with pytest pytest examples/swe_bench_pro
-```
-
 ## License and attribution
 
 The staged SWE-Bench Pro task files and tooling include
