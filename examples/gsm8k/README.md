@@ -51,7 +51,7 @@ model_options = {
 
 Try the first problem before uploading the full benchmark. This diagnostic builds the image and
 starts the harness with `--task_id 0`, which selects the first row of the JSONL file. Use the
-returned diagnostic ID to inspect whether the task ran and recorded a grade:
+report below to check whether the task ran, how it ended, and what reward it received:
 
 ```python
 diagnostic_task = trajectory.TaskSpec(
@@ -70,8 +70,31 @@ diagnostic = trajectory.lib.start_task_diagnostic(
     base_model_slug=model,
     options=model_options,
 )
-print(diagnostic.benchmark_diagnostic_id)
+import time
+
+diagnostic_id = diagnostic.benchmark_diagnostic_id
+while client.diagnostics.get_status(diagnostic_id).status in {"pending", "running"}:
+    time.sleep(5)
+
+report = client.diagnostics.get_diagnostics(diagnostic_id)
+print("Diagnostic:", report.status)
+for task in report.tasks:
+    print(f"Task: {task.status} | Ending: {task.termination_reason} | Reward: {task.reward}")
+    if task.failure:
+        print("Task failure:", task.failure)
+if report.failure:
+    print("Diagnostic failure:", report.failure)
 ```
+
+Illustrative output for a correct answer (all outputs below are examples, not recorded runs):
+
+```text
+Diagnostic: completed
+Task: completed | Ending: ENV_DONE | Reward: 1.0
+```
+
+A reward of `0.0` can also be a valid result: it means the model did not submit the correct
+answer. Check any reported failures before continuing.
 
 ### Upload benchmark
 
@@ -106,7 +129,15 @@ result = trajectory.lib.push(
     build_images=True,
 )
 bench_id = result.bench_id
-print(bench_id)
+print("Benchmark:", bench_id)
+print("Tasks:", result.task_count)
+```
+
+Sample output; the benchmark ID will differ for your upload:
+
+```text
+Benchmark: bm_<benchmark-id>
+Tasks: 80
 ```
 
 ## Evaluation
@@ -120,6 +151,13 @@ evaluation = client.evals.create(
     base_model_slug=model,
     options=model_options,
 )
+print("Evaluation:", evaluation.eval_run_id)
+```
+
+Sample output after the evaluation is accepted:
+
+```text
+Evaluation: evr_<evaluation-id>
 ```
 
 ## Training
@@ -138,6 +176,13 @@ training = client.training.create(
         "max_concurrent_trajectories": 32,
     },
 )
+print("Training:", training.training_run_id)
+```
+
+Sample output after training is accepted:
+
+```text
+Training: trn_<training-id>
 ```
 
 Open these links to follow the evaluation and training runs in Trajectory. Once training
@@ -148,6 +193,13 @@ organization = client.organizations.retrieve_current()
 product_url = f"https://platform.trajectory.ai/{organization['organization_key']}"
 print("Evaluation:", f"{product_url}/evaluate/runs/{evaluation.eval_run_id}")
 print("Training:", f"{product_url}/models/{training.training_run_id}")
+```
+
+Sample links; your organization and run IDs appear in their place:
+
+```text
+Evaluation: https://platform.trajectory.ai/<organization>/evaluate/runs/evr_<evaluation-id>
+Training: https://platform.trajectory.ai/<organization>/models/trn_<training-id>
 ```
 
 ## Appendix
