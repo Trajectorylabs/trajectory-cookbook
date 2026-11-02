@@ -1,6 +1,7 @@
 """Run one exact public Tau 3 Retail task through the Trajectory SDK."""
 
 import json
+import os
 import sys
 
 from tau3_retail.policy_provider import register_policy
@@ -12,7 +13,7 @@ from tau3_retail.protocol import (
     MAX_STEPS,
     SEED,
     USER_AND_JUDGE_MODEL,
-    USER_AND_JUDGE_REASONING_EFFORT,
+    USER_AND_JUDGE_TEMPERATURE,
     configure_nl_assertion_judge,
     load_task,
 )
@@ -41,7 +42,10 @@ def run_task(client: Client, task_id: str) -> str:
     from tau2.evaluator.evaluator import EvaluationType  # noqa: PLC0415
     from tau2.runner.batch import run_single_task  # noqa: PLC0415
 
-    configure_nl_assertion_judge()
+    user_and_judge_model = os.getenv(
+        "TAU3_RETAIL_USER_JUDGE_MODEL", USER_AND_JUDGE_MODEL
+    )
+    configure_nl_assertion_judge(user_and_judge_model)
     task = load_task(task_id)
     trajectory_id = client.trajectories.create().tid
     provider = register_policy(client, trajectory_id)
@@ -55,12 +59,13 @@ def run_task(client: Client, task_id: str) -> str:
             "top_k": 20,
             "presence_penalty": 0.0,
             "max_tokens": AGENT_MAX_TOKENS,
-            "num_retries": MAX_RETRIES,
+            # The SDK retries one request under its idempotency key.
+            "num_retries": 0,
         },
         user="user_simulator",
-        llm_user=USER_AND_JUDGE_MODEL,
+        llm_user=user_and_judge_model,
         llm_args_user={
-            "reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
+            "temperature": USER_AND_JUDGE_TEMPERATURE,
             "num_retries": MAX_RETRIES,
         },
         max_steps=MAX_STEPS,
@@ -75,7 +80,7 @@ def run_task(client: Client, task_id: str) -> str:
             evaluation_type=EvaluationType.ALL,
         )
     except json.JSONDecodeError:
-        # Upstream raises on unparseable tool-call arguments; grade them as the agent's failure.
+        # Upstream raises; count malformed agent tool arguments as a failure.
         if not provider.malformed_tool_calls:
             raise
         result = None
@@ -90,13 +95,19 @@ def run_task(client: Client, task_id: str) -> str:
         explanation = result.reward_info.model_dump_json()
         upstream_termination = result.termination_reason.value
 
-    # Upstream grades only the database, so leaked reasoning would otherwise be rewarded.
-    client.trajectories.log_reward(
-        trajectory_id,
-        name="reward_accuracy",
-        value=0.0 if provider.reasoning_leaks else upstream_reward,
-        explanation=explanation,
+    reason = (
+        "ENV_DONE"
+        if result is None
+        else termination_reason(result.termination_reason, provider.truncated)
     )
+    # Tau 2 continues after a cut-off reply; its grade covers later turns.
+    if reason != "ERROR" and not provider.truncated:
+        client.trajectories.log_reward(
+            trajectory_id,
+            name="reward_accuracy",
+            value=upstream_reward,
+            explanation=explanation,
+        )
     client.trajectories.log_event(
         trajectory_id,
         event_id="tau3-retail-protocol",
@@ -110,13 +121,8 @@ def run_task(client: Client, task_id: str) -> str:
             "upstream_termination_reason": upstream_termination,
         },
     )
-    completed = client.trajectories.complete(
-        trajectory_id,
-        termination_reason="ERROR"
-        if result is None
-        else termination_reason(result.termination_reason, provider.truncated),
-    )
-    if completed.status != "completed":
+    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
+    if completed.status not in ("completed", "finalizing"):
         raise RuntimeError(f"Trajectory completion returned {completed.status}")
     return trajectory_id
 
@@ -124,7 +130,7 @@ def run_task(client: Client, task_id: str) -> str:
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: python -m tau3_retail.agent TASK_ID")
-    with Client(max_retries=0, timeout=1200) as client:
+    with Client(max_retries=20, timeout=1200) as client:
         run_task(client, sys.argv[1])
 
 

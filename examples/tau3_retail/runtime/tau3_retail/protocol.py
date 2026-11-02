@@ -5,12 +5,12 @@ SOURCE_TAG = "v1.0.1"
 SOURCE_COMMIT = "fc0055dc4e0a316c3f83133267fbd6faaa770992"
 
 DOMAIN = "retail"
-USER_AND_JUDGE_MODEL = "gpt-5.4-mini-2026-03-17"
-USER_AND_JUDGE_REASONING_EFFORT = "medium"
+USER_AND_JUDGE_MODEL = "gpt-4.1-2025-04-14"
+USER_AND_JUDGE_TEMPERATURE = 0.0
 AGENT_MAX_TOKENS = 2048
 MAX_STEPS = 200
 MAX_ERRORS = 10
-MAX_RETRIES = 30
+MAX_RETRIES = 3
 SEED = 300
 
 # Upstream's official retail split (data/tau2/domains/retail/split_tasks.json).
@@ -38,16 +38,13 @@ def load_task(task_id: str) -> object:
     return get_tasks(DOMAIN, task_ids=[task_id])[0]
 
 
-def configure_nl_assertion_judge() -> None:
-    """Pin the natural-language assertion judge used by retail rewards."""
+def configure_nl_assertion_judge(model: str) -> None:
+    """Use the selected model with upstream's judge settings."""
     import tau2.config as config  # noqa: PLC0415
     import tau2.evaluator.evaluator_nl_assertions as evaluator  # noqa: PLC0415
 
-    judge_args = {
-        "reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
-        "num_retries": MAX_RETRIES,
-    }
-    config.DEFAULT_LLM_NL_ASSERTIONS = USER_AND_JUDGE_MODEL
+    judge_args = {"temperature": USER_AND_JUDGE_TEMPERATURE}
+    config.DEFAULT_LLM_NL_ASSERTIONS = model
     config.DEFAULT_LLM_NL_ASSERTIONS_ARGS = judge_args
-    evaluator.DEFAULT_LLM_NL_ASSERTIONS = USER_AND_JUDGE_MODEL
+    evaluator.DEFAULT_LLM_NL_ASSERTIONS = model
     evaluator.DEFAULT_LLM_NL_ASSERTIONS_ARGS = judge_args

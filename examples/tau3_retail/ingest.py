@@ -1,7 +1,7 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.16"]
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
-"""Ingest the pinned public Tau 3 Retail tasks with upstream's official train/test split."""
+"""Ingest pinned Tau 3 Retail tasks with the official train/test split."""
 
 import argparse
 import time
@@ -16,7 +16,6 @@ from runtime.tau3_retail.protocol import (
     TASK_IDS,
     TRAIN_IDS,
     USER_AND_JUDGE_MODEL,
-    USER_AND_JUDGE_REASONING_EFFORT,
 )
 from trajectory import BenchmarkSpec, Client, SecretRef, TaskSpec
 from trajectory.lib import (
@@ -32,7 +31,16 @@ _MODEL = "Qwen/Qwen3.5-4B"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
 
 
-def task_spec(task_id: str, runtime: RuntimeSpec | None = None) -> TaskSpec:
+def task_spec(
+    task_id: str,
+    runtime: RuntimeSpec | None = None,
+    user_judge_model: str = USER_AND_JUDGE_MODEL,
+) -> TaskSpec:
+    api_secret = (
+        "OPENROUTER_API_KEY"
+        if user_judge_model.startswith("openrouter/")
+        else "OPENAI_API_KEY"
+    )
     return TaskSpec(
         name=f"retail/{task_id}",
         split="train" if task_id in TRAIN_IDS else "test",
@@ -42,7 +50,8 @@ def task_spec(task_id: str, runtime: RuntimeSpec | None = None) -> TaskSpec:
             f"/opt/tau3-retail/.venv/bin/python -u -m tau3_retail.agent {task_id}"
         ),
         env_vars={
-            "OPENAI_API_KEY": SecretRef(secret_ref="OPENAI_API_KEY"),
+            api_secret: SecretRef(secret_ref=api_secret),
+            "TAU3_RETAIL_USER_JUDGE_MODEL": user_judge_model,
             "TAU2_DATA_DIR": "/opt/tau2-source/data",
         },
         env_resources={
@@ -56,8 +65,7 @@ def task_spec(task_id: str, runtime: RuntimeSpec | None = None) -> TaskSpec:
             "source_repository": SOURCE_REPOSITORY,
             "source_tag": SOURCE_TAG,
             "source_commit": SOURCE_COMMIT,
-            "user_and_judge_model": USER_AND_JUDGE_MODEL,
-            "user_and_judge_reasoning_effort": USER_AND_JUDGE_REASONING_EFFORT,
+            "user_and_judge_model": user_judge_model,
             "max_steps": MAX_STEPS,
             "max_errors": MAX_ERRORS,
         },
@@ -65,28 +73,37 @@ def task_spec(task_id: str, runtime: RuntimeSpec | None = None) -> TaskSpec:
     )
 
 
-def build_benchmark(name: str) -> BenchmarkSpec:
+def build_benchmark(
+    name: str, user_judge_model: str = USER_AND_JUDGE_MODEL
+) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
         family="tau3-retail",
-        description=(
-            "Pinned public Tau 3 Retail tasks, simulated user, and original upstream evaluator."
-        ),
+        description="Pinned public Tau 3 Retail tasks and upstream evaluator.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
-        tasks=[task_spec(task_id) for task_id in TASK_IDS],
+        tasks=[
+            task_spec(task_id, user_judge_model=user_judge_model)
+            for task_id in TASK_IDS
+        ],
     )
 
 
-def ingest(name: str, agent_name: str) -> str:
-    return _push_benchmark(build_benchmark(name), agent_name)
+def ingest(name: str, agent_name: str, user_judge_model: str) -> str:
+    return _push_benchmark(build_benchmark(name, user_judge_model), agent_name)
 
 
-def task_diagnose(agent_name: str, task_id: str = TRAIN_IDS[0]) -> None:
+def task_diagnose(
+    agent_name: str, user_judge_model: str, task_id: str = TRAIN_IDS[0]
+) -> None:
     # Catch packaging, model-routing, user-simulator, and grading errors before upload.
     client = Client()
     diagnostic = start_task_diagnostic(
         client,
-        task_spec(task_id, runtime=DockerfileBuild("runtime/Dockerfile")),
+        task_spec(
+            task_id,
+            runtime=DockerfileBuild("runtime/Dockerfile"),
+            user_judge_model=user_judge_model,
+        ),
         agent_name=agent_name,
         root=ROOT,
         base_model_slug=_MODEL,
@@ -98,7 +115,9 @@ def task_diagnose(agent_name: str, task_id: str = TRAIN_IDS[0]) -> None:
 def benchmark_diagnostic(bench_id: str) -> None:
     # Check a subset of uploaded tasks before evaluation or training.
     client = Client()
-    diagnostic = client.diagnostics.start_benchmark(bench_id=bench_id, base_model_slug=_MODEL)
+    diagnostic = client.diagnostics.start_benchmark(
+        bench_id=bench_id, base_model_slug=_MODEL
+    )
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
 
 
@@ -149,6 +168,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="tau3-retail-trajectory-sdk")
+    parser.add_argument("--user-judge-model", default=USER_AND_JUDGE_MODEL)
     parser.add_argument(
         "--task-diagnostic",
         action="store_true",
@@ -156,9 +176,9 @@ def main() -> None:
     )
     args = parser.parse_args()
     if args.task_diagnostic:
-        task_diagnose(args.agent_name)
+        task_diagnose(args.agent_name, args.user_judge_model)
     else:
-        benchmark_diagnostic(ingest(args.name, args.agent_name))
+        benchmark_diagnostic(ingest(args.name, args.agent_name, args.user_judge_model))
 
 
 if __name__ == "__main__":

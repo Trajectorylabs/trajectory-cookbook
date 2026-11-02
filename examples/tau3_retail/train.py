@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.16"]
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
 """Evaluate, train, and compare the final checkpoint on Tau 3 Retail."""
 
@@ -110,10 +110,12 @@ def evaluate(
             )
             break
         except RateLimitError as error:
-            # The organization-wide limit on active evaluations can outlast client retries.
+            # An active-evaluation limit can outlast client retries.
             print(f"evaluation={display_name} waiting: {error.message}", flush=True)
             time.sleep(poll_seconds)
-    return _wait_for_evaluation(client, evaluation.eval_run_id, display_name, poll_seconds)
+    return _wait_for_evaluation(
+        client, evaluation.eval_run_id, display_name, poll_seconds
+    )
 
 
 def _wait_for_evaluation(
@@ -145,10 +147,8 @@ def wait_for_training(
     while True:
         run = client.training.runs.retrieve(run_id)
         progress = client.training.runs.progress(run_id)
-        print(
-            f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}",
-            flush=True,
-        )
+        steps = f"{progress.completed_steps}/{progress.total_steps or '?'}"
+        print(f"status={run.status} steps={steps}", flush=True)
         if str(run.status) in _TERMINAL_STATUSES:
             return run
         time.sleep(poll_seconds)

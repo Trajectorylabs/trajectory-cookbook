@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12, <3.14"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -464,8 +464,8 @@ name = "httpcore2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11" },
-    { name = "truststore" },
+    { name = "h11", marker = "sys_platform != 'emscripten'" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz", hash = "sha256:e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103", size = 68071, upload-time = "2026-09-23T07:47:22.372Z" }
 wheels = [
@@ -1303,7 +1303,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "tau2", git = "https://github.com/sierra-research/tau2-bench?rev=fc0055dc4e0a316c3f83133267fbd6faaa770992" },
-    { name = "trajectory-sdk", specifier = "==0.9.16" },
+    { name = "trajectory-sdk", specifier = ">=0.9.33" },
 ]
 
 [[package]]
@@ -1391,7 +1391,7 @@ wheels = [
 
 [[package]]
 name = "trajectory-sdk"
-version = "0.9.16"
+version = "0.9.35"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx2" },
@@ -1399,9 +1399,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/84/1b/33c2983d71d338d9507dd8bc7480174e122bc22ece9fdb076be263bdaacb/trajectory_sdk-0.9.16.tar.gz", hash = "sha256:91662547cc98b068c9cf6967541f84f2b73dd59d7427c03013a539c0c31d4825", size = 161185, upload-time = "2026-10-10T22:02:14.218Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/18/3c/b186fa55f9877157d0e133427761c7ea86dd82d9faedff478cb9f89228ff/trajectory_sdk-0.9.35.tar.gz", hash = "sha256:dd0c1b5b75fe66c84175d33c2bae22af1c969b2996e11c3b6ce4ed018a6e26a4", size = 202273, upload-time = "2026-11-01T20:30:45.853Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/21/44059d8c889768bdd619ec500c50d16a58175460807c3a5ed614affba5ce/trajectory_sdk-0.9.16-py3-none-any.whl", hash = "sha256:3c5453200295c6f7f65dbc3e866780643b30094139e412d881602b6b53a9ad68", size = 255349, upload-time = "2026-10-10T22:02:12.623Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/e0/74de4c62e877e055d1901ad9a9a65c66ca02f58a2f96d8c783e176bd3616/trajectory_sdk-0.9.35-py3-none-any.whl", hash = "sha256:2fafd598c513be0bf1c0601f2e3524ee756b29ab5cbea4257da04c71ef5aeee5", size = 313576, upload-time = "2026-11-01T20:30:44.067Z" },
 ]
 
 [[package]]
