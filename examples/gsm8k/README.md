@@ -28,11 +28,6 @@ runtime_root = Path("examples/gsm8k/runtime")
 runtime = trajectory.lib.DockerfileBuild("Dockerfile")
 run_command = "python -u /opt/gsm8k/gsm8k_harness.py"
 
-client.agents.create(
-    name=agent_name,
-    description="GSM8K math evaluation and training",
-)
-
 tasks = [
     trajectory.TaskSpec(
         name=f"gsm8k/{split}_{index:04d}",
