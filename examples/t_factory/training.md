@@ -26,16 +26,14 @@ Upload using its name. The script builds the runtime image, then runs a benchmar
 uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
 ```
 
-![T Factory benchmark ingestion in the Trajectory Platform](../../assets/t-factory-ingestion.png)
-
-The diagnostic runs up to 10 tasks and prints each task's ending and reward. It passes when it
-prints `diagnostic_status=completed`, no task failed, and every task recorded a reward;
+The diagnostic runs up to 10 tasks on Qwen 3.5 4B with the settings training uses and prints
+each task's ending and reward. It passes when every task completes and records a reward;
 otherwise the script prints each task failure and exits with an error.
 
 ## Evaluate and train
 
-Replace `YOUR_BENCH_ID` with the printed `bench_id`, then run the baseline evaluation, training,
-and final evaluation:
+Replace `YOUR_BENCH_ID` with the printed `bench_id`, then run the baseline evaluation alongside
+training, and the final evaluation after it:
 
 ```bash
 uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID

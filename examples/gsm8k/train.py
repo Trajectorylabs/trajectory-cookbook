@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.32"]
+# dependencies = ["trajectory-sdk>=0.9.37"]
 # ///
 """Evaluate, train, and compare the final checkpoint on GSM8K."""
 
@@ -8,7 +8,7 @@ import argparse
 import time
 from dataclasses import dataclass
 
-from trajectory import Client
+import trajectory
 from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
@@ -25,7 +25,7 @@ class RewardComparison:
 
 
 def train_and_evaluate(
-    client: Client,
+    client: trajectory.Client,
     agent_name: str,
     bench_name: str,
     model: str,
@@ -34,8 +34,7 @@ def train_and_evaluate(
 ) -> RewardComparison:
     eval_options = {
         "reasoning_effort": "off",
-        "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
-        "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+        "max_output_tokens_per_turn": _MAX_OUTPUT_TOKENS,
     }
     baseline_run = client.evals.create(
         agent_name=agent_name,
@@ -45,24 +44,32 @@ def train_and_evaluate(
         options=eval_options,
     )
     bench_id = baseline_run.bench_id
-    print(f"comparison_bench_id={bench_id}", flush=True)
-    baseline = _wait_for_evaluation(
-        client, baseline_run.eval_run_id, "GSM8K baseline", poll_seconds
+    print(
+        f"comparison_bench_id={bench_id} baseline_eval_run_id={baseline_run.eval_run_id}",
+        flush=True,
     )
-
+    # Training does not use the baseline score, so start it without waiting.
     created = client.training.create(
         bench_id=bench_id,
         base_model_slug=model,
         options={
             "reasoning_effort": "off",
             "num_steps": num_steps,
-            "train_batch_size": 4,
-            "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
-            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+            "batch_size": 4,
+            "max_concurrent_trajectories": _MAX_ACTIVE_ROLLOUTS,
+            "max_output_tokens_per_turn": _MAX_OUTPUT_TOKENS,
         },
     )
     run_id = created.training_run_id
     print(f"training_run_id={run_id}", flush=True)
+    try:
+        baseline = _wait_for_evaluation(
+            client, baseline_run.eval_run_id, "GSM8K baseline", poll_seconds
+        )
+    except RuntimeError:
+        # Training on a benchmark whose baseline failed would be wasted.
+        client.training.runs.cancel(run_id)
+        raise
     run = _wait_for_training(client, run_id, poll_seconds)
     if str(run.status) != "succeeded":
         raise RuntimeError(f"training ended with status={run.status}: {run.failure}")
@@ -89,10 +96,10 @@ def train_and_evaluate(
 
 
 def eval_smoketest(
-    client: Client,
+    client: trajectory.Client,
     bench_id: str,
     model: str = _DEFAULT_MODEL,
-    poll_seconds: float = 30,
+    poll_seconds: float = 10,
     parent_checkpoint_id: str | None = None,
 ) -> float:
     # Evaluate one held-out task to catch basic execution and grading errors quickly.
@@ -103,10 +110,8 @@ def eval_smoketest(
         display_name="GSM8K smoketest",
         options={
             "reasoning_effort": "off",
-            "evaluation_max_samples": 1,
-            "evaluation_max_active_rollouts": 1,
-            "execution_timeout_seconds": 600,
-            "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
+            "val_num_tasks": 1,
+            "max_output_tokens_per_turn": _MAX_OUTPUT_TOKENS,
         },
     )
     return _wait_for_evaluation(
@@ -115,17 +120,20 @@ def eval_smoketest(
 
 
 def _wait_for_evaluation(
-    client: Client, eval_id: str, display_name: str, poll_seconds: float
+    client: trajectory.Client, eval_id: str, display_name: str, poll_seconds: float
 ) -> float:
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
 
+    last = None
     while True:
         progress = client.evals.runs.progress(eval_id)
-        print(
+        line = (
             f"evaluation={display_name} status={progress.status} "
-            f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}",
-            flush=True,
+            f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}"
         )
+        if line != last:
+            print(line, flush=True)
+            last = line
         if progress.status == "completed":
             break
         if progress.status in {"failed", "cancelled"}:
@@ -135,12 +143,10 @@ def _wait_for_evaluation(
     trajectories = list(client.trajectories.list(eval_run_id=eval_id))
     graded = 0
     failed = 0
-    for trajectory in trajectories:
-        failed += (
-            trajectory.rollout is not None and trajectory.rollout.status == "FAILED"
-        )
+    for attempt in trajectories:
+        failed += attempt.rollout is not None and attempt.rollout.status == "FAILED"
         detail = client.trajectories.retrieve(
-            trajectory.trajectory_id, include_reward_components=True
+            attempt.trajectory_id, include_reward_components=True
         )
         graded += any(
             component.name == "reward_accuracy"
@@ -169,17 +175,18 @@ def _wait_for_evaluation(
 
 
 def _wait_for_training(
-    client: Client,
+    client: trajectory.Client,
     run_id: str,
     poll_seconds: float,
 ) -> TrainingRunResponse:
+    last = None
     while True:
         run = client.training.runs.retrieve(run_id)
         progress = client.training.runs.progress(run_id)
-        print(
-            f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}",
-            flush=True,
-        )
+        line = f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}"
+        if line != last:
+            print(line, flush=True)
+            last = line
         if str(run.status) in _TERMINAL_STATUSES:
             return run
         time.sleep(poll_seconds)
@@ -191,11 +198,11 @@ def main() -> int:
     parser.add_argument("--bench-name", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--num-steps", type=int, default=20)
-    parser.add_argument("--poll-seconds", type=float, default=30)
+    parser.add_argument("--poll-seconds", type=float, default=10)
     args = parser.parse_args()
 
     train_and_evaluate(
-        Client(max_retries=20),
+        trajectory.Client(),
         args.agent_name,
         args.bench_name,
         args.model,

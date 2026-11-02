@@ -1,16 +1,14 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.32"]
+# dependencies = ["trajectory-sdk>=0.9.37"]
 # ///
 """Ingest GSM8K train/test tasks through the Trajectory SDK."""
 
 import argparse
-import json
 import time
-import urllib.request
 from pathlib import Path
 
-from trajectory import BenchmarkSpec, Client, TaskSpec
+import trajectory
 from trajectory.lib import (
     DockerfileBuild,
     start_push,
@@ -22,59 +20,43 @@ _RUNTIME_ROOT = Path(__file__).parent / "runtime"
 _RUNTIME_DOCKERFILE = "Dockerfile"
 _RUN_COMMAND = "python -u /opt/gsm8k/gsm8k_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
+# The settings train.py evaluates and trains with.
+_RUN_OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_turn": 2_048}
 _TRAIN_TASKS = 64
-# Qwen 3.5 4B solves this training problem about half the time, so smoke training has signal.
-_SMOKE_TRAIN_INDEX = 20
 _TEST_TASKS = 16
-# The default smoke and full uploads are versions of one benchmark.
 _BENCHMARK_NAME = "gsm8k-trajectory-sdk"
-_DATASET_URLS = {
-    "train": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/train.jsonl",
-    "test": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/test.jsonl",
-}
 
 
-def build_benchmark(rows_by_split: dict[str, list[dict]], name: str) -> BenchmarkSpec:
-    return BenchmarkSpec(
+def build_benchmark(name: str) -> trajectory.BenchmarkSpec:
+    return trajectory.BenchmarkSpec(
         name=name,
         description="GSM8K exact-match training benchmark.",
         runtime=DockerfileBuild(_RUNTIME_DOCKERFILE),
         tasks=[
-            TaskSpec(
+            trajectory.TaskSpec(
                 name=f"gsm8k/{split}_{index:04d}",
                 split=split,
-                run_command=_RUN_COMMAND,
-                env_vars=_task_env(row),
+                run_command=f"{_RUN_COMMAND} --task_id {task_id}",
                 tags=["gsm8k"],
             )
-            for split, rows in rows_by_split.items()
-            for index, row in enumerate(rows)
+            for split, start, count in (
+                ("train", 0, _TRAIN_TASKS),
+                ("test", _TRAIN_TASKS, _TEST_TASKS),
+            )
+            for index, task_id in enumerate(range(start, start + count))
         ],
     )
 
 
 def ingest(name: str, agent_name: str) -> str:
-    rows = {
-        "train": _load_rows("train", _TRAIN_TASKS),
-        "test": _load_rows("test", _TEST_TASKS),
-    }
-    return _push_benchmark(rows, name, agent_name)
+    return _push_benchmark(name, agent_name)
 
 
-def ingest_smoketest(agent_name: str) -> str:
-    # Use one task per split for the quickest check of ingestion and runtime errors.
-    rows = {
-        "train": _load_rows("train", _SMOKE_TRAIN_INDEX + 1)[-1:],
-        "test": _load_rows("test", 1),
-    }
-    return _push_benchmark(rows, _BENCHMARK_NAME, agent_name)
-
-
-def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> str:
-    client = Client()
+def _push_benchmark(name: str, agent_name: str) -> str:
+    client = trajectory.Client()
     operation = start_push(
         client,
-        build_benchmark(rows, name),
+        build_benchmark(name),
         agent_name=agent_name,
         root=_RUNTIME_ROOT,
         build_images=True,
@@ -93,21 +75,20 @@ def _push_benchmark(rows: dict[str, list[dict]], name: str, agent_name: str) -> 
 
 def task_diagnose(agent_name: str) -> None:
     # Catch packaging, execution, and grading errors on one task before benchmark upload.
-    client = Client()
-    (row,) = _load_rows("train", 1)
+    client = trajectory.Client()
     diagnostic = start_task_diagnostic(
         client,
-        TaskSpec(
+        trajectory.TaskSpec(
             name="gsm8k/train_0000",
             split="train",
             runtime=DockerfileBuild(_RUNTIME_DOCKERFILE),
-            run_command=_RUN_COMMAND,
-            env_vars=_task_env(row),
+            run_command=f"{_RUN_COMMAND} --task_id 0",
             tags=["gsm8k"],
         ),
         agent_name=agent_name,
         root=_RUNTIME_ROOT,
         base_model_slug="Qwen/Qwen3.5-4B",
+        options=_RUN_OPTIONS,
         timeout_seconds=_BUILD_TIMEOUT_SECONDS,
     )
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
@@ -115,15 +96,16 @@ def task_diagnose(agent_name: str) -> None:
 
 def benchmark_diagnostic(bench_id: str) -> None:
     # Check a subset of uploaded tasks and runtimes before evaluation or training.
-    client = Client()
+    client = trajectory.Client()
     diagnostic = client.diagnostics.start_benchmark(
         bench_id=bench_id,
         base_model_slug="Qwen/Qwen3.5-4B",
+        options=_RUN_OPTIONS,
     )
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
 
 
-def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
+def _wait_for_diagnostic(client: trajectory.Client, diagnostic_id: str) -> None:
     print(f"diagnostic_id={diagnostic_id}", flush=True)
     while True:
         status = client.diagnostics.get_status(diagnostic_id)
@@ -139,30 +121,18 @@ def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
         or result.failure is not None
         or not result.tasks
         or any(
-            task.status != "completed" or task.failure is not None
-            for task in result.tasks
+            task.status != "completed" or task.reward is None for task in result.tasks
         )
     ):
         raise RuntimeError(
             f"Diagnostic {diagnostic_id} did not pass; inspect the report above"
         )
-    evaluation = client.evals.runs.retrieve(result.eval_run_id)
-    if evaluation.reward_mean is None:
-        raise RuntimeError(
-            f"Diagnostic {diagnostic_id} completed without a recorded reward"
+    for task in result.tasks:
+        print(
+            f"task_id={task.task_id} ending={task.termination_reason} "
+            f"reward={task.reward}",
+            flush=True,
         )
-    print(f"diagnostic_reward={evaluation.reward_mean}", flush=True)
-
-
-def _load_rows(split: str, limit: int) -> list[dict]:
-    with urllib.request.urlopen(_DATASET_URLS[split], timeout=60) as response:
-        rows = [json.loads(line) for line in response.read().decode().splitlines()]
-    return rows[:limit]
-
-
-def _task_env(row: dict) -> dict[str, str]:
-    # Each task carries its problem, so the runtime image is the same for every task.
-    return {"QUESTION": row["question"], "EXPECTED_ANSWER": row["answer"]}
 
 
 def main() -> int:

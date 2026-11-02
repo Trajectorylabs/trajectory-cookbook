@@ -1,14 +1,14 @@
 """Run and grade one GSM8K task."""
 
+import argparse
 import json
-import os
 import re
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
-from trajectory import APIError, Client
-from trajectory.types.inference.chat_completion_response import (
-    ChatCompletionResponseToolCall,
-)
+import trajectory
+
+_TASKS_PATH = Path(__file__).with_name("tasks.jsonl")
 
 _PROMPT = """Solve this grade-school math problem carefully. Show your reasoning, then submit
 the final numeric answer by calling the `submit_answer` tool. Do not state the final answer only
@@ -45,9 +45,7 @@ def extract_number(text: str) -> Decimal | None:
         return None
 
 
-def extract_submitted_answer(
-    tool_calls: list[ChatCompletionResponseToolCall] | None,
-) -> Decimal | None:
+def extract_submitted_answer(tool_calls) -> Decimal | None:
     for tool_call in reversed(tool_calls or []):
         if tool_call.function.name != "submit_answer":
             continue
@@ -59,26 +57,23 @@ def extract_submitted_answer(
     return None
 
 
-def main() -> None:
-    question = os.environ["QUESTION"]
-    expected = extract_number(os.environ["EXPECTED_ANSWER"])
+def main(task_id: int) -> None:
+    task = json.loads(_TASKS_PATH.read_text().splitlines()[task_id])
+    question = task["question"]
+    expected = extract_number(task["answer"])
 
-    client = Client(max_retries=20)
+    client = trajectory.Client()
     trajectory_id = client.trajectories.create().tid
-    try:
-        response = client.chat.completions.create(
-            model="gsm8k",  # Any model name.
-            messages=[
-                {"role": "user", "content": _PROMPT.format(question=question)},
-            ],
-            extra_body={"tools": [_SUBMIT_ANSWER_TOOL]},
-            # Managed runs apply the run's output limit and sampling settings instead.
-            max_tokens=2_048,
-            x_trajectory_id=trajectory_id,
-        )
-    except APIError:
-        client.trajectories.complete(trajectory_id, termination_reason="ERROR")
-        raise
+    response = client.chat.completions.create(
+        model="gsm8k",  # Any model name.
+        messages=[
+            {"role": "user", "content": _PROMPT.format(question=question)},
+        ],
+        extra_body={"tools": [_SUBMIT_ANSWER_TOOL]},
+        # Managed runs apply the run's output limit and sampling settings instead.
+        max_tokens=2_048,
+        x_trajectory_id=trajectory_id,
+    )
     choice = response.choices[0]
     submitted = extract_submitted_answer(choice.message.tool_calls)
     reward = float(
@@ -92,14 +87,12 @@ def main() -> None:
     )
     if choice.finish_reason in ("length", "max_tokens"):
         reason = "TRUNCATION"
-    elif submitted is None:
-        reason = "MISSING_SUBMIT"
     else:
         reason = "ENV_DONE"
-    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
-    if completed.status not in ("completed", "finalizing"):
-        raise RuntimeError(f"trajectory completion failed: {completed}")
+    client.trajectories.complete(trajectory_id, termination_reason=reason)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task_id", type=int, required=True)
+    main(parser.parse_args().task_id)
