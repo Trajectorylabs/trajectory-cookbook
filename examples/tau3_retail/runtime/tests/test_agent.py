@@ -9,11 +9,13 @@ from trajectory import Client
 
 
 @pytest.mark.parametrize(
-    "reason, output_limited_replies, leaked, expected_reward, expected_ending",
+    "reason, output_limited_replies, leaked, source_reward, "
+    "expected_reward, expected_ending",
     [
-        (TerminationReason.USER_STOP, False, 1, 1.0, "ENV_DONE"),
-        (TerminationReason.USER_STOP, 1, 0, 1.0, "ENV_DONE"),
-        (TerminationReason.AGENT_ERROR, False, 0, None, "ERROR"),
+        (TerminationReason.USER_STOP, 0, 1, 1.0, 1.0, "ENV_DONE"),
+        (TerminationReason.USER_STOP, 1, 0, 1.0, 1.0, "ENV_DONE"),
+        (TerminationReason.TOO_MANY_ERRORS, 0, 0, 0.0, 0.0, "ENV_DONE"),
+        (TerminationReason.AGENT_ERROR, 0, 0, 0.0, None, "ERROR"),
     ],
 )
 def test_upstream_reward_and_endings(
@@ -21,6 +23,7 @@ def test_upstream_reward_and_endings(
     reason,
     output_limited_replies,
     leaked,
+    source_reward,
     expected_reward,
     expected_ending,
 ):
@@ -42,7 +45,7 @@ def test_upstream_reward_and_endings(
         )
 
     source_result = SimpleNamespace(
-        reward_info=RewardInfo(reward=1.0, info={}),
+        reward_info=RewardInfo(reward=source_reward, info={}),
         termination_reason=reason,
     )
     models = []

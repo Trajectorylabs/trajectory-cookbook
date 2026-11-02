@@ -27,7 +27,7 @@ def termination_reason(reason: object) -> str:
         "MAX_STEPS": "MAX_STEPS",
         "TIMEOUT": "TIMEOUT",
         "CONTEXT_WINDOW_EXCEEDED": "TRUNCATION",
-        "TOO_MANY_ERRORS": "ERROR",
+        "TOO_MANY_ERRORS": "ENV_DONE",
         "AGENT_ERROR": "ERROR",
         "USER_ERROR": "ERROR",
         "INFRASTRUCTURE_ERROR": "ERROR",
