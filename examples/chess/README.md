@@ -2,14 +2,23 @@
 
 Let's teach a model to deliver checkmate!
 
-Claude Shannon's 1950 paper,
+Inspired by Claude Shannon's 1950 paper,
 [*Programming a Computer for Playing Chess*](https://www.computerhistory.org/chess/doc-431614f453dde/),
-studied how to program a computer to play chess. Here, we train models on a smaller
-task: finish a forcing checkmate from a given position.
+we train models on a simpler variant of chess: finish a forcing checkmate from a
+given position.
 
-This tutorial takes a chess puzzle from a local replay through evaluation and
-training with the Trajectory SDK. You'll compare an agent that reasons without
-calculation tools with one that can run Python and `python-chess`.
+This cookbook takes you from data to ingestion, evaluation, and training with the
+Trajectory SDK. You'll compare two agents: one uses reasoning alone, and the other
+can calculate with Python and `python-chess`.
+
+The cookbook has six sections:
+
+1. [Dataset](#dataset): Lichess puzzles, splits, and rating distribution.
+2. [Harness](#harness): the two agents, move handling, and an example trace.
+3. [Ingestion](#ingestion): upload both variants to Trajectory.
+4. [Eval](#eval): compare ten models on the same puzzles.
+5. [Train](#train): train two models with both agents and compare before and after.
+6. [Appendix](#appendix): sources, previews, and local checks.
 
 ## Dataset
 
