@@ -27,7 +27,7 @@ recorded reward, and completed trajectory.
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
 
-For another harness, see the SDK guides for [source graders](https://docs.trajectory.ai/guides/source-graders),
+For SDK adapter details, see the guides for [source graders](https://docs.trajectory.ai/guides/source-graders),
 [Inspect](https://docs.trajectory.ai/guides/inspect), [diagnostics](https://docs.trajectory.ai/guides/spec#validate-one-task-before-uploading),
 [diagnostic artifacts](https://docs.trajectory.ai/guides/diagnostic-artifacts), and
 [termination reasons](https://docs.trajectory.ai/guides/termination-reasons).
