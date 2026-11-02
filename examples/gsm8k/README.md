@@ -2,25 +2,32 @@
 
 ## Dataset
 
-This example adapts a sample of the public
+Evaluate and train a model to solve grade-school math problems from
 [GSM8K dataset](https://github.com/openai/grade-school-math/tree/3101c7d5072418e28b9008a6636bde82a006892c)
-to the Trajectory SDK. The selected rows are stored in [`runtime/tasks.jsonl`](runtime/tasks.jsonl).
-The upload contains 64 training and 16 held-out test problems.
+with Trajectory. This walkthrough takes you from running one problem to uploading a benchmark
+and starting evaluation and training runs. The upload uses 64 training and 16 held-out
+problems.
 
 ## Harness
 
-The model must call `submit_answer`. The harness compares that numeric answer with the private
-reference, records `reward_accuracy`, and completes the trajectory as `ENV_DONE` or `TRUNCATION`.
+For each problem, the model submits its answer through a `submit_answer` tool. The
+[harness](runtime/gsm8k_harness.py) checks it against the reference answer and records a reward
+of 1 for a correct answer or 0 otherwise. Problems and reference answers live in
+[`runtime/tasks.jsonl`](runtime/tasks.jsonl); only the question is sent to the model.
 
 ## Ingestion
 
-The runtime is the Docker image shared by every task. Each task starts the same harness with a
-different row ID from `tasks.jsonl`. From the repository root:
+The runtime packages the harness, task data, and SDK into a Docker image. Start a Python session
+from the repository root, then run the snippets below in order in that same session:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with 'trajectory-sdk>=0.10.0' python
 ```
+
+Connect to Trajectory and select the runtime folder. `DockerfileBuild` tells Trajectory how to
+build the image; `run_command` tells it how to start the harness inside that image. Set
+`agent_name` to the agent that will own this benchmark:
 
 ```python
 from pathlib import Path
@@ -33,12 +40,18 @@ agent_name = "gsm8k-cookbook"
 runtime_root = Path("examples/gsm8k/runtime")
 runtime = trajectory.lib.DockerfileBuild("Dockerfile")
 run_command = "python -u /opt/gsm8k/gsm8k_harness.py"
+model = "Qwen/Qwen3.5-4B"
+model_options = {
+    "reasoning_effort": "off",
+    "max_output_tokens_per_turn": 2048,
+}
 ```
 
 ### Diagnose one task
 
-A task diagnostic builds the runtime and executes one task before the full benchmark is
-registered. Use it to catch packaging, model-call, or grading problems quickly.
+Try the first problem before uploading the full benchmark. This diagnostic builds the image and
+starts the harness with `--task_id 0`, which selects the first row of the JSONL file. Use the
+returned diagnostic ID to inspect whether the task ran and recorded a grade:
 
 ```python
 diagnostic_task = trajectory.TaskSpec(
@@ -54,34 +67,29 @@ diagnostic = trajectory.lib.start_task_diagnostic(
     diagnostic_task,
     agent_name=agent_name,
     root=runtime_root,
-    base_model_slug="Qwen/Qwen3.5-4B",
-    options={
-        "reasoning_effort": "off",
-        "max_output_tokens_per_turn": 2_048,
-    },
+    base_model_slug=model,
+    options=model_options,
 )
 print(diagnostic.benchmark_diagnostic_id)
 ```
 
 ### Upload benchmark
 
-The benchmark manifest maps local row IDs into explicit training and held-out splits. `push`
-uploads that manifest, builds the shared runtime, and returns an immutable benchmark ID.
+Define which problems to train on and which to reserve for evaluation. Each `TaskSpec` selects
+one row from the same JSONL file, and all tasks share the runtime. The upload returns a
+`bench_id` that identifies this benchmark version; use it for the runs below:
 
 ```python
-tasks = [
-    trajectory.TaskSpec(
-        name=f"gsm8k/{split}_{index:04d}",
+tasks = []
+for task_id in range(80):
+    split = "train" if task_id < 64 else "test"
+    task = trajectory.TaskSpec(
+        name=f"gsm8k/{task_id}",
         split=split,
         run_command=f"{run_command} --task_id {task_id}",
         tags=["gsm8k"],
     )
-    for split, start, count in (
-        ("train", 0, 64),
-        ("test", 64, 16),
-    )
-    for index, task_id in enumerate(range(start, start + count))
-]
+    tasks.append(task)
 
 benchmark = trajectory.BenchmarkSpec(
     name="gsm8k-trajectory-sdk",
@@ -103,46 +111,46 @@ print(bench_id)
 
 ## Evaluation
 
-Evaluation runs the held-out split without changing the model. Training uses the training split
-to create checkpoints. Keep both run IDs so their progress and results can be compared in the
-product UI.
+First, evaluate the base model on the held-out problems. This gives you a baseline to compare
+against trained checkpoints:
 
 ```python
 evaluation = client.evals.create(
     bench_id=bench_id,
-    base_model_slug="Qwen/Qwen3.5-4B",
-    options={
-        "reasoning_effort": "off",
-        "max_output_tokens_per_turn": 2_048,
-    },
+    base_model_slug=model,
+    options=model_options,
 )
 ```
 
 ## Training
 
+Next, train the same model on the training split for three steps. Training produces checkpoints
+that you can evaluate on the same held-out problems:
+
 ```python
 training = client.training.create(
     bench_id=bench_id,
-    base_model_slug="Qwen/Qwen3.5-4B",
+    base_model_slug=model,
     options={
-        "reasoning_effort": "off",
+        **model_options,
         "num_steps": 3,
         "batch_size": 4,
         "max_concurrent_trajectories": 32,
-        "max_output_tokens_per_turn": 2_048,
     },
 )
 ```
 
+Open these links to follow the evaluation and training runs in Trajectory. Once training
+finishes, evaluate a checkpoint on this benchmark to compare its score with the baseline:
+
 ```python
 organization = client.organizations.retrieve_current()
 product_url = f"https://platform.trajectory.ai/{organization['organization_key']}"
-print(f"{product_url}/evaluate/runs/{evaluation.eval_run_id}")
-print(f"{product_url}/models/{training.training_run_id}")
+print("Evaluation:", f"{product_url}/evaluate/runs/{evaluation.eval_run_id}")
+print("Training:", f"{product_url}/models/{training.training_run_id}")
 ```
 
 ## Appendix
 
-The SDK adapter owns model calls; the harness keeps the private reference answer and
-exact-match grade. The pinned GSM8K source is [MIT-licensed](https://github.com/openai/grade-school-math/blob/3101c7d5072418e28b9008a6636bde82a006892c/LICENSE);
+The pinned GSM8K source is [MIT-licensed](https://github.com/openai/grade-school-math/blob/3101c7d5072418e28b9008a6636bde82a006892c/LICENSE);
 the runtime includes its [license text](runtime/LICENSE-GSM8K).
