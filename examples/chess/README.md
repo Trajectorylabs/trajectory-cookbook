@@ -45,13 +45,13 @@ positions between splits. Lichess supplies the mate labels; line replay does not
 the shortest mate against every defense. Source: [Lichess](https://database.lichess.org/#puzzles),
 under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Ratings refer to puzzles.
 
-## 2. Harnesses: reasoning and ten-step Python
+## 2. Harnesses: reasoning and fifty-step Python
 
 | Setting | Reasoning | Python |
 | --- | --- | --- |
 | Input | FEN, board, side to move, mate length | Same |
 | Tools | `submit_move` | `submit_move`, `python_chess` |
-| Model responses | At most `mate_in`, up to 5 | At most 10 total |
+| Model responses | At most `mate_in`, up to 5 | At most 50 total |
 | Output limit | 4,000 tokens per response | 4,000 tokens per response |
 | Opponent | Harness plays reference reply | Same |
 | Reward | 1.0 only for the full exact continuation | Same |
@@ -68,6 +68,14 @@ if __name__ == "__main__":
 ```
 
 ### Python harness
+
+The model receives this instruction:
+
+```text
+You have at most 50 model turns total, including Python calls and move submissions.
+Use python_chess to calculate with python-chess. Each call gets a fresh board
+at the current position. Reserve enough turns to submit every move.
+```
 
 [`runtime/python_harness.py`](runtime/python_harness.py):
 
@@ -90,7 +98,7 @@ that new position. Python calculations do not advance the puzzle.
 board = Board(puzzle["fen"])
 line = puzzle["solution"]
 index = 0
-max_steps = puzzle["mate_in"] if variant == "reasoning" else 10
+max_steps = puzzle["mate_in"] if variant == "reasoning" else 50
 
 for step in range(max_steps):
     reply = model.respond(public_messages, tools=tools, max_tokens=4000)
@@ -210,16 +218,18 @@ for model in OPEN_MODELS + CLOSED_MODELS:
                 "val_num_tasks": 100,
                 "val_trajectories_per_task": 4,
                 "max_output_tokens_per_turn": 4000,
-                "max_output_tokens_per_trajectory": 44000,
-                "max_turns_per_trajectory": 24,  # Harness still stops at 5 or 10.
+                "max_output_tokens_per_trajectory": 204000,
+                "max_turns_per_trajectory": 104,  # Harness still stops at 5 or 50.
             },
         )
         save_job_id(model, variant, job.eval_run_id)
         collect_exact_grades_endings_and_correct_prefixes(job)
 ```
 
-The 44,000-token platform ceiling leaves room to finish grading after ten 4,000-token
-responses. It does not raise the harness's ten-response limit. Keep each model's
+The 204,000-token platform ceiling leaves room to finish grading after fifty 4,000-token
+responses. The platform turn ceiling is 104 to allow model and environment messages;
+the Python harness still stops at 50 model responses. The attempt timeout is 3,600
+seconds. Python calls and move submissions share the 50-turn budget. Keep each model's
 thinking and sampling settings fixed across harnesses and before/after evaluations.
 
 ```python
@@ -280,8 +290,8 @@ for model in TRAIN_MODELS:
                 "group_size": 8,
                 "max_concurrent_trajectories": 128,
                 "max_output_tokens_per_turn": 4000,
-                "max_output_tokens_per_trajectory": 44000,
-                "max_turns_per_trajectory": 24,
+                "max_output_tokens_per_trajectory": 204000,
+                "max_turns_per_trajectory": 104,
                 "val_enabled": False,  # Explicit final evaluation below.
             },
         )

@@ -17,8 +17,8 @@ from trajectory import Client
 
 ROOT = Path(__file__).parent
 TRAIN_MODELS = ("Qwen/Qwen3.5-4B", "Qwen/Qwen3.6-35B-A3B")
-OPTIONS = {"max_output_tokens_per_turn": 4000, "max_output_tokens_per_trajectory": 44000,
-           "max_turns_per_trajectory": 24, "trajectory_timeout_seconds": 900}
+OPTIONS = {"max_output_tokens_per_turn": 4000, "max_output_tokens_per_trajectory": 204000,
+           "max_turns_per_trajectory": 104, "trajectory_timeout_seconds": 3600}
 EVAL_OPTIONS = {"val_num_tasks": 100, "val_trajectories_per_task": 4,
                 "val_max_concurrent_trajectories": 16}
 

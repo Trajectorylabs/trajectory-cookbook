@@ -17,8 +17,8 @@ from dataset import audit, evaluation_subset
 ROOT = Path(__file__).parent
 MODEL = "Qwen/Qwen3.5-4B"
 OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_turn": 4000,
-           "max_output_tokens_per_trajectory": 44000, "max_turns_per_trajectory": 24,
-           "trajectory_timeout_seconds": 900}
+           "max_output_tokens_per_trajectory": 204000, "max_turns_per_trajectory": 104,
+           "trajectory_timeout_seconds": 3600}
 
 
 def task(record, variant):

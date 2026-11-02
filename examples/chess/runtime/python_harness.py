@@ -1,4 +1,4 @@
-"""Solve with isolated python-chess calculations and at most ten total model turns."""
+"""Solve with isolated python-chess calculations and at most fifty total model turns."""
 
 from chess_harness import main
 

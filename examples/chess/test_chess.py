@@ -109,7 +109,7 @@ def test_wrong_missing_and_cut_off_moves(puzzle, first, ending, monkeypatch):
     assert harness.play(client, "tid", puzzle, "reasoning")[:2] == (0.0, ending)
 
 
-def test_python_ten_step_limit_and_no_reference_payload(puzzle, monkeypatch):
+def test_python_fifty_step_limit_and_no_reference_payload(puzzle, monkeypatch):
     calls = []
 
     def execute(fen, root_moves, code):
@@ -117,11 +117,12 @@ def test_python_ten_step_limit_and_no_reference_payload(puzzle, monkeypatch):
         return {"isolation_active": True, "stdout": "ok", "exit_code": 0}
 
     monkeypatch.setattr(harness, "execute_chess_python", execute)
-    client, requests = client_for([response("python_chess", {"code": "print(board)"}) for _ in range(10)])
+    client, requests = client_for([response("python_chess", {"code": "print(board)"}) for _ in range(50)])
     reward, ending, metrics = harness.play(client, "tid", puzzle, "python")
     assert (reward, ending) == (0.0, "MAX_STEPS")
-    assert len(requests) == metrics["python_calls"] == 10
-    assert calls == [(puzzle["fen"], {}, "print(board)")] * 10
+    assert len(requests) == metrics["python_calls"] == 50
+    assert calls == [(puzzle["fen"], {}, "print(board)")] * 50
+    assert "at most 50 model turns total" in requests[0]["messages"][0]["content"]
 
 
 def test_isolation_failure_is_an_error(puzzle, monkeypatch):
@@ -129,6 +130,17 @@ def test_isolation_failure_is_an_error(puzzle, monkeypatch):
     client, _ = client_for([response("python_chess", {"code": "print(board)"})])
     with pytest.raises(RuntimeError, match="isolation failed"):
         harness.play(client, "tid", puzzle, "python")
+
+
+def test_python_can_complete_on_the_fiftieth_turn(puzzle, monkeypatch):
+    monkeypatch.setattr(harness, "execute_chess_python", lambda *_: {"isolation_active": True})
+    responses = [response("python_chess", {"code": "print(board)"}) for _ in range(48)]
+    responses += [response("submit_move", {"move": "a2e6"}), response("submit_move", {"move": "f7f8"})]
+    client, requests = client_for(responses)
+    reward, ending, metrics = harness.play(client, "tid", puzzle, "python")
+    assert (reward, ending) == (1.0, "ENV_DONE")
+    assert len(requests) == metrics["model_turns"] == 50
+    assert metrics["python_calls"] == 48
 
 
 def test_variants_have_matching_source_tasks(puzzle):

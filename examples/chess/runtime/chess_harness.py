@@ -32,7 +32,7 @@ def play(client, tid, puzzle, variant):
     board = chess.Board(puzzle["fen"])
     solution = puzzle["solution"]
     index = 0
-    max_steps = 10 if variant == "python" else puzzle["mate_in"]
+    max_steps = 50 if variant == "python" else puzzle["mate_in"]
     system = (
         "Solve this chess puzzle by reproducing its full reference mating continuation. "
         f"{position(board, puzzle['mate_in'])['instruction']} "
@@ -45,7 +45,7 @@ def play(client, tid, puzzle, variant):
         "Make exactly one tool call per turn. Each response allows at most 4000 output tokens. "
     )
     system += (
-        "You have at most 10 model turns total, including Python calls and move submissions. "
+        "You have at most 50 model turns total, including Python calls and move submissions. "
         "Use python_chess to calculate with python-chess. Each call gets a fresh board at the current position. "
         "Reserve enough turns to submit every move."
         if variant == "python" else "Use your own reasoning. No calculation tool is available."
