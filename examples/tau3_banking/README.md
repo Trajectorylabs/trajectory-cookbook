@@ -63,9 +63,9 @@ Client().evals.create(
         "temperature": 1.0,
         "top_p": 0.95,
         "top_k": 20,
-        "max_output_tokens_per_step": 16384,
+        "max_output_tokens_per_turn": 16384,
         "max_turns_per_trajectory": 200,
-        "max_total_tokens_per_trajectory": 262144,
+        "max_output_tokens_per_trajectory": 262144,
     },
 )
 ```
@@ -76,7 +76,7 @@ The uploader includes 80 training tasks and 17 held-out test tasks. Use the uplo
 ID with the [SDK training guide](https://docs.trajectory.ai/guides/training); the example does
 not include a separate training script.
 
-For evaluations during training, set `evaluation_top_p` and `evaluation_top_k` in the training
+For evaluations during training, set `val_top_p` and `val_top_k` in the training
 options if you need the same sampling.
 
 ## Appendix

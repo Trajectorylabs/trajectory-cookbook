@@ -9,5 +9,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL https://codeload.github.com/harveyai/harvey-labs/tar.gz/1dd81403b2fbb60596f7aea3fcecafad7bf73143 \
     | tar -xz --strip-components=1
 COPY lab_core/ lab_core/
-RUN python -m pip install --no-cache-dir "trajectory-sdk>=0.9.33" .
+RUN python -m pip install --no-cache-dir "trajectory-sdk>=0.10.0" .
 CMD ["sleep", "infinity"]

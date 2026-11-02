@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.33"]
+# dependencies = ["trajectory-sdk>=0.10.0"]
 # ///
 """Evaluate the test tasks, train briefly, and evaluate the final checkpoint."""
 
@@ -16,10 +16,10 @@ RUN_OPTIONS = {
     "reasoning_effort": "on",
     # The 50-minute agent budget ends an attempt well before these caps.
     "max_turns_per_trajectory": 200,
-    "max_output_tokens_per_step": 16_384,
-    "max_total_tokens_per_trajectory": 262_144,
+    "max_output_tokens_per_turn": 16_384,
+    "max_output_tokens_per_trajectory": 262_144,
     # Image pull (up to 30 minutes), the 50-minute agent budget, and the verifier's 50 minutes.
-    "execution_timeout_seconds": 9_000,
+    "trajectory_timeout_seconds": 9_000,
 }
 
 
@@ -85,14 +85,14 @@ def main() -> None:
         options={
             **RUN_OPTIONS,
             "num_steps": args.num_steps,
-            "train_batch_size": args.train_batch_size,
+            "batch_size": args.train_batch_size,
             "group_size": args.group_size,
             # Sample four groups at a time; many groups resolve every attempt or none.
-            "max_active_rollouts": 4 * args.train_batch_size * args.group_size,
-            "batch_collection_idle_timeout_seconds": 21_600,
+            "max_concurrent_trajectories": 4 * args.train_batch_size * args.group_size,
+            "batch_timeout_seconds": 21_600,
             # An attempt stopped at the 50-minute agent budget still has a graded patch.
             "train_on_timeout": True,
-            "evaluation_enabled": False,
+            "val_enabled": False,
         },
     )
     run_id = training.training_run_id

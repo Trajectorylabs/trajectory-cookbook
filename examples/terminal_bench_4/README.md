@@ -22,7 +22,7 @@ API key. The task runtime needs nested Docker, as in the
 
 ```sh
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk==0.9.37 python -c \
+uv run --with 'trajectory-sdk>=0.10.0' python -c \
   'from trajectory import Client; Client().agents.create(name="terminal-bench-4", description="Terminal-Bench 4.0 evaluation")'
 uv run examples/terminal_bench_4/ingest.py --agent-name terminal-bench-4 --agent-timeout 300
 ```
@@ -51,9 +51,9 @@ run = Client().evals.create(
     options={
         "reasoning_effort": "on",
         "max_turns_per_trajectory": 300,
-        "max_output_tokens_per_step": 8192,
-        "max_total_tokens_per_trajectory": 131072,
-        "execution_timeout_seconds": 2100,
+        "max_output_tokens_per_turn": 8192,
+        "max_output_tokens_per_trajectory": 131072,
+        "trajectory_timeout_seconds": 2100,
     },
 )
 print(run.eval_run_id)
@@ -61,7 +61,7 @@ print(run.eval_run_id)
 
 The `2100`-second evaluation limit matches the 300-second smoke upload above and leaves
 time for environment setup and verification. If you upload without `--agent-timeout`,
-use `execution_timeout_seconds=30600` for the source's eight-hour agent deadline plus
+use `trajectory_timeout_seconds=30600` for the source's eight-hour agent deadline plus
 that overhead.
 
 ## Training

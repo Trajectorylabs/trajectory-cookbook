@@ -86,9 +86,9 @@ The example uses these run settings for the agent and subsequent verifier:
 RUN_OPTIONS = {
     "reasoning_effort": "on",
     "max_turns_per_trajectory": 200,
-    "max_output_tokens_per_step": 16_384,
-    "max_total_tokens_per_trajectory": 262_144,
-    "execution_timeout_seconds": 9_000,
+    "max_output_tokens_per_turn": 16_384,
+    "max_output_tokens_per_trajectory": 262_144,
+    "trajectory_timeout_seconds": 9_000,
 }
 ```
 
@@ -138,7 +138,7 @@ Measured with Qwen 3.6 35B A3B and the settings above:
 All four stages used one benchmark version; baseline and checkpoint evaluation used the
 same eight tasks and options. Timed-out attempts were graded. Eight held-out tasks with
 one attempt each cannot measure lift from two training steps; use more tasks and
-`evaluation_samples_per_task` for a comparison.
+`val_trajectories_per_task` for a comparison.
 
 ## Appendix
 

@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["trajectory-sdk==0.9.37"]
+# dependencies = ["trajectory-sdk>=0.10.0"]
 # ///
 """Upload pinned Terminal-Bench 4.0 tasks and run a diagnostic."""
 
@@ -134,9 +134,9 @@ def diagnose(bench_id: str, timeout: int | None) -> None:
     options = {
         "reasoning_effort": "on",
         "max_turns_per_trajectory": 300,
-        "max_output_tokens_per_step": 8192,
-        "max_total_tokens_per_trajectory": 131072,
-        "execution_timeout_seconds": min(36000, (timeout or 28800) + 1800),
+        "max_output_tokens_per_turn": 8192,
+        "max_output_tokens_per_trajectory": 131072,
+        "trajectory_timeout_seconds": min(36000, (timeout or 28800) + 1800),
     }
     diagnostic_id = client.diagnostics.start_benchmark(
         bench_id=bench_id, base_model_slug=MODEL, options=options

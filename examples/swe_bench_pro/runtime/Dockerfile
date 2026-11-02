@@ -5,7 +5,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && docker --version \
   && dockerd --version
-RUN python -m pip install --no-cache-dir "trajectory-sdk>=0.9.32" "jinja2>=3.1" "pyyaml>=6"
+RUN python -m pip install --no-cache-dir "trajectory-sdk>=0.10.0" "jinja2>=3.1" "pyyaml>=6"
 
 # ingest.py stages the SWE-Bench Pro V2 prompts and verifiers, without reference solutions.
 COPY swe_bench_pro_v2.tar.gz /tmp/swe_bench_pro_v2.tar.gz

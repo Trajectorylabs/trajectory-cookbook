@@ -65,7 +65,7 @@ native providers; GPT and O-series IDs use `OPENAI_API_KEY`. See
 
 Harvey LAB tasks can take dozens of tool calls. These Qwen 3.6 35B A3B limits were
 used for the diagnostic, an eight-task baseline, and the checkpoint evaluation.
-Remove `evaluation_max_samples` to evaluate all 120 held-out tasks.
+Remove `val_num_tasks` to evaluate all 120 held-out tasks.
 
 ```python
 from trajectory import Client
@@ -75,12 +75,12 @@ bench_id = "YOUR_BENCH_ID"
 model = "Qwen/Qwen3.6-35B-A3B"
 limits = {
     "reasoning_effort": "on",
-    "max_output_tokens_per_step": 262142,
-    "max_total_tokens_per_trajectory": 262144,
-    "execution_timeout_seconds": 7200,
+    "max_output_tokens_per_turn": 262142,
+    "max_output_tokens_per_trajectory": 262144,
+    "trajectory_timeout_seconds": 7200,
 }
 diagnostic_options = {**limits, "max_turns_per_trajectory": 200}
-evaluation_options = {**diagnostic_options, "evaluation_max_samples": 8}
+evaluation_options = {**diagnostic_options, "val_num_tasks": 8}
 
 diagnostic = client.diagnostics.start_benchmark(
     bench_id=bench_id, base_model_slug=model, options=diagnostic_options
@@ -113,10 +113,10 @@ training = client.training.create(
         **limits,
         "max_turns_per_trajectory": 125,
         "num_steps": 3,
-        "train_batch_size": 1,
+        "batch_size": 1,
         "group_size": 8,
-        "max_active_rollouts": 8,
-        "evaluation_enabled": False,
+        "max_concurrent_trajectories": 8,
+        "val_enabled": False,
     },
 )
 print(training.training_run_id)

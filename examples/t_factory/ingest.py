@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.9.33"]
+# dependencies = ["trajectory-sdk>=0.10.0"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
 
@@ -17,7 +17,7 @@ _BUILD_TIMEOUT_SECONDS = 45 * 60
 _DIAGNOSTIC_DONE = {"completed", "failed", "cancelled"}
 _MODEL = "Qwen/Qwen3.5-4B"
 # The settings train.py evaluates and trains with.
-_RUN_OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_step": 2_048}
+_RUN_OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_turn": 2_048}
 _TRAIN_TASKS = 128
 _TEST_TASKS = 64
 _TOPICS = (
