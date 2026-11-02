@@ -8,8 +8,8 @@ check. It is an **evaluation-only** example: the release has no official trainin
 
 ## Try one task
 
-You need Python 3.12+, [uv](https://docs.astral.sh/uv/), Git, a Trajectory organization
-API key, and an agent. The task runtime needs nested Docker, as in the
+You need Python 3.12+, [uv](https://docs.astral.sh/uv/), Git, and a Trajectory organization
+API key. The task runtime needs nested Docker, as in the
 [SWE-Bench Pro example](../swe_bench_pro/README.md).
 
 ```sh
