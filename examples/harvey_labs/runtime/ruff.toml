@@ -1,0 +1,12 @@
+# Upstream Harvey LAB's ruff settings; its files keep upstream formatting to diff cleanly.
+target-version = "py312"
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
+
+[format]
+exclude = [
+  "lab_core/evaluation/*",
+  "lab_core/harness/run.py",
+  "lab_core/sandbox/*",
+]
