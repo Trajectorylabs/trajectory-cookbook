@@ -1,8 +1,7 @@
 # Public Tau 3 Banking
 
 This example packages Sierra's public 97-task Banking benchmark from
-[Tau 2](https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992) commit
-`fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1). It keeps the source task bytes,
+[tau2-bench v1.0.1](https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992). It keeps the source task bytes,
 `bm25_grep` retrieval, simulated-user prompts, and evaluator. Following the
 [Artificial Analysis methodology](https://artificialanalysis.ai/methodology/intelligence-benchmarking),
 the simulated user and `task_102` natural-language judge use GPT-5.4 Mini at medium reasoning
@@ -10,20 +9,9 @@ instead of the source release's GPT-4.1 defaults. The cookbook sorts task IDs in
 and 17 held-out test tasks; this split is for training, not the full 97-task, five-repeat
 leaderboard evaluation.
 
-The runtime locks its dependencies and calls the SDK for policy inference, reward
-publication, protocol events, and completion. It invokes the virtual environment's Python by
-absolute path and declares `TAU2_DATA_DIR` in the task environment. Neither depends on the
-sandbox launcher restoring Docker's PATH or working directory.
-
-Upstream error endings complete as `ERROR` with no reward. A cut-off policy reply completes as
-`TRUNCATION` with no reward, because tau2 keeps running after it. The protocol event keeps the
-evaluator's details.
-
-The runtime retries user responses containing neither text nor tool calls, with at most
-three attempts and a one-second wait. Each attempt receives the same conversation state;
-empty responses do not enter the conversation. Exhaustion still fails the task. This runtime
-recovery policy is recorded in task specifications and trajectory protocol events. It does
-not replace the simulator with a solo agent or fabricate customer messages.
+The SDK supplies agent inference and records the source evaluator's reward. Error endings and
+cut-off replies are ungraded. The one simulator change retries an empty user response up to
+three times without adding it to the conversation; exhaustion still fails the task.
 
 Choose an existing agent and organization API key using the
 [agent guide](https://docs.trajectory.ai/agent). Register your OpenAI key once as the
