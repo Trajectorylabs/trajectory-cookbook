@@ -25,28 +25,6 @@ export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with 'trajectory-sdk>=0.10.0' python
 ```
 
-Connect to Trajectory and select the runtime folder. `DockerfileBuild` tells Trajectory how to
-build the image; `run_command` tells it how to start the harness inside that image. Set
-`agent_name` to the agent that will own this benchmark:
-
-```python
-from pathlib import Path
-
-import trajectory
-import trajectory.lib
-
-client = trajectory.Client()
-agent_name = "gsm8k-cookbook"
-runtime_root = Path("examples/gsm8k/runtime")
-runtime = trajectory.lib.DockerfileBuild("Dockerfile")
-run_command = "python -u /opt/gsm8k/gsm8k_harness.py"
-model = "Qwen/Qwen3.5-4B"
-model_options = {
-    "reasoning_effort": "off",
-    "max_output_tokens_per_turn": 2048,
-}
-```
-
 ### Diagnose one task
 
 Try the first problem before uploading the full benchmark. This diagnostic builds the image and
@@ -54,23 +32,29 @@ starts the harness with `--task_id 0`, which selects the first row of the JSONL 
 report below to check whether the task ran, how it ended, and what reward it received:
 
 ```python
+import time
+from pathlib import Path
+
+import trajectory
+import trajectory.lib
+
+client = trajectory.Client()
 diagnostic_task = trajectory.TaskSpec(
     name="gsm8k/train_0000",
     split="train",
-    runtime=runtime,
-    run_command=f"{run_command} --task_id 0",
+    runtime=trajectory.lib.DockerfileBuild("Dockerfile"),
+    run_command="python -u /opt/gsm8k/gsm8k_harness.py --task_id 0",
     tags=["gsm8k"],
 )
 
 diagnostic = trajectory.lib.start_task_diagnostic(
     client,
     diagnostic_task,
-    agent_name=agent_name,
-    root=runtime_root,
-    base_model_slug=model,
-    options=model_options,
+    agent_name="gsm8k-cookbook",
+    root=Path("examples/gsm8k/runtime"),
+    base_model_slug="Qwen/Qwen3.5-4B",
+    options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
 )
-import time
 
 diagnostic_id = diagnostic.benchmark_diagnostic_id
 while client.diagnostics.get_status(diagnostic_id).status in {"pending", "running"}:
@@ -109,7 +93,7 @@ for task_id in range(80):
     task = trajectory.TaskSpec(
         name=f"gsm8k/{task_id}",
         split=split,
-        run_command=f"{run_command} --task_id {task_id}",
+        run_command=f"python -u /opt/gsm8k/gsm8k_harness.py --task_id {task_id}",
         tags=["gsm8k"],
     )
     tasks.append(task)
@@ -117,15 +101,15 @@ for task_id in range(80):
 benchmark = trajectory.BenchmarkSpec(
     name="gsm8k-trajectory-sdk",
     description="GSM8K exact-match training benchmark.",
-    runtime=runtime,
+    runtime=trajectory.lib.DockerfileBuild("Dockerfile"),
     tasks=tasks,
 )
 
 result = trajectory.lib.push(
     client,
     benchmark,
-    agent_name=agent_name,
-    root=runtime_root,
+    agent_name="gsm8k-cookbook",
+    root=Path("examples/gsm8k/runtime"),
     build_images=True,
 )
 bench_id = result.bench_id
@@ -148,8 +132,8 @@ against trained checkpoints:
 ```python
 evaluation = client.evals.create(
     bench_id=bench_id,
-    base_model_slug=model,
-    options=model_options,
+    base_model_slug="Qwen/Qwen3.5-4B",
+    options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
 )
 print("Evaluation:", evaluation.eval_run_id)
 ```
@@ -168,9 +152,10 @@ that you can evaluate on the same held-out problems:
 ```python
 training = client.training.create(
     bench_id=bench_id,
-    base_model_slug=model,
+    base_model_slug="Qwen/Qwen3.5-4B",
     options={
-        **model_options,
+        "reasoning_effort": "off",
+        "max_output_tokens_per_turn": 2048,
         "num_steps": 3,
         "batch_size": 4,
         "max_concurrent_trajectories": 32,
