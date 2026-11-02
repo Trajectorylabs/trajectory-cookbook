@@ -1,12 +1,13 @@
-# Train a model to solve Lichess mating puzzles
+# Train a model to solve Lichess Mating Tactics
+
+Claude Shannon's 1950 paper,
+[*Programming a Computer for Playing Chess*](https://www.computerhistory.org/chess/doc-431614f453dde/),
+studied how to program a computer to play chess. Here, we train models on a smaller
+task: finish a forcing checkmate from a given position.
 
 This tutorial takes a chess puzzle from a local replay through evaluation and
 training with the Trajectory SDK. You'll compare an agent that reasons without
 calculation tools with one that can run Python and `python-chess`.
-
-The example uses SDK **0.9.37**. Run the commands from the cookbook root with
-[uv](https://docs.astral.sh/uv/). Local tests and reference replays have passed;
-the managed evaluations, training runs, and platform screenshots are still pending.
 
 The files are grouped by purpose:
 
@@ -29,7 +30,11 @@ task fields from puzzle `00KYU`; the file also keeps the source game and setup m
 {"puzzle_id":"00KYU","split":"test","mate_in":2,"rating":1272,"rating_band":"1000-1499","fen":"3r1k2/p2n3p/1p2Bpp1/2r2N2/4q3/6QP/P5P1/5R1K w - - 2 41","solution":["g3d6","f8e8","d6e7"]}
 ```
 
-![Ten puzzles, with two examples for each mate length](visuals/puzzles.png)
+![Mate in two: starting position, Qd6+ and Black's reply Ke8, then Qe7# for reward 1.0](visuals/mate-in-2.png)
+
+The three boards replay the exact reference line. After White's first submission,
+the harness plays Black's reply. White's second submission completes checkmate and
+earns reward **1.0**.
 
 `fen` describes the position the model sees. `solution` lists the moves in UCI
 notation, alternating White and Black. In this puzzle, White plays `g3d6`, Black
@@ -66,8 +71,12 @@ shortest mate against every possible defense. The data is from
 [Lichess](https://database.lichess.org/#puzzles), released under
 [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-The ten pictured records are in [`visuals/puzzles.jsonl`](visuals/puzzles.jsonl).
-To rebuild the image and individual puzzle screenshots:
+Here are ten puzzle previews, with two examples for each mate length:
+
+![Ten puzzles, with two examples for each mate length](visuals/puzzles.png)
+
+Their records are in [`visuals/puzzles.jsonl`](visuals/puzzles.jsonl).
+To rebuild the walkthrough and puzzle screenshots:
 
 ```bash
 uv run --with playwright playwright install chromium

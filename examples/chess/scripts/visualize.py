@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["chess==1.11.2", "playwright>=1.58"]
 # ///
-"""Serialize ten real puzzles and capture one contact sheet plus individual PNGs."""
+"""Render a mate-in-two walkthrough and ten serialized puzzle previews."""
 
 import argparse
 import html
@@ -15,6 +15,64 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 BANDS = ("0-999", "1000-1499", "1500-1999", "2000-3000")
+
+
+def render_walkthrough(puzzle, output, page):
+    board = chess.Board(puzzle["fen"])
+    orientation = board.turn
+    panels = []
+
+    def add_panel(title, description, last_move=None):
+        svg = chess.svg.board(
+            board, orientation=orientation, size=330, lastmove=last_move,
+            check=board.king(board.turn) if board.is_check() else None,
+        )
+        panels.append(
+            f"<article><h2>{html.escape(title)}</h2>"
+            f"<p>{html.escape(description)}</p>{svg}</article>"
+        )
+
+    add_panel("Start · White to move", "You have 2 moves to make with submit_move.")
+    first_move, opponent_move, final_move = puzzle["solution"]
+    first_san = board.san(chess.Move.from_uci(first_move))
+    board.push_uci(first_move)
+    opponent_san = board.san(chess.Move.from_uci(opponent_move))
+    board.push_uci(opponent_move)
+    add_panel(
+        f"Move 1 · {first_san} {opponent_san}",
+        "Harness plays Black's reply. You have 1 move left.",
+        chess.Move.from_uci(opponent_move),
+    )
+    final_san = board.san(chess.Move.from_uci(final_move))
+    board.push_uci(final_move)
+    assert board.is_checkmate(), "The walkthrough must end in checkmate"
+    add_panel(
+        f"Move 2 · {final_san} · Reward 1.0",
+        "Full reference continuation matched. Checkmate.",
+        chess.Move.from_uci(final_move),
+    )
+    markup = """<!doctype html><html lang="en"><meta charset="utf-8">
+<title>Mate in two: the full continuation</title>
+<style>
+body{margin:0;background:#fff;color:#222;font:15px Arial,sans-serif}
+main{width:1140px;padding:24px;box-sizing:border-box}
+h1{font-size:24px;margin:0 0 8px}.intro{margin:0 0 20px;color:#555}
+.boards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+article{padding:12px;border:1px solid #ddd;border-radius:6px}
+h2{font-size:18px;margin:0 0 8px}article p{font-size:13px;min-height:32px;margin:0 0 10px}
+article:last-child h2{color:#176534}svg{display:block;width:100%;height:auto}
+</style><main><h1>Mate in two: submit your moves, the harness plays Black</h1>
+"""
+    markup += (
+        f'<p class="intro">Lichess {html.escape(puzzle["puzzle_id"])} · '
+        f'Rating {puzzle["rating"]} · Reference replay</p>'
+        '<div class="boards">' + "".join(panels) + "</div></main></html>"
+    )
+    path = output / "mate-in-2.html"
+    path.write_text(markup)
+    page.set_viewport_size({"width": 1140, "height": 600})
+    page.goto(path.resolve().as_uri())
+    page.locator("main").screenshot(path=str(output / "mate-in-2.png"))
 
 
 def render(source, output, browser_path=None):
@@ -75,9 +133,12 @@ article svg{display:block;width:100%;height:auto}
             page.locator(f"#puzzle-{row['puzzle_id']}").screenshot(
                 path=str(output / f"{row['puzzle_id']}.png")
             )
+        render_walkthrough(
+            next(row for row in records if row["puzzle_id"] == "00KYU"), output, page
+        )
         browser.close()
     print(
-        f"Serialized {len(selected)} puzzles and captured {len(selected) + 1} images in {output}"
+        f"Serialized {len(selected)} puzzles and captured {len(selected) + 2} images in {output}"
     )
 
 
