@@ -85,9 +85,7 @@ def main() -> None:
         reason = "TRUNCATION"
     else:
         reason = "ENV_DONE"
-    completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
-    if completed.status not in ("completed", "finalizing"):
-        raise RuntimeError(f"trajectory completion failed: {completed}")
+    client.trajectories.complete(trajectory_id, termination_reason=reason)
 
 
 if __name__ == "__main__":
