@@ -211,8 +211,9 @@ uv run --with trajectory-sdk --with jinja2 --with pyyaml --with pytest pytest ex
 
 ## License and attribution
 
-SWE-Bench Pro's harness and tooling are MIT-licensed by Scale AI. Task content (problem
-statements, patches, and tests) comes from the 11 upstream repositories and keeps their
-licenses. Cite the benchmark as Deng et al., "SWE-Bench Pro: Can AI Agents Solve Long-Horizon
+The staged SWE-Bench Pro task files and tooling include
+[Scale AI's MIT license](https://github.com/scaleapi/SWE-bench_Pro-os/blob/66f92766bba642462d4bbe5479e83f91f9211862/LICENSE).
+Each task's base image contains a separate source repository, whose own license applies to
+that repository. Cite the benchmark as Deng et al., "SWE-Bench Pro: Can AI Agents Solve Long-Horizon
 Software Engineering Tasks?" ([arXiv:2509.16941](https://arxiv.org/abs/2509.16941)).
 Test-split scores from this example are not leaderboard results.
