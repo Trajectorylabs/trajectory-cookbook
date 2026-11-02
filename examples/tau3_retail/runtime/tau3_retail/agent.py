@@ -101,7 +101,7 @@ def run_task(client: Client, task_id: str) -> str:
         else termination_reason(result.termination_reason, provider.truncated)
     )
     # Tau 2 continues after a cut-off reply; its grade covers later turns.
-    if reason != "ERROR" and not provider.truncated:
+    if result is None or (reason != "ERROR" and not provider.truncated):
         client.trajectories.log_reward(
             trajectory_id,
             name="reward_accuracy",

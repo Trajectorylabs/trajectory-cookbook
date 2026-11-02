@@ -69,7 +69,8 @@ def test_upstream_reward_and_endings(
     assert models == ["gpt-4.1-2025-04-14"]
 
 
-def test_malformed_tool_arguments_get_zero_grade(monkeypatch):
+@pytest.mark.parametrize("truncated", [False, True])
+def test_malformed_tool_arguments_get_zero_grade(monkeypatch, truncated):
     requests = []
 
     def respond(request):
@@ -86,7 +87,7 @@ def test_malformed_tool_arguments_get_zero_grade(monkeypatch):
         agent,
         "register_policy",
         lambda *args: SimpleNamespace(
-            calls=1, reasoning_leaks=0, malformed_tool_calls=1, truncated=False
+            calls=1, reasoning_leaks=0, malformed_tool_calls=1, truncated=truncated
         ),
     )
 
