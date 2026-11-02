@@ -7,7 +7,7 @@ to the Trajectory SDK.
 The model must call `submit_answer`. The harness compares that numeric answer with the private
 reference, records `reward_accuracy`, and completes the trajectory as `ENV_DONE` or `TRUNCATION`.
 
-## Set up
+## Setup Runtime with Trajectory SDK
 
 Run commands from the repository root with a Trajectory API key:
 
@@ -19,7 +19,7 @@ uv run --with trajectory-sdk python -c \
 
 If the agent already exists, reuse its name.
 
-## Validate one task
+## Diagnose with one task
 
 Build the runtime and run one training problem before uploading the full benchmark:
 
@@ -30,7 +30,7 @@ uv run --with trajectory-sdk python -c \
 
 The command prints the diagnostic ID and fails if execution or grading does not complete.
 
-## Upload the benchmark
+## Upload benchmark
 
 ```bash
 uv run examples/gsm8k/ingest.py \
@@ -54,19 +54,3 @@ The script starts a baseline evaluation and training run, waits for both, resolv
 checkpoint, and evaluates it on the same 16 held-out tasks. It prints all run IDs and the
 baseline, final, and delta rewards. A short run validates the workflow; it is not evidence of
 training improvement.
-
-Interrupting the local process does not cancel accepted work. Use the printed IDs in the
-platform or with `client.evals.runs.retrieve()` and `client.training.runs.retrieve()`.
-
-## How it is organized
-
-- [`ingest.py`](ingest.py) downloads the pinned rows and creates explicit train/test `TaskSpec`
-  objects.
-- [`runtime/gsm8k_harness.py`](runtime/gsm8k_harness.py) calls the model, grades the submitted
-  answer, records reward, and completes the trajectory.
-- [`train.py`](train.py) evaluates the base model, trains it, and compares the final checkpoint.
-
-When adapting this example, keep private references out of model messages and tools. See the
-[benchmark guide](https://docs.trajectory.ai/guides/benchmarks),
-[evaluation guide](https://docs.trajectory.ai/guides/evaluations), and
-[training guide](https://docs.trajectory.ai/guides/training) for the full API surface.
