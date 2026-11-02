@@ -35,6 +35,8 @@ def build_benchmark(
         raise ValueError("--judges requires distinct models")
     if len(judges) > 1 and any("/" in judge for judge in judges):
         raise ValueError("Provider-qualified judge IDs are supported only in single-judge runs")
+    if judge_base_url is not None and not judge_base_url.strip():
+        raise ValueError("--judge-base-url must not be empty")
     if judge_base_url is None and any(judge.startswith("openai/") for judge in judges):
         judge_base_url = "https://openrouter.ai/api/v1"
     if judge_base_url is None and any(

@@ -53,6 +53,12 @@ def test_unknown_bare_judge_requires_a_base_url():
     assert task.env_vars["OPENAI_BASE_URL"] == "https://example.com/v1"
 
 
+@pytest.mark.parametrize("base_url", ["", "  "])
+def test_empty_judge_base_url_fails_before_upload(base_url):
+    with pytest.raises(ValueError, match="--judge-base-url must not be empty"):
+        ingest.build_benchmark("harvey", ("openai/gpt-6-luna",), base_url)
+
+
 def test_judge_id_is_shell_quoted():
     task = ingest.build_benchmark(
         "harvey", ("gpt-5.5; echo unsafe",), judge_base_url="https://example.com/v1"
