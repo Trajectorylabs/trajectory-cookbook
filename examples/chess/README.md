@@ -1,64 +1,92 @@
-# Chess: exact mating continuations with reasoning and Python
+# Train a model to solve Lichess mating puzzles
 
-Five sections: puzzle format, two harnesses, ingestion, evaluation, and training with
-before/after results. All code belongs in this example. SDK: **trajectory-sdk 0.9.37**,
-the latest PyPI release checked on November 2, 2026. Managed results are pending.
+This tutorial takes a chess puzzle from a local replay through evaluation and
+training with the Trajectory SDK. You'll compare an agent that reasons without
+calculation tools with one that can run Python and `python-chess`.
 
-## 1. Puzzles: JSONL and ten visual examples
+The example uses SDK **0.9.37**. Run the commands from the cookbook root with
+[uv](https://docs.astral.sh/uv/). Local tests and reference replays have passed;
+the managed evaluations, training runs, and platform screenshots are still pending.
 
-One puzzle per line. `fen` is the position after the opponent's setup move.
-`solution` contains the full UCI continuation, alternating solver and opponent moves.
-The reference stays private to the harness.
+## 1. Try a puzzle locally
+
+Start with [`puzzles.jsonl`](puzzles.jsonl). Each line holds one puzzle. Here are the
+task fields from puzzle `00KYU`; the file also keeps the source game and setup move.
 
 ```jsonl
-{"puzzle_id":"00KYU","split":"test","mate_in":2,"rating":1272,"rating_band":"1000-1499","fen":"3r1k2/p2n3p/1p2Bpp1/2r2N2/4q3/6QP/P5P1/5R1K w - - 2 41","solution":["g3d6","f8e8","d6e7"],"source_fen":"3r4/p2n2kp/1p2Bpp1/2r2N2/4q3/6QP/P5P1/5R1K b - - 1 40","source_moves":["g7f8","g3d6","f8e8","d6e7"],"themes":["mate","mateIn2","middlegame","short"],"game_url":"https://lichess.org/game/UlNVmHbT/black#80"}
+{"puzzle_id":"00KYU","split":"test","mate_in":2,"rating":1272,"rating_band":"1000-1499","fen":"3r1k2/p2n3p/1p2Bpp1/2r2N2/4q3/6QP/P5P1/5R1K w - - 2 41","solution":["g3d6","f8e8","d6e7"]}
 ```
 
-![Ten Lichess puzzles: two examples for each mate length](visuals/puzzles.png)
+![Ten puzzles, with two examples for each mate length](visuals/puzzles.png)
 
-The ten pictured puzzles are serialized in [`visuals/puzzles.jsonl`](visuals/puzzles.jsonl).
-Each also has an individual PNG in [`visuals/`](visuals/). Full data:
-[`puzzles.jsonl`](puzzles.jsonl), with counts and SHA-256 in
-[`puzzles.manifest.json`](puzzles.manifest.json).
+`fen` describes the position the model sees. `solution` lists the moves in UCI
+notation, alternating White and Black. In this puzzle, White plays `g3d6`, Black
+replies `f8e8`, and White finishes with `d6e7#`.
 
-Rebuild these screenshots with [`visualize.py`](visualize.py):
+Replay that line through the harness without an API key:
+
+```bash
+uv run examples/chess/trace.py --puzzle-id 00KYU
+```
+
+The script prints the prompt, tool calls, board updates, and final grade. It replays
+the reference moves and makes zero model calls. The full transcript is saved in
+[`visuals/reasoning-trace.json`](visuals/reasoning-trace.json).
+
+The dataset contains 5,000 training puzzles, with 1,000 each for mate in 1 through
+mate in 5. There are also 500 held-out puzzles. For this tutorial, both harnesses
+use the same 100-puzzle evaluation subset:
+
+| Split used in the tutorial | Puzzles per mate length | Total |
+| --- | ---: | ---: |
+| Training | 1,000 | 5,000 |
+| Evaluation | 20 | 100 |
+
+The evaluation subset has 25 puzzles in each rating band: below 1000, 1000–1499,
+1500–1999, and 2000–3000. These are puzzle ratings. Bands are balanced overall,
+but not within every mate category: the source has only ten all-check mate-in-5
+puzzles below 1000.
+
+The loader checks move legality, line length, checks, and final checkmate. It also
+keeps puzzle IDs, source games, and starting positions separate between training
+and evaluation. Mate labels come from Lichess; replaying a line does not prove the
+shortest mate against every possible defense. The data is from
+[Lichess](https://database.lichess.org/#puzzles), released under
+[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+The ten pictured records are in [`visuals/puzzles.jsonl`](visuals/puzzles.jsonl).
+To rebuild the image and individual puzzle screenshots:
 
 ```bash
 uv run --with playwright playwright install chromium
 uv run examples/chess/visualize.py
 ```
 
-| Set | Mate in 1 | Mate in 2 | Mate in 3 | Mate in 4 | Mate in 5 | Total |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Training | 1,000 | 1,000 | 1,000 | 1,000 | 1,000 | 5,000 |
-| Evaluation used in each job | 20 | 20 | 20 | 20 | 20 | 100 |
+## 2. Follow the two harnesses
 
-Each evaluation job uses the same 100 puzzles. Rating bands are **0–999**,
-**1000–1499**, **1500–1999**, and **2000–3000**, with 25 puzzles per band overall.
-The full frozen source retains 500 held-out puzzles; the uploader selects the same
-100-puzzle subset for both variants. Bands vary within a mate category because only
-ten all-check mate-in-5 puzzles below 1000 exist in the current source.
+Both harnesses ask the model to call `submit_move` for each of its moves. The
+harness checks the move, plays the opponent's reply, and returns the new position.
+The reference solution stays in the harness.
 
-Checks: valid positions, legal setup and solution moves, exact line length, check on
-every solver move, final checkmate, and no shared puzzle IDs, source games, or starting
-positions between splits. Lichess supplies the mate labels; line replay does not prove
-the shortest mate against every defense. Source: [Lichess](https://database.lichess.org/#puzzles),
-under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Ratings refer to puzzles.
+For the mate-in-2 puzzle above, the conversation is:
 
-## 2. Harnesses: reasoning and fifty-step Python
+```text
+Harness: You have 2 moves to make with submit_move. [starting board and FEN]
+Model:   submit_move({"move": "g3d6"})
+Harness: Correct. Black played f8e8. You have 1 move to make with submit_move.
+         [new board and FEN]
+Model:   submit_move({"move": "d6e7"})
+Harness: Full continuation matched. Reward: 1.0.
+```
 
-| Setting | Reasoning | Python |
-| --- | --- | --- |
-| Input | FEN, board, side to move, mate length | Same |
-| Tools | `submit_move` | `submit_move`, `python_chess` |
-| Model responses | At most `mate_in`, up to 5 | At most 50 total |
-| Output limit | 4,000 tokens per response | 4,000 tokens per response |
-| Opponent | Harness plays reference reply | Same |
-| Reward | 1.0 only for the full exact continuation | Same |
+The model must complete the exact reference continuation. A different move scores
+0.0, including another legal checkmate. The harness records partial progress for
+analysis, but it does not give partial reward.
 
-### Reasoning harness
+### Reasoning
 
-[`runtime/reasoning_harness.py`](runtime/reasoning_harness.py):
+[`runtime/reasoning_harness.py`](runtime/reasoning_harness.py) starts the shared
+loop with only `submit_move` available:
 
 ```python
 from chess_harness import main
@@ -67,17 +95,11 @@ if __name__ == "__main__":
     main("reasoning")
 ```
 
-### Python harness
+The model gets one response per solver move, up to five responses for mate in 5.
 
-The model receives this instruction:
+### Python
 
-```text
-You have at most 50 model turns total, including Python calls and move submissions.
-Use python_chess to calculate with python-chess. Each call gets a fresh board
-at the current position. Reserve enough turns to submit every move.
-```
-
-[`runtime/python_harness.py`](runtime/python_harness.py):
+[`runtime/python_harness.py`](runtime/python_harness.py) adds `python_chess`:
 
 ```python
 from chess_harness import main
@@ -86,119 +108,91 @@ if __name__ == "__main__":
     main("python")
 ```
 
-Both use [`runtime/chess_harness.py`](runtime/chess_harness.py). The shared loop is:
+This agent gets 50 model turns, shared between calculations and move submissions.
+Its prompt includes:
 
-The opening instruction says **“You have X moves to make with submit_move.”** After
-each correct non-final move, the tool result shows the opponent's reply, new board,
-new FEN, and remaining solver-move count. The model calls `submit_move` again from
-that new position. Python calculations do not advance the puzzle.
-
-```python
-# Pseudocode: every submitted solver move must match the private reference.
-board = Board(puzzle["fen"])
-line = puzzle["solution"]
-index = 0
-max_steps = puzzle["mate_in"] if variant == "reasoning" else 50
-
-for step in range(max_steps):
-    reply = model.respond(public_messages, tools=tools, max_tokens=4000)
-    if reply.is_cut_off:
-        finish(reward=0.0, ending="TRUNCATION")  # Do not execute its tool.
-        break
-    if reply.tool == "python_chess":
-        return_tool_result(isolated_python(reply.code, fen=board.fen()))
-        continue  # Does not play a move in the actual puzzle.
-
-    if reply.move != line[index] or reply.move not in board.legal_moves:
-        finish(reward=0.0, ending="ENV_DONE")
-        break
-    board.push_uci(reply.move)           # Correct solver half-move.
-    index += 1
-    if index == len(line):
-        finish(reward=1.0, ending="ENV_DONE")  # Full exact continuation completed.
-        break
-
-    opponent_move = line[index]          # Harness plays the opposite side.
-    board.push_uci(opponent_move)
-    index += 1
-    return_tool_result(opponent_move, board.fen())
-else:
-    finish(reward=0.0, ending="MAX_STEPS")
+```text
+You have at most 50 model turns total, including Python calls and move submissions.
+Use python_chess to calculate with python-chess. Each call gets a fresh board
+at the current position. Reserve enough turns to submit every move.
 ```
 
-No alternate mating move earns reward. A correct first move alone earns no reward.
-The harness also records the correct solver-move count and correct half-move prefix.
-The prefix includes automatic opponent replies; those replies are not model predictions.
+A Python calculation does not change the puzzle board. The model still needs to
+call `submit_move` to play. Each calculation starts with `chess` and a fresh `board`
+at the current FEN. There is no chess engine.
 
-Full visible worked transcript: [`visuals/reasoning-trace.json`](visuals/reasoning-trace.json).
-This is a **reference replay through the real harness**, with zero model calls. It
-shows the exact prompts, submissions, updated position, remaining move count, and
-terminal result. It is not a recorded model run or a model's private reasoning.
+Both agents allow 4,000 output tokens per response. Python runs in an isolated
+Linux x86-64 worker with no network, credentials, or reference files. Each call
+has 10 CPU seconds, 15 wall seconds, 256 MiB memory, and 16 KiB output.
 
-```bash
-uv run examples/chess/trace.py --puzzle-id 00KYU
-```
+Read [`runtime/chess_harness.py`](runtime/chess_harness.py) for the model loop and
+grader, and [`runtime/python_tool.py`](runtime/python_tool.py) for the worker.
 
-Python calls use a fresh `chess` module and `board` at the current FEN. There is no
-engine, network, credential, or reference-file access. Each call has 10 CPU seconds,
-15 wall seconds, 256 MiB memory, and 16 KiB output. The Linux x86-64 worker uses an
-empty chroot, an unprivileged user, and a seccomp allowlist.
+<!-- Add visuals/platform-harnesses.png here after diagnostics. Show one real
+     trajectory from each harness, including submissions and opponent replies. -->
 
-**Platform image:** side-by-side reasoning and Python trajectory views, with the
-repeated `submit_move` calls, automatic opponent replies, and Python calls visible.
-Capture actual traces after the updated harness passes diagnostics.
+## 3. Upload both variants
 
-<!-- Image slot: visuals/platform-harnesses.png. -->
-
-## 3. Ingestion: both variants
-
-```python
-# Ingestion outline. The example implements these functions.
-rows = load_jsonl("examples/chess/puzzles.jsonl")
-audit_all_rows(rows)
-selected = training_rows(rows) + evaluation_subset(rows)  # 5,000 + 100.
-
-for variant in ("reasoning", "python"):
-    diagnose_one_task(variant)
-    benchmark = build_benchmark(selected, variant)
-    operation = start_push(
-        client, benchmark, agent_name="CHESSSS",
-        root=Path("examples/chess/runtime"), build_images=True,
-    )
-    save_operation_id(operation.id)
-    bench_id = operation.result(timeout=2700).status.bench_id
-    save_benchmark_id(variant, bench_id)
-    diagnose_uploaded_benchmark(bench_id)
-```
-
-The parent harness receives each task record. Its Python worker receives only the
-current FEN and model code. Task names preserve source puzzle IDs and explicit splits.
-The two variants share one image and select separate harness entrypoints.
+Set a staging API key and choose an existing agent. The commands below use
+`CHESSSS`; replace it with your agent's name if needed.
 
 ```bash
 export TRAJECTORY_BASE_URL="https://staging.api.trajectory.ai"
 export TRAJECTORY_API_KEY="YOUR_STAGING_KEY"
+AGENT_NAME="CHESSSS"
 
-uv run examples/chess/ingest.py --agent-name CHESSSS --variant reasoning
-uv run examples/chess/ingest.py --agent-name CHESSSS --variant python
+uv run examples/chess/ingest.py --agent-name "$AGENT_NAME" --variant reasoning
+uv run examples/chess/ingest.py --agent-name "$AGENT_NAME" --variant python
 ```
 
-Implementation: [`ingest.py`](ingest.py). Save the two returned benchmark IDs and keep
-those versions fixed. Do not create another upload after an interrupted operation
-without checking its saved ID.
+Each command first diagnoses one task, then uploads 5,000 training puzzles and the
+shared 100-puzzle test set. It waits for the image build and runs a benchmark
+diagnostic before returning.
 
-**Platform image:** both benchmark versions, their 5,000/100 split counts, and ready
-runtime status after ingestion and diagnostics complete.
+The uploader creates one task per puzzle. The important fields are:
 
-<!-- Image slot: visuals/platform-ingestion.png. -->
+```python
+TaskSpec(
+    name=f"chess/{variant}/mateIn{puzzle['mate_in']}/{puzzle['puzzle_id']}",
+    split=puzzle["split"],
+    run_command=f"python -u /opt/chess/{variant}_harness.py",
+    env_vars={
+        "CHESS_VARIANT": variant,
+        "CHESS_PUZZLE": json.dumps(puzzle),
+    },
+)
+```
 
-## 4. Evaluation: twenty jobs, four hundred rollouts each
+Both variants share an image. The task command selects the harness, and its
+environment supplies the puzzle to the parent process. The Python worker receives
+only the current FEN and the model's code.
 
-**10 models × 2 harnesses = 20 jobs.** Each job uses **100 puzzles × 4 attempts = 400
-rollouts**, with **4,000 output tokens per model response**. Baseline total: **8,000
-rollouts**. Every attempt starts with a fresh board and conversation.
+Save the printed operation and benchmark IDs. If an upload is interrupted, check
+its operation ID before starting another one. Use the same benchmark versions for
+all evaluations and training comparisons. See [`ingest.py`](ingest.py).
 
-| Open weights, six models | Closed weights, four models |
+```bash
+REASONING_BENCH_ID="YOUR_REASONING_BENCH_ID"
+PYTHON_BENCH_ID="YOUR_PYTHON_BENCH_ID"
+```
+
+<!-- Add visuals/platform-ingestion.png here after both uploads pass. Show the
+     benchmark versions, 5,000/100 task splits, and ready runtime status. -->
+
+## 4. Evaluate ten models
+
+Run the evaluation script with those two benchmark IDs:
+
+```bash
+uv run examples/chess/evaluate.py \
+  --reasoning-bench-id "$REASONING_BENCH_ID" \
+  --python-bench-id "$PYTHON_BENCH_ID"
+```
+
+The model list in [`evaluate.py`](evaluate.py) contains six open-weight models and
+four closed-weight models:
+
+| Open weights | Closed weights |
 | --- | --- |
 | Qwen3.5-4B | GPT-6.1 Sol |
 | Qwen3.6-35B-A3B | Claude Opus 5.5 |
@@ -207,129 +201,110 @@ rollouts**. Every attempt starts with a fresh board and conversation.
 | Nemotron 3.5 Lightning 30B-A3B | |
 | Nemotron 3.5 Super 120B-A12B | |
 
-```python
-# Evaluation outline. Check model routes and option bounds before creating jobs.
-for model in OPEN_MODELS + CLOSED_MODELS:
-    for variant, bench_id in BENCH_IDS.items():
-        job = client.evals.create(
-            bench_id=bench_id, base_model_slug=model, task_split="test",
-            options={
-                **supported_generation_settings(model),
-                "val_num_tasks": 100,
-                "val_trajectories_per_task": 4,
-                "max_output_tokens_per_turn": 4000,
-                "max_output_tokens_per_trajectory": 204000,
-                "max_turns_per_trajectory": 104,  # Harness still stops at 5 or 50.
-            },
-        )
-        save_job_id(model, variant, job.eval_run_id)
-        collect_exact_grades_endings_and_correct_prefixes(job)
-```
+Each model runs with both harnesses: **20 jobs**. Each job makes four independent
+attempts at each of the 100 test puzzles: **400 rollouts per job**, or **8,000 total**.
+Every attempt starts with a fresh conversation and board.
 
-The 204,000-token platform ceiling leaves room to finish grading after fifty 4,000-token
-responses. The platform turn ceiling is 104 to allow model and environment messages;
-the Python harness still stops at 50 model responses. The attempt timeout is 3,600
-seconds. Python calls and move submissions share the 50-turn budget. Keep each model's
-thinking and sampling settings fixed across harnesses and before/after evaluations.
+Before starting, the script checks the model catalog and confirms that both
+benchmarks contain the same test puzzles. It saves each evaluation ID before
+waiting for results. Running the command again with the same result directory
+continues from those IDs.
+
+The model settings include:
 
 ```python
-from math import comb
-
-def pass_at_k(n, correct, k):
-    return 1.0 if n - correct < k else 1.0 - comb(n - correct, k) / comb(n, k)
-
-# Compute per puzzle from its four attempts, then average over the 100 puzzles.
-for k in (1, 2, 3, 4):
-    score[k] = mean(pass_at_k(4, solved_count[puzzle], k) for puzzle in puzzles)
+{
+    "val_num_tasks": 100,
+    "val_trajectories_per_task": 4,
+    "max_output_tokens_per_turn": 4000,
+    "max_output_tokens_per_trajectory": 204000,
+    "max_turns_per_trajectory": 104,
+    "trajectory_timeout_seconds": 3600,
+}
 ```
 
-Plots belong immediately below this evaluation code:
+The larger platform limits leave room for 50 model responses and their tool
+results. The Python harness still stops after 50 model turns. Thinking and sampling
+settings are held fixed for a model's two harnesses and checkpoint comparisons.
 
-- **Model comparison:** pass@1–4, reasoning versus Python.
-- **Correct continuation prefix:** correct half-moves per attempt and correct solver
-  moves separately. An exact solve has `2 × mate_in − 1` correct half-moves.
-- **By rating:** exact solve rate and correct-prefix length in all four rating bands.
-- **By mate length:** exact solve rate and correct-prefix length for mate in 1–5.
+The report includes pass@1 through pass@4. If a puzzle is solved once in four
+attempts, its pass@1 estimate is 0.25 and its pass@4 estimate is 1.0. Scores are
+calculated per puzzle, then averaged across the 100 puzzles.
 
-Report attempted, graded, failed, unfinished, and cut-off counts. Infrastructure errors
-are not wrong chess moves. Do not silently replace them with zero or drop them.
-Attach measured charts only after the jobs complete.
+Partial progress is reported separately. For example, matching `Qd6+ Ke8` before
+getting White's next move wrong gives two correct half-moves and one correct
+solver move, while reward stays 0.0. Automatic opponent replies count toward the
+half-move prefix, but not toward the model's solver-move count.
 
-[`evaluate.py`](evaluate.py) implements the full matrix, pass@1–4, and the four plots:
+After all jobs finish, the script writes four plots to `visuals/`:
 
-```bash
-uv run examples/chess/evaluate.py \
-  --reasoning-bench-id YOUR_REASONING_BENCH_ID \
-  --python-bench-id YOUR_PYTHON_BENCH_ID
-```
+| Plot | What it shows |
+| --- | --- |
+| `eval-models.png` | Pass@1–4 for each model and harness |
+| `eval-prefix.png` | Mean correct half-moves and solver moves |
+| `eval-rating.png` | Scores and correct prefixes by rating band |
+| `eval-mate-length.png` | Scores and correct prefixes by mate length |
 
-**Platform image:** the Compare view for the 20 evaluations, alongside the measured
-plots saved by this example. Capture the platform view after completion.
+Check failure and completion counts before comparing scores. The script requires
+400 graded attempts per job and stops on missing grades or infrastructure failures.
 
-<!-- Image slots: visuals/platform-evaluation.png, visuals/eval-models.png, visuals/eval-prefix.png,
-     visuals/eval-rating.png, visuals/eval-mate-length.png. -->
+<!-- Add visuals/platform-evaluation.png and the four measured plots here after
+     completion. The platform screenshot should show the twenty evaluation jobs. -->
 
-## 5. Training: four runs on five thousand puzzles, then before/after
+## 5. Train two models and compare their checkpoints
 
-**Two models × two harnesses = four independent training runs.** Each uses all
-**5,000 training puzzles**, **batch size 16**, **group size 8**, and **100 optimizer
-steps**. A batch contains 16 task groups × 8 rollouts = 128 rollouts. Each run needs
-at least 12,800 training rollouts; groups without learning signal can add attempts.
-
-```python
-TRAIN_MODELS = ["Qwen/Qwen3.5-4B", "Qwen/Qwen3.6-35B-A3B"]
-
-for model in TRAIN_MODELS:
-    for variant, bench_id in BENCH_IDS.items():
-        training = client.training.create(
-            bench_id=bench_id, base_model_slug=model,
-            options={
-                **same_generation_settings_as_baseline(model),
-                "num_steps": 100,
-                "batch_size": 16,
-                "group_size": 8,
-                "max_concurrent_trajectories": 128,
-                "max_output_tokens_per_turn": 4000,
-                "max_output_tokens_per_trajectory": 204000,
-                "max_turns_per_trajectory": 104,
-                "val_enabled": False,  # Explicit final evaluation below.
-            },
-        )
-        save_training_id(model, variant, training.training_run_id)
-        wait_for_success(training.training_run_id, completed_steps=100)
-        checkpoint = client.training.checkpoints.retrieve(training.training_run_id, 100)
-
-        after = client.evals.create(
-            bench_id=bench_id, base_model_slug=model,
-            parent_checkpoint_id=checkpoint.checkpoint_id,
-            task_split="test", options=BASELINE_OPTIONS[model],  # 100 × 4 again.
-        )
-        save_checkpoint_and_evaluation_ids(checkpoint, after)
-        compare_same_puzzles_and_settings(BASELINES[model, variant], after)
-```
-
-Reuse the four matching baselines from section 4. Four final evaluations add **1,600
-rollouts**, for **9,600 baseline + checkpoint evaluation rollouts** total. Training
-rollouts are separate. Before/after plots show exact solve rate, pass@1–4, and correct
-prefix lengths overall, by rating, and by mate length. Publish completed optimizer
-steps, checkpoint IDs, and failure counts with the plots.
-
-[`train.py`](train.py) implements the four-run matrix and reuses saved baselines:
+Use the same benchmark IDs to train Qwen3.5-4B and Qwen3.6-35B-A3B with both
+harnesses. This creates four training runs:
 
 ```bash
 uv run examples/chess/train.py \
-  --reasoning-bench-id YOUR_REASONING_BENCH_ID \
-  --python-bench-id YOUR_PYTHON_BENCH_ID --num-steps 100
+  --reasoning-bench-id "$REASONING_BENCH_ID" \
+  --python-bench-id "$PYTHON_BENCH_ID" \
+  --num-steps 100
+```
+
+Each run uses all 5,000 training puzzles with these settings:
+
+```python
+{
+    "num_steps": 100,
+    "batch_size": 16,
+    "group_size": 8,
+    "max_concurrent_trajectories": 128,
+    "val_enabled": False,
+}
+```
+
+A batch has 16 task groups with eight rollouts each. That is at least 12,800 training
+rollouts per run for 100 steps. Groups without a learning signal can increase the
+number of attempts. To bound a stalled run, the script stops after 24 hours or four
+times that minimum rollout count.
+
+The script reuses the four matching baselines from the evaluation step. After each
+training run succeeds, it checks the completed optimizer steps, retrieves checkpoint
+100, and evaluates that checkpoint on the same 100 puzzles with four attempts each.
+Those four final evaluations add **1,600 rollouts**. Baseline and final evaluations
+therefore total **9,600 rollouts**, separate from training.
+
+Once the checkpoint evaluations finish, regenerate the plots:
+
+```bash
 uv run examples/chess/evaluate.py --plot-only
 ```
 
-Both scripts save IDs and reports under `examples/chess/results/`. Reusing the same
-result files resumes accepted jobs; changing benchmark IDs or resolved settings
-requires a separate results directory. Training stops if it exceeds 24 hours or four
-times its minimum rollout budget. Report that limit as an incomplete run, not success.
+This adds `visuals/before-after.png`, comparing solve rates and correct half-move
+prefixes for the four runs. Reports and job IDs are saved under `results/`. Keep
+those files to resume a command. Use a new results directory when changing benchmark
+versions or settings, so an old run cannot be mistaken for the new comparison.
 
-**Platform image:** the four training runs with optimizer progress and checkpoints,
-plus the matching before/after comparisons. Capture actual platform results.
+See [`train.py`](train.py) for checkpoint evaluation and result collection. The tests
+can be run locally without starting managed jobs:
 
-<!-- Image slots: visuals/platform-training.png, visuals/before-after.png, visuals/training-reward.png.
-     Insert actual measured plots here after all four runs complete. -->
+```bash
+uv run --with trajectory-sdk==0.9.37 --with chess==1.11.2 --with zstandard --with pytest \
+  pytest -q examples/chess/test_chess.py
+```
+
+<!-- Add visuals/platform-training.png, visuals/before-after.png, and a platform
+     training-curve screenshot here after the four runs finish. Include the actual
+     optimizer steps and checkpoint IDs with the results. -->

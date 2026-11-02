@@ -22,19 +22,34 @@ def render(source, output, browser_path=None):
     selected = []
     for mate in range(1, 6):
         for band in (BANDS[(mate - 1) % 4], BANDS[(mate + 1) % 4]):
-            selected.append(min((r for r in records if r["split"] == "test"
-                                 and r["mate_in"] == mate and r["rating_band"] == band),
-                                key=lambda r: r["puzzle_id"]))
+            selected.append(
+                min(
+                    (
+                        r
+                        for r in records
+                        if r["split"] == "test"
+                        and r["mate_in"] == mate
+                        and r["rating_band"] == band
+                    ),
+                    key=lambda r: r["puzzle_id"],
+                )
+            )
     output.mkdir(parents=True, exist_ok=True)
-    (output / "puzzles.jsonl").write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in selected))
+    (output / "puzzles.jsonl").write_text(
+        "".join(json.dumps(r, sort_keys=True) + "\n" for r in selected)
+    )
     cards = []
     for row in selected:
         board = chess.Board(row["fen"])
         svg = chess.svg.board(board, orientation=board.turn, size=330)
-        label = f"Mate in {row['mate_in']} · Rating {row['rating']} · {row['puzzle_id']}"
+        label = (
+            f"Mate in {row['mate_in']} · Rating {row['rating']} · {row['puzzle_id']}"
+        )
         side = "White" if board.turn else "Black"
-        cards.append(f'<article id="puzzle-{row["puzzle_id"]}"><h2>{html.escape(label)}</h2>'
-                     f'<p>{side} to move</p>{svg}</article>')
+        cards.append(
+            f'<article id="puzzle-{row["puzzle_id"]}"><h2>{html.escape(label)}</h2>'
+            f"<p>{side} to move</p>{svg}</article>"
+        )
     markup = """<!doctype html><html lang="en"><meta charset="utf-8">
 <title>Ten Lichess mating puzzles</title>
 <style>
@@ -51,13 +66,19 @@ article svg{display:block;width:100%;height:auto}
     with sync_playwright() as playwright:
         kwargs = {"executable_path": str(browser_path)} if browser_path else {}
         browser = playwright.chromium.launch(headless=True, **kwargs)
-        page = browser.new_page(viewport={"width": 780, "height": 1000}, device_scale_factor=2)
+        page = browser.new_page(
+            viewport={"width": 780, "height": 1000}, device_scale_factor=2
+        )
         page.goto(page_path.resolve().as_uri())
         page.locator("main").screenshot(path=str(output / "puzzles.png"))
         for row in selected:
-            page.locator(f"#puzzle-{row['puzzle_id']}").screenshot(path=str(output / f"{row['puzzle_id']}.png"))
+            page.locator(f"#puzzle-{row['puzzle_id']}").screenshot(
+                path=str(output / f"{row['puzzle_id']}.png")
+            )
         browser.close()
-    print(f"Serialized {len(selected)} puzzles and captured {len(selected) + 1} images in {output}")
+    print(
+        f"Serialized {len(selected)} puzzles and captured {len(selected) + 1} images in {output}"
+    )
 
 
 def main():

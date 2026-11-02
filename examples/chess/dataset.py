@@ -24,7 +24,13 @@ BANDS = ("0-999", "1000-1499", "1500-1999", "2000-3000")
 def rating_band(rating):
     if not 0 <= rating <= 3000:
         return None
-    return BANDS[0 if rating < 1000 else 1 if rating < 1500 else 2 if rating < 2000 else 3]
+    if rating < 1000:
+        return BANDS[0]
+    if rating < 1500:
+        return BANDS[1]
+    if rating < 2000:
+        return BANDS[2]
+    return BANDS[3]
 
 
 def game_id(url):
@@ -59,17 +65,25 @@ def validate_puzzle(row):
     except ValueError:
         return None
     return {
-        "puzzle_id": row["PuzzleId"], "fen": fen,
-        "source_fen": row["FEN"], "source_moves": moves,
-        "solution": moves[1:], "mate_in": mate, "rating": int(row["Rating"]),
-        "rating_band": band, "themes": themes, "game_url": row["GameUrl"],
+        "puzzle_id": row["PuzzleId"],
+        "fen": fen,
+        "source_fen": row["FEN"],
+        "source_moves": moves,
+        "solution": moves[1:],
+        "mate_in": mate,
+        "rating": int(row["Rating"]),
+        "rating_band": band,
+        "themes": themes,
+        "game_url": row["GameUrl"],
     }
 
 
 @contextmanager
 def source_rows(source):
     remote = source.startswith("https://")
-    with (urllib.request.urlopen(source, timeout=120) if remote else open(source, "rb")) as raw:
+    with (
+        urllib.request.urlopen(source, timeout=120) if remote else open(source, "rb")
+    ) as raw:
         if source.endswith(".zst"):
             with zstandard.ZstdDecompressor().stream_reader(raw) as decoded:
                 with io.TextIOWrapper(decoded) as text:
@@ -83,6 +97,8 @@ def allocate(available, per_category):
     """Fill equal category and rating margins, keeping cells even where possible."""
     from collections import deque
 
+    # Nodes 1–5 are mate lengths, and 6–9 are rating bands. Route each category's
+    # quota through these bands; reverse edges let a scarce cell borrow capacity.
     source, sink = 0, 10
     capacity = {}
     flow = Counter()
@@ -108,11 +124,16 @@ def allocate(available, per_category):
             node = queue.popleft()
             # Rotate traversal so redistributed cells remain as even as possible.
             for other in [(i + total) % 11 for i in range(11)]:
-                if other not in parents and capacity.get((node, other), 0) > flow[node, other]:
+                if (
+                    other not in parents
+                    and capacity.get((node, other), 0) > flow[node, other]
+                ):
                     parents[other] = node
                     queue.append(other)
         if sink not in parents:
-            raise ValueError(f"Not enough distinct source puzzles to balance {per_category} per mate category")
+            raise ValueError(
+                f"Not enough distinct source puzzles to balance {per_category} per mate category"
+            )
         node = sink
         while parents[node] is not None:
             previous = parents[node]
@@ -120,8 +141,11 @@ def allocate(available, per_category):
             flow[node, previous] -= 1
             node = previous
         total += 1
-    return {(mate, band): flow[mate, 6 + index]
-            for mate in range(1, 6) for index, band in enumerate(BANDS)}
+    return {
+        (mate, band): flow[mate, 6 + index]
+        for mate in range(1, 6)
+        for index, band in enumerate(BANDS)
+    }
 
 
 def select(rows, train_per_category=1000, test_per_category=100):
@@ -129,13 +153,26 @@ def select(rows, train_per_category=1000, test_per_category=100):
     quotas = {"train": train_per_category, "test": test_per_category}
     for scanned, row in enumerate(rows, 1):
         if scanned % 500_000 == 0:
-            print(json.dumps({"scanned": scanned, "candidates": sum(map(len, pools.values()))}), flush=True)
+            print(
+                json.dumps(
+                    {"scanned": scanned, "candidates": sum(map(len, pools.values()))}
+                ),
+                flush=True,
+            )
         band = rating_band(int(row["Rating"]))
         mate = len(row["Moves"].split()) // 2
-        if band is None or not 1 <= mate <= 5 or f"mateIn{mate}" not in row["Themes"].split():
+        if (
+            band is None
+            or not 1 <= mate <= 5
+            or f"mateIn{mate}" not in row["Themes"].split()
+        ):
             continue
         game = game_id(row["GameUrl"])
-        split = "test" if int(hashlib.sha256(game.encode()).hexdigest(), 16) % 11 == 0 else "train"
+        split = (
+            "test"
+            if int(hashlib.sha256(game.encode()).hexdigest(), 16) % 11 == 0
+            else "train"
+        )
         key = (split, mate, band)
         pool = pools.setdefault(key, [])
         if len(pool) >= quotas[split] or game in games or row["PuzzleId"] in ids:
@@ -153,11 +190,16 @@ def select(rows, train_per_category=1000, test_per_category=100):
         ids.add(record["puzzle_id"])
     records = []
     for split, quota in quotas.items():
-        available = {(mate, band): len(pools.get((split, mate, band), []))
-                     for mate in range(1, 6) for band in BANDS}
+        available = {
+            (mate, band): len(pools.get((split, mate, band), []))
+            for mate in range(1, 6)
+            for band in BANDS
+        }
         allocation = allocate(available, quota)
-        selected = {(mate, band): pools.get((split, mate, band), [])[:n]
-                    for (mate, band), n in allocation.items()}
+        selected = {
+            (mate, band): pools.get((split, mate, band), [])[:n]
+            for (mate, band), n in allocation.items()
+        }
         # Interleave cells, so small evaluations cover all available categories.
         for index in range(max(allocation.values())):
             for cell in selected.values():
@@ -169,9 +211,14 @@ def select(rows, train_per_category=1000, test_per_category=100):
 def audit(records, train_per_category=1000, test_per_category=100):
     counts, positions, games, ids = Counter(), set(), set(), set()
     for record in records:
-        row = {"PuzzleId": record["puzzle_id"], "FEN": record["source_fen"],
-               "Moves": " ".join(record["source_moves"]), "Rating": record["rating"],
-               "Themes": " ".join(record["themes"]), "GameUrl": record["game_url"]}
+        row = {
+            "PuzzleId": record["puzzle_id"],
+            "FEN": record["source_fen"],
+            "Moves": " ".join(record["source_moves"]),
+            "Rating": record["rating"],
+            "Themes": " ".join(record["themes"]),
+            "GameUrl": record["game_url"],
+        }
         normalized = validate_puzzle(row)
         if normalized is None or any(record[k] != v for k, v in normalized.items()):
             raise ValueError(f"Invalid puzzle: {record['puzzle_id']}")
@@ -198,29 +245,46 @@ def audit(records, train_per_category=1000, test_per_category=100):
 
 def evaluation_subset(records):
     """Select the same 100 held-out puzzles for every model and harness."""
-    pools = {(mate, band): sorted(
-        (r for r in records if r["split"] == "test"
-         and r["mate_in"] == mate and r["rating_band"] == band),
-        key=lambda r: r["puzzle_id"],
-    ) for mate in range(1, 6) for band in BANDS}
+    pools = {}
+    for mate in range(1, 6):
+        for band in BANDS:
+            matching = [
+                puzzle
+                for puzzle in records
+                if puzzle["split"] == "test"
+                and puzzle["mate_in"] == mate
+                and puzzle["rating_band"] == band
+            ]
+            pools[mate, band] = sorted(matching, key=lambda puzzle: puzzle["puzzle_id"])
     counts = allocate({key: len(rows) for key, rows in pools.items()}, per_category=20)
-    selected = [row for key, rows in pools.items() for row in rows[:counts[key]]]
-    return sorted(selected, key=lambda r: (r["mate_in"], r["rating_band"], r["puzzle_id"]))
+    selected = [row for key, rows in pools.items() for row in rows[: counts[key]]]
+    return sorted(
+        selected, key=lambda r: (r["mate_in"], r["rating_band"], r["puzzle_id"])
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", default=SOURCE)
-    parser.add_argument("--output", type=Path, default=Path(__file__).parent / "puzzles.jsonl")
+    parser.add_argument(
+        "--output", type=Path, default=Path(__file__).parent / "puzzles.jsonl"
+    )
     args = parser.parse_args()
     with source_rows(args.source) as rows:
         records = select(rows)
     counts = audit(records)
     payload = "".join(json.dumps(r, sort_keys=True) + "\n" for r in records)
     args.output.write_text(payload)
-    manifest = {"source": args.source, "sha256": hashlib.sha256(payload.encode()).hexdigest(),
-                "count": len(records), "counts": counts, "forcing": "every solver move gives check"}
-    args.output.with_suffix(".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest = {
+        "source": args.source,
+        "sha256": hashlib.sha256(payload.encode()).hexdigest(),
+        "count": len(records),
+        "counts": counts,
+        "forcing": "every solver move gives check",
+    }
+    args.output.with_suffix(".manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n"
+    )
     print(json.dumps(manifest, indent=2))
 
 
