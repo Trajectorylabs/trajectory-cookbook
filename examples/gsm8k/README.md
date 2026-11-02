@@ -9,7 +9,8 @@ reference, records `reward_accuracy`, and completes the trajectory as `ENV_DONE`
 
 ## Setup Runtime with Trajectory SDK
 
-From the repository root:
+The runtime is the Docker image shared by every task. Each task starts the same harness with a
+different row ID from `tasks.jsonl`. From the repository root:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
@@ -30,6 +31,9 @@ run_command = "python -u /opt/gsm8k/gsm8k_harness.py"
 ```
 
 ## Diagnose with one task
+
+A task diagnostic builds the runtime and executes one task before the full benchmark is
+registered. Use it to catch packaging, model-call, or grading problems quickly.
 
 ```python
 diagnostic_task = trajectory.TaskSpec(
@@ -55,6 +59,9 @@ print(diagnostic.benchmark_diagnostic_id)
 ```
 
 ## Upload benchmark
+
+The benchmark manifest maps local row IDs into explicit training and held-out splits. `push`
+uploads that manifest, builds the shared runtime, and returns an immutable benchmark ID.
 
 ```python
 tasks = [
@@ -90,6 +97,10 @@ print(bench_id)
 ```
 
 ## Evaluate, train, and compare
+
+Evaluation runs the held-out split without changing the model. Training uses the training split
+to create checkpoints. Keep both run IDs so their progress and results can be compared in the
+product UI.
 
 ```python
 evaluation = client.evals.create(
