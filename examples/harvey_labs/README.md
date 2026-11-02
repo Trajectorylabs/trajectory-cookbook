@@ -5,6 +5,9 @@ This example runs the public
 `1dd81403b2fbb60596f7aea3fcecafad7bf73143` with a Trajectory overlay. The
 upstream agent loop, tools, judges and Podman sandbox remain in place. Each task uses one
 Trajectory session for model calls and its final grade.
+For ambiguous deliverable filenames, the overlay uses the selected rubric judge instead of
+upstream's separate Claude call. A failed match raises a grading error rather than silently
+counting a deliverable as missing.
 
 ## Files
 
