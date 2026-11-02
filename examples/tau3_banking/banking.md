@@ -1,6 +1,7 @@
 # Public Tau 3 Banking
 
-This example packages Sierra's public 97-task Banking benchmark from Tau 2 commit
+This example packages Sierra's public 97-task Banking benchmark from
+[Tau 2](https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992) commit
 `fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1). It keeps the source task bytes,
 `bm25_grep` retrieval, simulated-user prompts, and evaluator. Following the
 [Artificial Analysis methodology](https://artificialanalysis.ai/methodology/intelligence-benchmarking),
