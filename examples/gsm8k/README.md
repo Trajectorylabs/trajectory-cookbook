@@ -17,6 +17,9 @@ export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with 'trajectory-sdk>=0.10.0' python
 ```
 
+Import the SDK, create a client, and point the benchmark at its Docker build context and harness
+launch command:
+
 ```python
 from pathlib import Path
 
@@ -102,6 +105,8 @@ Evaluation runs the held-out split without changing the model. Training uses the
 to create checkpoints. Keep both run IDs so their progress and results can be compared in the
 product UI.
 
+Start a baseline evaluation on the held-out split:
+
 ```python
 evaluation = client.evals.create(
     bench_id=bench_id,
@@ -112,6 +117,8 @@ evaluation = client.evals.create(
     },
 )
 ```
+
+Start a training run on the training split:
 
 ```python
 training = client.training.create(
@@ -126,6 +133,8 @@ training = client.training.create(
     },
 )
 ```
+
+Build direct product links from the current organization's URL key and the returned run IDs:
 
 ```python
 organization = client.organizations.retrieve_current()
