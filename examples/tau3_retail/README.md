@@ -1,17 +1,14 @@
 # Tau 3 Retail
 
 This example packages Sierra's public 114-task Retail benchmark from
-[Tau 2](https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992) commit
-`fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1) with upstream's official 74 train / 40 test
+[tau2-bench v1.0.1](https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992) with upstream's official 74 train / 40 test
 split, and trains `Qwen/Qwen3.5-4B` on it. The agent is a customer-service representative with
 17 tools; upstream's simulated customer drives each conversation from private instructions, and
 upstream's evaluator grades the final database and the task's natural-language assertions.
 
-The adapter records the upstream reward even when a reply contains `</think>`; the
-`tau3_retail_protocol` event counts those replies for inspection. Malformed tool-call arguments
-are the one grading exception: upstream raises, while this example records a zero grade and
-completes the task so one bad model reply does not fail the whole evaluation. Agent errors and
-cut-off replies do not publish a reward.
+The adapter uses upstream's simulator and evaluator. Its one grading exception is a malformed
+agent tool call: upstream raises, while this example records zero and completes that attempt so
+one invalid reply does not fail the evaluation. Agent errors and cut-off replies are ungraded.
 
 Choose an agent using the [GSM8K setup guide](../gsm8k/README.md#2-choose-or-create-an-agent).
 Register the organization secret `OPENAI_API_KEY` for the simulated customer and judge. The
@@ -29,8 +26,7 @@ uv run examples/tau3_retail/train.py --agent-name YOUR_AGENT_NAME \
 
 The first command runs one task without uploading. The second uploads all 114 tasks and runs a
 benchmark diagnostic. The third evaluates the base model, trains, and evaluates the checkpoint,
-running 160 test conversations (four per task) before and after training. With one sample per
-task, two evaluations of nearly the same model differed by `0.15`. It uses a 2,048-token output
+running 160 test conversations (four per task) before and after training. It uses a 2,048-token output
 cap, learning rate `5e-5`, and 3 warmup steps; the model default of 15 warmup steps leaves a
 20-step run barely trained. These agent and sampling settings are cookbook choices, so scores
 here are not upstream leaderboard scores.
