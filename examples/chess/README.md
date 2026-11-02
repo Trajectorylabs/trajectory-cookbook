@@ -112,6 +112,38 @@ The model must complete the exact reference continuation. A different move score
 0.0, including another legal checkmate. The harness records partial progress for
 analysis, but it does not give partial reward.
 
+### Example trace
+
+Open the [full reference replay](visuals/reasoning-trace.json) to see the exact
+prompt, move submissions, updated board, and final grade for puzzle `00KYU`.
+This is a scripted replay through the reasoning harness, with zero model calls.
+
+After `submit_move({"move": "g3d6"})`, the harness returns these fields, along with
+the updated board:
+
+```json
+{
+  "your_move": "g3d6",
+  "opponent_move": "f8e8",
+  "fen": "3rk3/p2n3p/1p1QBpp1/2r2N2/4q3/7P/P5P1/5R1K w - - 4 42",
+  "moves_remaining": 1,
+  "instruction": "You have 1 move to make with submit_move."
+}
+```
+
+The next submission, `submit_move({"move": "d6e7"})`, completes the line. The
+replay records reward `1.0`, two model turns, two correct solver moves, and three
+correct half-moves, including Black's automatic reply.
+
+To reproduce the trace from the cookbook root:
+
+```bash
+uv run examples/chess/scripts/trace.py --puzzle-id 00KYU
+```
+
+See [`scripts/trace.py`](scripts/trace.py) for the replay client and
+[`play()` in the shared harness](harness/chess_harness.py) for move handling.
+
 ### Reasoning
 
 [`harness/reasoning_harness.py`](harness/reasoning_harness.py) starts the shared
