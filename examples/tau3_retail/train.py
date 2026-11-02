@@ -79,6 +79,7 @@ def start_training(
         display_name=f"Tau 3 Retail {num_steps} steps",
         options={
             **_ROLLOUT_OPTIONS,
+            "evaluation_enabled": False,
             "num_steps": num_steps,
             "train_batch_size": 8,
             "learning_rate": 5e-5,
