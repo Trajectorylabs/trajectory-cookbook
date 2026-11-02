@@ -103,16 +103,28 @@ class TrajectoryAgent(BaseAgent):
                     }
                 )
                 for index, call in enumerate(calls):
-                    if call.function.name != "bash":
-                        raise ValueError(f"Unexpected tool {call.function.name}")
-                    command = json.loads(call.function.arguments)["command"]
-                    result = await environment.exec(command)
-                    output = (result.stdout or "") + (result.stderr or "")
-                    details = {
-                        "exit_code": result.return_code,
-                        "output": output[-65536:],
-                        "truncated": len(output) > 65536,
-                    }
+                    try:
+                        if call.function.name != "bash":
+                            raise ValueError(
+                                f"Unknown tool {call.function.name}; use bash"
+                            )
+                        command = json.loads(call.function.arguments)["command"]
+                        if not isinstance(command, str):
+                            raise TypeError("command must be a string")
+                    except (ValueError, KeyError, TypeError) as error:
+                        details = {
+                            "exit_code": 2,
+                            "output": f"Invalid bash call: {error}",
+                            "truncated": False,
+                        }
+                    else:
+                        result = await environment.exec(command)
+                        output = (result.stdout or "") + (result.stderr or "")
+                        details = {
+                            "exit_code": result.return_code,
+                            "output": output[-65536:],
+                            "truncated": len(output) > 65536,
+                        }
                     messages.append(
                         {
                             "role": "tool",
