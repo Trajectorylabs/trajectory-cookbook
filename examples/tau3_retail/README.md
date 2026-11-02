@@ -29,7 +29,8 @@ uv run examples/tau3_retail/train.py --agent-name YOUR_AGENT_NAME \
 
 The first command runs one task without uploading. The second uploads all 114 tasks and runs a
 benchmark diagnostic. The third evaluates the base model, trains, and evaluates the checkpoint,
-running each test task 4 times; with one sample, two evaluations of nearly the same model
-differed by `0.15`. It uses a 2,048-token output cap and learning rate `5e-5` with 3 warmup
-steps; the model default of 15 warmup steps leaves a 20-step run barely trained. These agent
-and sampling settings are cookbook choices, so scores here are not upstream leaderboard scores.
+running 160 test conversations (four per task) before and after training. With one sample per
+task, two evaluations of nearly the same model differed by `0.15`. It uses a 2,048-token output
+cap, learning rate `5e-5`, and 3 warmup steps; the model default of 15 warmup steps leaves a
+20-step run barely trained. These agent and sampling settings are cookbook choices, so scores
+here are not upstream leaderboard scores.
