@@ -18,7 +18,7 @@ from harbor.models.trial.config import (
     TrialConfig,
 )
 from harbor.trial.trial import Trial
-from trajectory import BadRequestError, Client
+from trajectory import APITimeoutError, BadRequestError, Client
 
 ROOT = Path("/opt/terminal_bench_4")
 TRIALS = Path("/tmp/terminal_bench_4_trials")
@@ -79,6 +79,10 @@ class TrajectoryAgent(BaseAgent):
                     if error.code != "context_length_exceeded":
                         raise
                     reason = "TRUNCATION"
+                    break
+                except APITimeoutError:
+                    if deadline - time.monotonic() > 1:
+                        raise
                     break
                 metadata = (response.model_extra or {}).get("metadata") or {}
                 if (
@@ -201,11 +205,13 @@ def main() -> None:
                 if result.agent_result
                 else "TIMEOUT"
             )
-            client.trajectories.complete(tid, termination_reason=reason)
-            print(f"task={args.task} ending={reason} reward={reward}", flush=True)
         except Exception:
             client.trajectories.complete(tid, termination_reason="ERROR")
             raise
+        completed = client.trajectories.complete(tid, termination_reason=reason)
+        if completed.status not in ("completed", "finalizing"):
+            raise RuntimeError(f"Trajectory completion returned {completed.status}")
+        print(f"task={args.task} ending={reason} reward={reward}", flush=True)
 
 
 if __name__ == "__main__":
