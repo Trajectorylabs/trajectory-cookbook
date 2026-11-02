@@ -181,19 +181,18 @@ Illustrative output for an active training run:
 Status: running
 ```
 
-Open these links to follow the evaluation and training runs in Trajectory. Once training
-finishes, evaluate a checkpoint on this benchmark to compare its score with the baseline:
+Fetch the recorded training rewards and print the reward for each step:
 
 ```python
-organization = client.organizations.retrieve_current()
-product_url = f"https://platform.trajectory.ai/{organization['organization_key']}"
-print("Evaluation:", f"{product_url}/evaluate/runs/{evaluation.eval_run_id}")
-print("Training:", f"{product_url}/models/{training.training_run_id}")
+rewards = client.training.rewards.list_trainer_rewards(training.training_run_id)
+for reward in rewards.items:
+    print(f"Step {reward.step}: {reward.trainer_reward:.2f}")
 ```
 
-Sample links; your organization and run IDs appear in their place:
+Illustrative output after three training steps:
 
 ```text
-Evaluation: https://platform.trajectory.ai/<organization>/evaluate/runs/evr_<evaluation-id>
-Training: https://platform.trajectory.ai/<organization>/models/trn_<training-id>
+Step 0: 0.50
+Step 1: 0.75
+Step 2: 0.75
 ```
