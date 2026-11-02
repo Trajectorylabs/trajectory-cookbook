@@ -120,7 +120,7 @@ Benchmark: bm_<benchmark-id>
 Tasks: 80
 ```
 
-## Evaluate
+## Evaluate a model
 
 First, evaluate the base model on the held-out problems. This gives you a baseline to compare
 against trained checkpoints:
@@ -149,7 +149,7 @@ Status: completed
 Mean reward: 0.75
 ```
 
-## Train
+## Launch a training run
 
 Train the same model on the training split for three steps. Training produces checkpoints
 that you can evaluate on the same held-out problems:
@@ -166,13 +166,19 @@ training = client.training.create(
         "max_concurrent_trajectories": 32,
     },
 )
-print("Training:", training.training_run_id)
 ```
 
-Sample output after training is accepted:
+Fetch the training run to check its current status:
+
+```python
+run = client.training.runs.retrieve(training.training_run_id)
+print("Status:", run.status)
+```
+
+Illustrative output for an active training run:
 
 ```text
-Training: trn_<training-id>
+Status: running
 ```
 
 Open these links to follow the evaluation and training runs in Trajectory. Once training
