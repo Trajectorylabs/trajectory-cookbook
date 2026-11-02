@@ -4,7 +4,9 @@ After [your first task with T Factory](../t_factory/README.md), use this walkthr
 real benchmark through managed validation, evaluation, training, and checkpoint comparison.
 For quick debugging, use one training problem and one held-out test problem, then scale to the example's
 64 training and 16 test problems. These 80 problems are a sample of the public
-[GSM8K dataset](https://github.com/openai/grade-school-math), not the entire upstream dataset.
+[GSM8K dataset](https://github.com/openai/grade-school-math/tree/3101c7d5072418e28b9008a6636bde82a006892c),
+pinned to source commit `3101c7d5072418e28b9008a6636bde82a006892c`, not the entire dataset.
+OpenAI's [MIT license](runtime/LICENSE-GSM8K) accompanies the sample in the runtime image.
 
 The harness asks the model to solve a math problem and call `submit_answer`. It records reward
 `1.0` for the correct numeric answer and `0.0` otherwise. No usable `submit_answer` call
