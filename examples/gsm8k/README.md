@@ -171,30 +171,35 @@ training = client.training.create(
         "max_concurrent_trajectories": 32,
     },
 )
-print("Training:", training.training_run_id)
 ```
 
-Sample output after training is accepted:
-
-```text
-Training: trn_<training-id>
-```
-
-Open these links to follow the evaluation and training runs in Trajectory. Once training
-finishes, evaluate a checkpoint on this benchmark to compare its score with the baseline:
+Fetch the training run to check its current status:
 
 ```python
-organization = client.organizations.retrieve_current()
-product_url = f"https://platform.trajectory.ai/{organization['organization_key']}"
-print("Evaluation:", f"{product_url}/evaluate/runs/{evaluation.eval_run_id}")
-print("Training:", f"{product_url}/models/{training.training_run_id}")
+run = client.training.runs.retrieve(training.training_run_id)
+print("Status:", run.status)
 ```
 
-Sample links; your organization and run IDs appear in their place:
+Illustrative output for an active training run:
 
 ```text
-Evaluation: https://platform.trajectory.ai/<organization>/evaluate/runs/evr_<evaluation-id>
-Training: https://platform.trajectory.ai/<organization>/models/trn_<training-id>
+Status: running
+```
+
+Fetch the recorded training rewards and print the reward for each step:
+
+```python
+rewards = client.training.rewards.list_trainer_rewards(training.training_run_id)
+for reward in rewards.items:
+    print(f"Step {reward.step}: {reward.trainer_reward:.2f}")
+```
+
+Illustrative output after three training steps:
+
+```text
+Step 0: 0.50
+Step 1: 0.75
+Step 2: 0.75
 ```
 
 ## Appendix
