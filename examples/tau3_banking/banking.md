@@ -11,8 +11,8 @@ leaderboard evaluation.
 
 The SDK supplies agent inference and records the source evaluator's reward, including when an
 earlier model reply reached its output limit. Error endings are ungraded. The one simulator
-change retries an empty user response up to
-three times without adding it to the conversation; exhaustion still fails the task.
+change makes up to three attempts to get a nonempty user response without adding empty replies
+to the conversation; exhaustion still fails the task.
 
 Choose an existing agent and organization API key using the
 [agent guide](https://docs.trajectory.ai/agent). Register your OpenAI key once as the
