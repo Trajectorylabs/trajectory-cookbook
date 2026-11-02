@@ -1,8 +1,9 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-trixie
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends docker.io \
+    && apt-get install -y --no-install-recommends docker.io docker-compose docker-buildx \
     && rm -rf /var/lib/apt/lists/*
+RUN docker compose version && docker buildx version
 RUN pip install --no-cache-dir harbor==0.25.0 trajectory-sdk==0.9.37
 
 COPY tasks /opt/terminal_bench_4/tasks

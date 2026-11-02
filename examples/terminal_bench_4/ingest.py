@@ -85,9 +85,9 @@ def stage(
             source_task,
             context / "tasks" / name,
             symlinks=True,
-            ignore=lambda directory, _: {"solution", "cheat"}
-            if Path(directory) == source_task
-            else set(),
+            ignore=lambda directory, _, root=source_task: (
+                {"solution", "cheat"} if Path(directory) == root else set()
+            ),
         )
         config = tomllib.loads((source_task / "task.toml").read_text())
         resources = config["environment"]
