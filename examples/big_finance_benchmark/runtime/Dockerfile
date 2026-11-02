@@ -10,6 +10,7 @@ RUN python -c "import sys, urllib.request; urllib.request.urlretrieve(sys.argv[1
     "big-finance-benchmark-${BFB_COMMIT}/pyproject.toml" \
     "big-finance-benchmark-${BFB_COMMIT}/big_finance_harness" \
     "big-finance-benchmark-${BFB_COMMIT}/scripts/run_eval_set.py" \
+    "big-finance-benchmark-${BFB_COMMIT}/data/LICENSE-DATA" \
     "big-finance-benchmark-${BFB_COMMIT}/data/big_finance_subset.jsonl" \
   && rm /tmp/upstream.tar.gz
 COPY overlay/ ./

@@ -17,8 +17,9 @@ into the next request.
 
 ## What this example contains
 
-The harness is Rogo Technologies' work under the Apache License 2.0, and the subset is
-licensed CC BY 4.0. The runtime pins the upstream harness by commit:
+The harness is Rogo Technologies' work under [Apache 2.0](https://github.com/Rogo-Technologies/big-finance-benchmark/blob/bafc769bc58032f659e4117c3d839258ce0fda40/LICENSE),
+and the subset is [CC BY 4.0](https://github.com/Rogo-Technologies/big-finance-benchmark/blob/bafc769bc58032f659e4117c3d839258ce0fda40/data/LICENSE-DATA).
+The runtime includes both licenses and pins the upstream harness by commit:
 
 - [`runtime/Dockerfile`](runtime/Dockerfile) downloads upstream commit
   `bafc769bc58032f659e4117c3d839258ce0fda40` as a tarball. It extracts the harness package, the
