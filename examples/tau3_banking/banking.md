@@ -46,7 +46,14 @@ from trajectory import Client
 Client().evals.create(
     bench_id="bm_<your-benchmark-id>",
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
-    options={"temperature": 1.0, "top_p": 0.95, "top_k": 20},
+    options={
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 20,
+        "max_output_tokens_per_step": 16384,
+        "max_turns_per_trajectory": 200,
+        "max_total_tokens_per_trajectory": 262144,
+    },
 )
 ```
 
