@@ -1,12 +1,20 @@
 # Terminal-Bench 4.0
 
+## Dataset
+
 [Terminal-Bench 4.0](https://github.com/harbor-framework/terminal-bench/tree/v4.0.0)
 tests agents on terminal tasks. This example uses tasks published at commit
-`452bf305c6daa62fc59061d22133a7cbc7c1572e` and keeps Harbor's task environment,
-artifact collection, and verifier. The default upload contains one CPU task for a quick
-check. It is an **evaluation-only** example: the release has no official training split.
+`452bf305c6daa62fc59061d22133a7cbc7c1572e`. The default upload contains one
+published CPU task for a quick check. Select others from the pinned
+[upstream manifest](https://github.com/harbor-framework/terminal-bench/blob/v4.0.0/tasks/dataset.toml).
 
-## Try one task
+## Harness
+
+A small Trajectory bash agent supplies model calls. Harbor keeps the source task
+environment, artifact collection, and separate verifier; the adapter records its grade
+in the Trajectory trajectory.
+
+## Ingestion
 
 You need Python 3.12+, [uv](https://docs.astral.sh/uv/), Git, and a Trajectory organization
 API key. The task runtime needs nested Docker, as in the
@@ -25,6 +33,12 @@ the benchmark and diagnostic IDs. A reward of zero is a valid grade; a missing g
 failed task is not. The `--agent-timeout 300` flag caps the source's eight-hour agent
 deadline for this smoke check, so its score is not comparable to Terminal-Bench's
 leaderboard.
+
+Pass `--task NAME` more than once to select other tasks from the pinned manifest.
+Without `--agent-timeout`, tasks retain their original agent deadline. Three published
+tasks require GPU plus nested Docker and are rejected by this CPU example.
+
+## Evaluation
 
 To evaluate the same uploaded version, use the printed `bench_id`:
 
@@ -50,17 +64,14 @@ time for environment setup and verification. If you upload without `--agent-time
 use `execution_timeout_seconds=30600` for the source's eight-hour agent deadline plus
 that overhead.
 
-Pass `--task NAME` more than once to select other tasks from the pinned
-[upstream manifest](https://github.com/harbor-framework/terminal-bench/blob/v4.0.0/tasks/dataset.toml).
-Without `--agent-timeout`, tasks retain their original agent deadline. Three published
-tasks require GPU plus nested Docker and are rejected by this CPU example. This recipe
-does not claim a full leaderboard run.
+## Training
 
-## What changes from upstream
+This release has no official training split, so this example uploads evaluation tasks only.
+The smoke run above does not claim a full leaderboard score.
+
+## Appendix
 
 The task files and grades come from the pinned [Apache-2.0-licensed source](https://github.com/harbor-framework/terminal-bench/blob/v4.0.0/LICENSE).
 The uploader excludes reference solutions and validates selected tasks against the
-upstream manifest. A small Trajectory bash agent supplies model calls; Harbor still
-creates the original task environment, transfers artifacts, and runs its separate
-verifier. The adapter records its reward in the Trajectory trajectory. The optional
-timeout flag changes the agent budget only for the quick check above.
+upstream manifest. The optional timeout changes the agent budget only for the quick
+check above; the task instructions and verifier remain unchanged.
