@@ -16,7 +16,7 @@ class TrajectoryPolicy(CustomLLM):
         self.calls = 0
         self.reasoning_leaks = 0
         self.malformed_tool_calls = 0
-        self.truncated = False
+        self.output_limited_replies = 0
 
     def completion(
         self,
@@ -43,7 +43,10 @@ class TrajectoryPolicy(CustomLLM):
                 json.loads(tool_call.function.arguments)
             except json.JSONDecodeError:
                 self.malformed_tool_calls += 1
-        self.truncated |= response.choices[0].finish_reason in ("length", "max_tokens")
+        self.output_limited_replies += response.choices[0].finish_reason in (
+            "length",
+            "max_tokens",
+        )
         return ModelResponse(**response.model_dump(mode="json"))
 
 

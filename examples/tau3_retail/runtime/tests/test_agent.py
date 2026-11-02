@@ -9,15 +9,20 @@ from trajectory import Client
 
 
 @pytest.mark.parametrize(
-    "reason, truncated, leaked, expected_reward, expected_ending",
+    "reason, output_limited_replies, leaked, expected_reward, expected_ending",
     [
         (TerminationReason.USER_STOP, False, 1, 1.0, "ENV_DONE"),
-        (TerminationReason.USER_STOP, True, 0, None, "TRUNCATION"),
+        (TerminationReason.USER_STOP, 1, 0, 1.0, "ENV_DONE"),
         (TerminationReason.AGENT_ERROR, False, 0, None, "ERROR"),
     ],
 )
 def test_upstream_reward_and_endings(
-    monkeypatch, reason, truncated, leaked, expected_reward, expected_ending
+    monkeypatch,
+    reason,
+    output_limited_replies,
+    leaked,
+    expected_reward,
+    expected_ending,
 ):
     requests = []
 
@@ -47,7 +52,10 @@ def test_upstream_reward_and_endings(
         agent,
         "register_policy",
         lambda *args: SimpleNamespace(
-            calls=1, reasoning_leaks=leaked, malformed_tool_calls=0, truncated=truncated
+            calls=1,
+            reasoning_leaks=leaked,
+            malformed_tool_calls=0,
+            output_limited_replies=output_limited_replies,
         ),
     )
     monkeypatch.setattr(
@@ -65,12 +73,13 @@ def test_upstream_reward_and_endings(
     event = next(body for path, body in requests if path.endswith("/events"))
     assert (rewards[0]["value"] if rewards else None) == expected_reward
     assert event["payload"]["reasoning_leaks"] == leaked
+    assert event["payload"]["output_limited_replies"] == output_limited_replies
     assert requests[-1][1] == {"termination_reason": expected_ending}
     assert models == ["gpt-4.1-2025-04-14"]
 
 
-@pytest.mark.parametrize("truncated", [False, True])
-def test_malformed_tool_arguments_get_zero_grade(monkeypatch, truncated):
+@pytest.mark.parametrize("output_limited_replies", [0, 1])
+def test_malformed_tool_arguments_get_zero_grade(monkeypatch, output_limited_replies):
     requests = []
 
     def respond(request):
@@ -87,7 +96,10 @@ def test_malformed_tool_arguments_get_zero_grade(monkeypatch, truncated):
         agent,
         "register_policy",
         lambda *args: SimpleNamespace(
-            calls=1, reasoning_leaks=0, malformed_tool_calls=1, truncated=truncated
+            calls=1,
+            reasoning_leaks=0,
+            malformed_tool_calls=1,
+            output_limited_replies=output_limited_replies,
         ),
     )
 

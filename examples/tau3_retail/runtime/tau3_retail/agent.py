@@ -20,9 +20,7 @@ from tau3_retail.protocol import (
 from trajectory import Client
 
 
-def termination_reason(reason: object, truncated: bool) -> str:
-    if truncated:
-        return "TRUNCATION"
+def termination_reason(reason: object) -> str:
     return {
         "AGENT_STOP": "ENV_DONE",
         "USER_STOP": "ENV_DONE",
@@ -96,12 +94,10 @@ def run_task(client: Client, task_id: str) -> str:
         upstream_termination = result.termination_reason.value
 
     reason = (
-        "ENV_DONE"
-        if result is None
-        else termination_reason(result.termination_reason, provider.truncated)
+        "ENV_DONE" if result is None else termination_reason(result.termination_reason)
     )
-    # Tau 2 continues after a cut-off reply; its grade covers later turns.
-    if result is None or (reason != "ERROR" and not provider.truncated):
+    # An output-limited reply is not terminal when Tau 2 continues and grades the task.
+    if result is None or reason != "ERROR":
         client.trajectories.log_reward(
             trajectory_id,
             name="reward_accuracy",
@@ -117,6 +113,7 @@ def run_task(client: Client, task_id: str) -> str:
             "policy_calls": provider.calls,
             "reasoning_leaks": provider.reasoning_leaks,
             "malformed_tool_calls": provider.malformed_tool_calls,
+            "output_limited_replies": provider.output_limited_replies,
             "upstream_reward": upstream_reward,
             "upstream_termination_reason": upstream_termination,
         },

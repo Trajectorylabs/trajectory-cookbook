@@ -12,11 +12,11 @@ from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
-# Retail conversations take up to ~80 agent, user, and tool messages; leave headroom.
+# The source stops after 200 conversation steps; allow at least that many model turns.
 _ROLLOUT_OPTIONS = {
     "reasoning_effort": "off",
     "max_output_tokens_per_step": 2048,
-    "max_turns_per_trajectory": 100,
+    "max_turns_per_trajectory": 200,
 }
 # One sample per test task swings the mean by several points between identical runs.
 _EVAL_OPTIONS = {"evaluation_samples_per_task": 4}
