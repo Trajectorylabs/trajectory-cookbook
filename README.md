@@ -24,10 +24,8 @@ recorded reward, and completed trajectory.
 | [T Factory: first task](examples/t_factory/README.md) | One response, reward, and completion. |
 | [GSM8K: full workflow](examples/gsm8k/README.md) | Validate one task, evaluate and train, compare a checkpoint, and optionally deploy. |
 | [T Factory: evaluation and training](examples/t_factory/training.md) | A small training walkthrough with a toy reward. |
-| [Number guessing](examples/number_guessing/README.md) | Multi-turn execution, efficiency rewards, and context compaction. |
 | [Inspect](examples/inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
 | [Harvey LAB](examples/harvey_labs.md) | An existing harness, native judge, and nested Podman. |
-| [Big Finance Benchmark](examples/big_finance_benchmark.md) | An existing research agent, web tools, and rubric grading. |
 | [Tau 3 Banking](examples/tau3_banking/banking.md) | An upstream evaluator and multi-turn customer-agent task. |
 
 [Reward integration](examples/reward_integration.md) works through an adapter that preserves
