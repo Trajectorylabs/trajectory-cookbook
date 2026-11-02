@@ -1,9 +1,13 @@
 # Public Tau 3 Banking
 
 This example packages Sierra's public 97-task Banking benchmark from Tau 2 commit
-`fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1). The original task bytes, retrieval,
-user simulator prompts/model, evaluator, and task digest checks are preserved. Task IDs are sorted into
-80 training and 17 held-out test tasks.
+`fc0055dc4e0a316c3f83133267fbd6faaa770992` (v1.0.1). It keeps the source task bytes,
+`bm25_grep` retrieval, simulated-user prompts, and evaluator. Following the
+[Artificial Analysis methodology](https://artificialanalysis.ai/methodology/intelligence-benchmarking),
+the simulated user and `task_102` natural-language judge use GPT-5.4 Mini at medium reasoning
+instead of the source release's default judge. The cookbook sorts task IDs into 80 training
+and 17 held-out test tasks; this split is for training, not the full 97-task, five-repeat
+leaderboard evaluation.
 
 The runtime locks its dependencies and calls the SDK for policy inference, reward
 publication, protocol events, and completion. It invokes the virtual environment's Python by
