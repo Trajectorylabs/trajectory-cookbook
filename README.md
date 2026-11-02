@@ -25,6 +25,7 @@ recorded reward, and completed trajectory.
 | [Harvey LAB](examples/harvey_labs/README.md) | An existing harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | An upstream evaluator and multi-turn customer-agent task. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
+| [Terminal-Bench 4.0](examples/terminal_bench_4/README.md) | Evaluate a published task with Harbor's environment and verifier. |
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
 
 ## Guides
