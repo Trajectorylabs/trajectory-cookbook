@@ -46,8 +46,8 @@ diagnostic. Save the printed benchmark ID.
 
 ## Evaluation
 
-The training script first evaluates the base model on the held-out tasks. It later evaluates
-the final checkpoint on those same tasks.
+The training script starts a base-model evaluation alongside training, then evaluates
+the final checkpoint on the same held-out tasks after training succeeds.
 
 ## Training
 
