@@ -84,12 +84,10 @@ class TrajectoryAdapter(OpenAIAdapter):
         )
         reason = "ENV_DONE"
         if (
-            metrics["finish_reason"] == "context_overflow"
+            metrics["finish_reason"] in ("context_overflow", "max_turns_exceeded")
             or metrics["incomplete_details"]
         ):
             reason = "TRUNCATION"
-        elif metrics["finish_reason"] == "max_turns_exceeded":
-            reason = "MAX_STEPS"
         self._complete(reason)
 
     def fail(self) -> None:
