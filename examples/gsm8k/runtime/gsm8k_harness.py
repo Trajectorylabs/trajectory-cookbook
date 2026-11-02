@@ -1,11 +1,14 @@
 """Run and grade one GSM8K task."""
 
+import argparse
 import json
-import os
 import re
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 import trajectory
+
+_TASKS_PATH = Path(__file__).with_name("tasks.jsonl")
 
 _PROMPT = """Solve this grade-school math problem carefully. Show your reasoning, then submit
 the final numeric answer by calling the `submit_answer` tool. Do not state the final answer only
@@ -54,9 +57,10 @@ def extract_submitted_answer(tool_calls) -> Decimal | None:
     return None
 
 
-def main() -> None:
-    question = os.environ["QUESTION"]
-    expected = extract_number(os.environ["EXPECTED_ANSWER"])
+def main(task_id: int) -> None:
+    task = json.loads(_TASKS_PATH.read_text().splitlines()[task_id])
+    question = task["question"]
+    expected = extract_number(task["answer"])
 
     client = trajectory.Client()
     trajectory_id = client.trajectories.create().tid
@@ -89,4 +93,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task_id", type=int, required=True)
+    main(parser.parse_args().task_id)

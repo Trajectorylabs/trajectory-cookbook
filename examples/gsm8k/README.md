@@ -2,7 +2,7 @@
 
 This example adapts a reproducible sample of the public
 [GSM8K dataset](https://github.com/openai/grade-school-math/tree/3101c7d5072418e28b9008a6636bde82a006892c)
-to the Trajectory SDK.
+to the Trajectory SDK. The selected rows are stored in [`runtime/tasks.jsonl`](runtime/tasks.jsonl).
 
 The model must call `submit_answer`. The harness compares that numeric answer with the private
 reference, records `reward_accuracy`, and completes the trajectory as `ENV_DONE` or `TRUNCATION`.
