@@ -86,8 +86,9 @@ complete with a recorded reward. See [upload and validation details](training.md
 
 ## Evaluation
 
-Use the printed benchmark ID with [`train.py`](train.py). It evaluates Qwen 3.5 4B on the
-held-out tasks before training and evaluates the final checkpoint on the same tasks.
+Use the printed benchmark ID with [`train.py`](train.py). It starts the Qwen 3.5 4B
+baseline evaluation alongside training, then evaluates the final checkpoint on the
+same held-out tasks after training succeeds.
 
 ## Training
 
