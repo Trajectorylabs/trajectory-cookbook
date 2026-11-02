@@ -92,8 +92,6 @@ def main() -> None:
     )
     if choice.finish_reason in ("length", "max_tokens"):
         reason = "TRUNCATION"
-    elif submitted is None:
-        reason = "MISSING_SUBMIT"
     else:
         reason = "ENV_DONE"
     completed = client.trajectories.complete(trajectory_id, termination_reason=reason)
