@@ -7,6 +7,7 @@ import argparse
 import time
 from pathlib import Path
 
+from run_options import ROLLOUT_OPTIONS
 from runtime.tau3_retail.protocol import (
     MAX_ERRORS,
     MAX_STEPS,
@@ -107,6 +108,7 @@ def task_diagnose(
         agent_name=agent_name,
         root=ROOT,
         base_model_slug=_MODEL,
+        options=ROLLOUT_OPTIONS,
         timeout_seconds=_BUILD_TIMEOUT_SECONDS,
     )
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
@@ -116,7 +118,7 @@ def benchmark_diagnostic(bench_id: str) -> None:
     # Check a subset of uploaded tasks before evaluation or training.
     client = Client()
     diagnostic = client.diagnostics.start_benchmark(
-        bench_id=bench_id, base_model_slug=_MODEL
+        bench_id=bench_id, base_model_slug=_MODEL, options=ROLLOUT_OPTIONS
     )
     _wait_for_diagnostic(client, diagnostic.benchmark_diagnostic_id)
 
@@ -149,7 +151,9 @@ def _wait_for_diagnostic(client: Client, diagnostic_id: str) -> None:
         or result.failure is not None
         or not result.tasks
         or any(
-            task.status != "completed" or task.failure is not None
+            task.status != "completed"
+            or task.failure is not None
+            or task.reward is None
             for task in result.tasks
         )
     ):

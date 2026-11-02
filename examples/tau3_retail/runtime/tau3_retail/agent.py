@@ -77,17 +77,22 @@ def run_task(client: Client, task_id: str) -> str:
             seed=SEED,
             evaluation_type=EvaluationType.ALL,
         )
-    except json.JSONDecodeError:
-        # Upstream raises; count malformed agent tool arguments as a failure.
-        if not provider.malformed_tool_calls:
+        if result is not None and result.reward_info is None:
+            raise RuntimeError("The upstream Tau 3 evaluator returned no reward")
+    except Exception as error:
+        if isinstance(error, json.JSONDecodeError) and provider.malformed_tool_calls:
+            # Upstream raises; count malformed agent tool arguments as a failure.
+            result = None
+        else:
+            try:
+                client.trajectories.complete(trajectory_id, termination_reason="ERROR")
+            except Exception:
+                pass  # Preserve the original source or grading error.
             raise
-        result = None
     if result is None:
         upstream_reward = 0.0
         explanation = "The agent sent tool-call arguments that are not valid JSON"
         upstream_termination = "malformed_tool_call"
-    elif result.reward_info is None:
-        raise RuntimeError("The upstream Tau 3 evaluator returned no reward")
     else:
         upstream_reward = result.reward_info.reward
         explanation = result.reward_info.model_dump_json()

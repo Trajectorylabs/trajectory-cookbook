@@ -1,4 +1,7 @@
-from ingest import build_benchmark, task_spec
+from types import SimpleNamespace
+
+import pytest
+from ingest import _wait_for_diagnostic, build_benchmark, task_spec
 from runtime.tau3_retail.protocol import TEST_IDS, TRAIN_IDS
 
 
@@ -20,3 +23,20 @@ def test_one_model_override_routes_to_openrouter_secret():
     assert task.env_vars["TAU3_RETAIL_USER_JUDGE_MODEL"] == model
     assert "OPENROUTER_API_KEY" in task.env_vars
     assert "OPENAI_API_KEY" not in task.env_vars
+
+
+def test_diagnostic_rejects_ungraded_task():
+    report = SimpleNamespace(
+        status="completed",
+        failure=None,
+        tasks=[SimpleNamespace(status="completed", failure=None, reward=None)],
+        to_json=lambda: "{}",
+    )
+    client = SimpleNamespace(
+        diagnostics=SimpleNamespace(
+            get_status=lambda _: SimpleNamespace(status="completed"),
+            get_diagnostics=lambda _: report,
+        )
+    )
+    with pytest.raises(RuntimeError, match="did not pass"):
+        _wait_for_diagnostic(client, "diagnostic-test")

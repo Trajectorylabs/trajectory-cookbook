@@ -117,3 +117,41 @@ def test_malformed_tool_arguments_get_zero_grade(monkeypatch, output_limited_rep
     reward = next(body for path, body in requests if path.endswith("/rewards"))
     assert reward["value"] == 0.0
     assert requests[-1][1] == {"termination_reason": "ENV_DONE"}
+
+
+@pytest.mark.parametrize("missing_reward", [False, True])
+def test_source_or_grading_failure_closes_trajectory(monkeypatch, missing_reward):
+    requests = []
+
+    def respond(request):
+        requests.append((request.url.path, json.loads(request.content or b"{}")))
+        if request.url.path == "/api/v1/trajectories":
+            return httpx2.Response(200, json={"tid": "tid_test"})
+        return httpx2.Response(
+            200, json={"ok": True, "trajectory_id": "tid_test", "status": "completed"}
+        )
+
+    monkeypatch.setattr(agent, "configure_nl_assertion_judge", lambda model: None)
+    monkeypatch.setattr(agent, "load_task", lambda task_id: object())
+    monkeypatch.setattr(
+        agent,
+        "register_policy",
+        lambda *args: SimpleNamespace(malformed_tool_calls=0),
+    )
+
+    def source_run(*args, **kwargs):
+        if missing_reward:
+            return SimpleNamespace(reward_info=None)
+        raise RuntimeError("source failed")
+
+    monkeypatch.setattr("tau2.runner.batch.run_single_task", source_run)
+    with Client(
+        api_key="test",
+        base_url="https://example.com",
+        http_client=httpx2.Client(transport=httpx2.MockTransport(respond)),
+    ) as client:
+        with pytest.raises(RuntimeError):
+            agent.run_task(client, "0")
+
+    assert all(not path.endswith("/rewards") for path, _ in requests)
+    assert requests[-1][1] == {"termination_reason": "ERROR"}

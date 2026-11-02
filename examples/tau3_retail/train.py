@@ -7,17 +7,12 @@ import argparse
 import time
 from dataclasses import dataclass
 
+from run_options import ROLLOUT_OPTIONS
 from trajectory import Client, RateLimitError
 from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
-# The source stops after 200 conversation steps; allow at least that many model turns.
-_ROLLOUT_OPTIONS = {
-    "reasoning_effort": "off",
-    "max_output_tokens_per_step": 2048,
-    "max_turns_per_trajectory": 200,
-}
 # One sample per test task swings the mean by several points between identical runs.
 _EVAL_OPTIONS = {"evaluation_samples_per_task": 4}
 
@@ -79,7 +74,7 @@ def start_training(
         base_model_slug=model,
         display_name=f"Tau 3 Retail {num_steps} steps",
         options={
-            **_ROLLOUT_OPTIONS,
+            **ROLLOUT_OPTIONS,
             "evaluation_enabled": False,
             "num_steps": num_steps,
             "train_batch_size": 8,
@@ -108,7 +103,7 @@ def evaluate(
                 base_model_slug=model,
                 parent_checkpoint_id=parent_checkpoint_id,
                 display_name=display_name,
-                options={**_ROLLOUT_OPTIONS, **_EVAL_OPTIONS},
+                options={**ROLLOUT_OPTIONS, **_EVAL_OPTIONS},
             )
             break
         except RateLimitError as error:
