@@ -160,10 +160,12 @@ instructions, prompt, and verifiers. Reference solutions are left out. For one a
 5. records the verifier's `reward.txt` as the `resolved` reward (1 or 0) and completes the
    trajectory.
 
-This follows upstream's locked protocol: an offline agent with a 50-minute budget, re-graded on
-a pristine image. As in upstream's `locked_mini_swe` run, there is no step limit, each command
+This keeps upstream's offline 50-minute agent and fresh-image grading. As in upstream's
+`locked_mini_swe` run, there is no step limit, each command
 runs with `sh -c` for at most 30 seconds, and a reply without a valid `bash` call is dropped and
 answered with the config's format-error message.
+Unlike upstream's `mini_toolcall.yaml`, which stops an attempt after $3 in model calls, this
+managed run uses the turn, token, and time limits above; it does not enforce a dollar cap.
 
 | Ending | When |
 | --- | --- |
@@ -177,9 +179,10 @@ graded attempt. Training uses `TIMEOUT` attempts only with `train_on_timeout`, w
 sets because many attempts use the full 50 minutes. The trajectory's
 `swe_bench_pro_result` event keeps the native grade, the patch, and the verifier output.
 
-Tasks are split by repository: 15% of each repository's tasks, ordered by the SHA-256 of their
+For this training example, tasks are split by repository: 15% of each repository's tasks, ordered by the SHA-256 of their
 instance ID, form the 97-task `test` split, and the other 545 form `train`. The split depends
-only on the instance IDs, so every upload keeps the same held-out tasks.
+only on the instance IDs, so every upload keeps the same held-out tasks. This is a cookbook
+split, not an upstream leaderboard split.
 
 ## Inspect an attempt
 
