@@ -28,19 +28,12 @@ recorded reward, and completed trajectory.
 | [Terminal-Bench 4.0](examples/terminal_bench_4/README.md) | Evaluate a published task with Harbor's environment and verifier. |
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
 
-## Guides
-
-| Guide | What it shows |
-| --- | --- |
-| [Reward integration](reward_integration.md) | Preserve a benchmark's source scorer behind an adapter. |
-| [Cut-off reply handling](termination_reasons.md) | Stop the actor loop and record termination correctly. |
-| [Task diagnostics](task_diagnostics.md) | Validate a packaged task before evaluation or training. |
-| [Diagnostic artifacts](diagnostic_artifacts.md) | Retain and inspect task output from a packaged run. |
-| [Inspect integration](inspect.md) | Route actors, preserve native scoring, and handle errors and judges. |
-| [T Factory training](examples/t_factory/training.md) | Evaluate and train against a small reward-hacking example. |
-
-For application traffic, use the [production traces guide](https://docs.trajectory.ai/guides/production-traces)
-(private beta).
+For SDK adapter details, see the guides for [source graders](https://docs.trajectory.ai/guides/source-graders),
+[Inspect](https://docs.trajectory.ai/guides/inspect), [diagnostics](https://docs.trajectory.ai/guides/spec#validate-one-task-before-uploading),
+[diagnostic artifacts](https://docs.trajectory.ai/guides/diagnostic-artifacts), and
+[termination reasons](https://docs.trajectory.ai/guides/termination-reasons).
+For training, start with [T Factory](examples/t_factory/training.md). For application traffic,
+see [production traces](https://docs.trajectory.ai/guides/production-traces) (private beta).
 
 When adapting another benchmark, keep its solver, grading rule, and actor/private-test
 boundary. Validate the packaged path on one task and compare its native grade with the
