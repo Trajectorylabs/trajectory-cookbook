@@ -45,6 +45,11 @@ run = Client().evals.create(
 print(run.eval_run_id)
 ```
 
+The `2100`-second evaluation limit matches the 300-second smoke upload above and leaves
+time for environment setup and verification. If you upload without `--agent-timeout`,
+use `execution_timeout_seconds=30600` for the source's eight-hour agent deadline plus
+that overhead.
+
 Pass `--task NAME` more than once to select other tasks from the pinned
 [upstream manifest](https://github.com/harbor-framework/terminal-bench/blob/v4.0.0/tasks/dataset.toml).
 Without `--agent-timeout`, tasks retain their original agent deadline. Three published
