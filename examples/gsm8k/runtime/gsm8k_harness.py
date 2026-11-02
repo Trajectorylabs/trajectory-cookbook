@@ -6,9 +6,6 @@ import re
 from decimal import Decimal, InvalidOperation
 
 import trajectory
-from trajectory.types.inference.chat_completion_response import (
-    ChatCompletionResponseToolCall,
-)
 
 _PROMPT = """Solve this grade-school math problem carefully. Show your reasoning, then submit
 the final numeric answer by calling the `submit_answer` tool. Do not state the final answer only
@@ -45,9 +42,7 @@ def extract_number(text: str) -> Decimal | None:
         return None
 
 
-def extract_submitted_answer(
-    tool_calls: list[ChatCompletionResponseToolCall] | None,
-) -> Decimal | None:
+def extract_submitted_answer(tool_calls) -> Decimal | None:
     for tool_call in reversed(tool_calls or []):
         if tool_call.function.name != "submit_answer":
             continue
