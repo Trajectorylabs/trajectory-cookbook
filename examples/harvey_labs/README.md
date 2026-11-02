@@ -86,3 +86,6 @@ Some nested environments use `crun` without delegated cgroup controllers. When
 `HARVEY_PODMAN_DISABLE_CGROUPS=1`, the overlay's sandbox change checks `podman info` for `crun`
 and adds `--cgroups=disabled`. Local runs leave the variable unset and keep their default cgroup
 behavior.
+
+The [Harvey LAB source license](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/LICENSE)
+is MIT.
