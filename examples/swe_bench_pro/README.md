@@ -44,7 +44,7 @@ packages the public task instructions and verifiers. It does not stage `solution
 
 The script uploads the selected tasks as benchmark `swe-bench-pro`, waits for the runtime image,
 and prints `bench_id`. It then runs a
-[benchmark diagnostic](../task_diagnostics.md#check-an-uploaded-benchmark) on Qwen 3.6 35B A3B
+[benchmark diagnostic](https://docs.trajectory.ai/guides/benchmarks#upload-and-diagnose-the-full-benchmark) on Qwen 3.6 35B A3B
 with the settings `train.py` uses, and prints each task's status and reward. A reward of 0 is a
 valid grade. The command exits with an error if a task fails or has no reward.
 
