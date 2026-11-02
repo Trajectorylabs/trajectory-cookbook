@@ -27,7 +27,6 @@ starts the harness with `--task_id 0`, which selects the first row of the JSONL 
 report below to check whether the task ran, how it ended, and what reward it received:
 
 ```python
-import time
 from pathlib import Path
 
 import trajectory
@@ -52,9 +51,11 @@ diagnostic = trajectory.lib.start_task_diagnostic(
 )
 
 diagnostic_id = diagnostic.benchmark_diagnostic_id
-while client.diagnostics.get_status(diagnostic_id).status in {"pending", "running"}:
-    time.sleep(5)
+```
 
+Fetch the diagnostic report to inspect the task's status and reward:
+
+```python
 report = client.diagnostics.get_diagnostics(diagnostic_id)
 print("Diagnostic:", report.status)
 for task in report.tasks:
@@ -119,7 +120,7 @@ Benchmark: bm_<benchmark-id>
 Tasks: 80
 ```
 
-## Evaluate, train, and compare
+## Evaluate
 
 First, evaluate the base model on the held-out problems. This gives you a baseline to compare
 against trained checkpoints:
@@ -132,27 +133,7 @@ evaluation = client.evals.create(
 )
 ```
 
-Wait for the evaluation to finish, then fetch its mean reward across the held-out tasks:
-
-```python
-while True:
-    result = client.evals.runs.retrieve(evaluation.eval_run_id)
-    if result.status in {"completed", "failed", "cancelled"}:
-        break
-    time.sleep(5)
-
-print("Status:", result.status)
-print("Mean reward:", result.reward_mean)
-```
-
-Sample output for a completed evaluation (illustrative scores):
-
-```text
-Status: completed
-Mean reward: 0.75
-```
-
-Inspect an individual attempt to see its grade and recorded steps. List the evaluation's
+For an evaluation with recorded attempts, inspect an attempt to see its grade and steps. List the evaluation's
 trajectories, then fetch the first one with its steps and reward components included:
 
 ```python
@@ -180,7 +161,9 @@ reward_accuracy: 1.0
 Recorded steps: 1
 ```
 
-Next, train the same model on the training split for three steps. Training produces checkpoints
+## Train
+
+Train the same model on the training split for three steps. Training produces checkpoints
 that you can evaluate on the same held-out problems:
 
 ```python
