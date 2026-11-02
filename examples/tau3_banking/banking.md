@@ -10,7 +10,8 @@ and 17 held-out test tasks; this split is for training, not the full 97-task, fi
 leaderboard evaluation.
 
 The SDK supplies agent inference. Sierra's runner continues after an output-limited model reply,
-so this example records its final evaluator grade. Error endings are ungraded. The one simulator
+so this example records its final evaluator grade. Sierra's too-many-errors stop is graded;
+unexpected errors are ungraded. The one simulator
 change makes up to three attempts to get a nonempty user response without adding empty replies
 to the conversation; exhaustion still fails the task.
 

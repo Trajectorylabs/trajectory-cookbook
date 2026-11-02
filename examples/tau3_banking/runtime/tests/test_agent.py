@@ -47,10 +47,10 @@ def sdk_client(requests, finish_reason="stop"):
         (TerminationReason.USER_STOP, "ENV_DONE"),
         (TerminationReason.MAX_STEPS, "MAX_STEPS"),
         (TerminationReason.AGENT_ERROR, "ERROR"),
-        (TerminationReason.TOO_MANY_ERRORS, "ERROR"),
+        (TerminationReason.TOO_MANY_ERRORS, "ENV_DONE"),
     ],
 )
-def test_error_endings_complete_without_reward(monkeypatch, upstream, expected):
+def test_source_reward_and_endings(monkeypatch, upstream, expected):
     reward_info = RewardInfo(reward=0.0, info={"note": "test"})
     result = SimpleNamespace(termination_reason=upstream, reward_info=reward_info)
     monkeypatch.setattr(agent, "verify_source", lambda: None)
