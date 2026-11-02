@@ -2,9 +2,10 @@
 # requires-python = ">=3.12"
 # dependencies = ["trajectory-sdk==0.9.37"]
 # ///
-"""Upload pinned Terminal-Bench 4.0 test tasks and run a diagnostic."""
+"""Upload pinned Terminal-Bench 4.0 tasks and run a diagnostic."""
 
 import argparse
+import re
 import shutil
 import subprocess
 import tempfile
@@ -18,8 +19,6 @@ from trajectory.lib import DockerfileBuild, start_push
 SOURCE = "https://github.com/harbor-framework/terminal-bench.git"
 SOURCE_COMMIT = "452bf305c6daa62fc59061d22133a7cbc7c1572e"
 EXAMPLE = Path(__file__).resolve().parent
-TEST_TASKS = frozenset((EXAMPLE / "test_tasks.txt").read_text().splitlines())
-GPU_TASKS = {"fp8-rmsnorm-gemm", "jax-speedrun-gpu", "math-eval-grader"}
 DEFAULT_TASK = "music-harmony"
 MODEL = "Qwen/Qwen3.6-35B-A3B"
 
@@ -70,6 +69,14 @@ def stage(
     root: Path, tasks: list[str], timeout: int | None
 ) -> tuple[Path, BenchmarkSpec]:
     source = source_checkout(root, tasks)
+    manifest = tomllib.loads(
+        subprocess.check_output(
+            ["git", "-C", str(source), "show", "HEAD:tasks/dataset.toml"], text=True
+        )
+    )
+    published = {
+        item["name"].removeprefix("terminal-bench/") for item in manifest["tasks"]
+    }
     context = root / "context"
     (context / "tasks").mkdir(parents=True)
     shutil.copy2(source / "LICENSE", context / "LICENSE")
@@ -78,6 +85,8 @@ def stage(
 
     specs = []
     for name in tasks:
+        if name not in published:
+            raise RuntimeError(f"Task {name} is not published in Terminal-Bench 4.0")
         source_task = source / "tasks" / name
         if not (source_task / "task.toml").is_file():
             raise RuntimeError(f"Task {name} is missing from pinned source")
@@ -114,7 +123,7 @@ def stage(
         )
     return context, BenchmarkSpec(
         name="terminal-bench-4",
-        description="Terminal-Bench 4.0 test tasks, run by Harbor with the original verifier.",
+        description="Terminal-Bench 4.0 tasks, run by Harbor with the original verifier.",
         runtime=DockerfileBuild("Dockerfile"),
         tasks=specs,
     )
@@ -156,7 +165,7 @@ def diagnose(bench_id: str, timeout: int | None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
-    parser.add_argument("--task", action="append", choices=sorted(TEST_TASKS))
+    parser.add_argument("--task", action="append", metavar="NAME")
     parser.add_argument(
         "--agent-timeout",
         type=int,
@@ -166,10 +175,8 @@ def main() -> None:
     if args.agent_timeout is not None and args.agent_timeout <= 0:
         parser.error("--agent-timeout must be positive")
     tasks = sorted(set(args.task or [DEFAULT_TASK]))
-    if any(task in GPU_TASKS for task in tasks):
-        parser.error(
-            "GPU tasks require a GPU-capable nested-Docker runtime; this example is CPU-only"
-        )
+    if any(not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", task) for task in tasks):
+        parser.error("--task must be an upstream task name")
     with tempfile.TemporaryDirectory() as workspace:
         context, spec = stage(Path(workspace), tasks, args.agent_timeout)
         operation = start_push(
