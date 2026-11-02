@@ -1,6 +1,7 @@
 """Check puzzle semantics, actor limits, and private Python boundaries."""
 
 import json
+import copy
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,6 +18,8 @@ sys.path.insert(0, str(ROOT / "runtime"))
 import dataset
 import chess_harness as harness
 import ingest
+import train
+import evaluate
 
 
 @pytest.fixture
@@ -45,7 +48,7 @@ def client_for(responses):
     iterator = iter(responses)
 
     def create(**kwargs):
-        requests.append(kwargs)
+        requests.append(copy.deepcopy(kwargs))
         return next(iterator)
 
     return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))), requests
@@ -76,6 +79,17 @@ def test_whole_puzzle_must_be_solved_and_no_solution_is_in_prompt(puzzle, varian
     reward, reason, metrics = harness.play(client, "tid", puzzle, variant)
     assert (reward, reason) == (1.0, "ENV_DONE")
     assert metrics["correct_moves"] == 2
+    assert metrics["correct_half_moves"] == 3
+    expected = chess.Board(puzzle["fen"])
+    expected.push_uci("a2e6")
+    expected.push_uci("d7d8")
+    observation = json.loads(requests[1]["messages"][-1]["content"])
+    assert observation["opponent_move"] == "d7d8"
+    assert observation["fen"] == expected.fen()
+    assert observation["moves_remaining"] == 1
+    assert observation["instruction"] == "You have 1 move to make with submit_move."
+    assert "You have 2 moves to make with submit_move." in requests[0]["messages"][1]["content"]
+    assert all(r["max_tokens"] == 4000 for r in requests)
     initial = json.dumps(requests[0]["messages"][0:2])
     assert "a2e6" not in initial and "f7f8" not in initial
     offered = [t["function"]["name"] for t in requests[0]["extra_body"]["tools"]]
@@ -161,7 +175,10 @@ def test_runtime_uses_published_sdk_reward_event_and_completion(puzzle, monkeypa
     def play(*_):
         if ending == "ERROR":
             raise RuntimeError("Actor unavailable")
-        return (1.0 if ending == "ENV_DONE" else 0.0), ending, {}
+        return (1.0 if ending == "ENV_DONE" else 0.0), ending, {
+            "correct_half_moves": 3 if ending == "ENV_DONE" else 0,
+            "correct_moves": 2 if ending == "ENV_DONE" else 0,
+        }
 
     monkeypatch.setenv("CHESS_PUZZLE", json.dumps(puzzle))
     monkeypatch.setenv("CHESS_VARIANT", "reasoning")
@@ -179,6 +196,108 @@ def test_runtime_uses_published_sdk_reward_event_and_completion(puzzle, monkeypa
     if ending == "ERROR":
         assert not reward_requests
     else:
-        assert len(requests) == 4
+        assert len(requests) == 6
         assert any(body.get("event_id") == "chess-result" for _, body in requests)
         assert any(body.get("name") == "reward_accuracy" for _, body in requests)
+        for name in ("correct_half_moves", "correct_solver_moves"):
+            metric = next(body for _, body in requests if body.get("name") == name)
+            assert metric["weight"] == 0
+
+
+def test_another_legal_checkmate_is_rejected():
+    puzzle = {"fen": "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1", "mate_in": 1, "solution": ["g6g7"]}
+    for uci in ("g6g7", "g6g8"):
+        board = chess.Board(puzzle["fen"])
+        board.push_uci(uci)
+        assert board.is_checkmate()
+    client, _ = client_for([response("submit_move", {"move": "g6g8"})])
+    reward, ending, metrics = harness.play(client, "tid", puzzle, "reasoning")
+    assert (reward, ending, metrics["correct_moves"]) == (0.0, "ENV_DONE", 0)
+
+
+@pytest.mark.parametrize("variant", ["reasoning", "python"])
+def test_five_move_continuation_plays_every_opponent_reply(variant):
+    puzzle = next(json.loads(line) for line in (ROOT / "puzzles.jsonl").read_text().splitlines()
+                  if json.loads(line)["puzzle_id"] == "eYtxb")
+    line = puzzle["solution"]
+    client, requests = client_for([response("submit_move", {"move": uci}) for uci in line[::2]])
+    reward, ending, metrics = harness.play(client, "tid", puzzle, variant)
+    assert (reward, ending) == (1.0, "ENV_DONE")
+    assert metrics["correct_moves"] == 5 and metrics["correct_half_moves"] == 9
+    board = chess.Board(puzzle["fen"])
+    for index, request in enumerate(requests[1:]):
+        board.push_uci(line[index * 2])
+        board.push_uci(line[index * 2 + 1])
+        observation = json.loads(request["messages"][-1]["content"])
+        assert observation["opponent_move"] == line[index * 2 + 1]
+        assert observation["fen"] == board.fen()
+
+
+def test_wrong_second_move_only_keeps_the_correct_prefix(puzzle):
+    client, _ = client_for([response("submit_move", {"move": "a2e6"}),
+                            response("submit_move", {"move": "f7f6"})])
+    reward, ending, metrics = harness.play(client, "tid", puzzle, "python")
+    assert reward == 0.0 and ending == "ENV_DONE"
+    assert metrics["correct_moves"] == 1 and metrics["correct_half_moves"] == 2
+
+
+def test_shared_balanced_hundred_puzzle_subset():
+    records = [json.loads(line) for line in (ROOT / "puzzles.jsonl").read_text().splitlines()]
+    selected = dataset.evaluation_subset(records)
+    assert selected == dataset.evaluation_subset(list(reversed(records)))
+    assert len(selected) == 100
+    assert all(r["split"] == "test" for r in selected)
+    from collections import Counter
+    assert Counter(r["mate_in"] for r in selected) == {m: 20 for m in range(1, 6)}
+    assert Counter(r["rating_band"] for r in selected) == {b: 25 for b in dataset.BANDS}
+    dataset.audit([r for r in records if r["split"] == "train"] + selected, test_per_category=20)
+
+
+@pytest.mark.parametrize("c,k,expected", [(0,1,0), (4,4,1), (1,1,.25), (1,2,.5), (1,3,.75), (1,4,1), (2,2,5/6)])
+def test_pass_at_k(c, k, expected):
+    assert train.pass_at_k(4, c, k) == pytest.approx(expected)
+
+
+def test_scores_and_prefixes_are_averaged_by_puzzle_and_category():
+    tasks = {f"t{i}": {"mate_in": i % 5 + 1, "rating_band": dataset.BANDS[i // 25]} for i in range(100)}
+    outcomes = [{"task_id": tid, "solved": tid == "t4" and attempt == 0,
+                 "correct_half_moves": 9 if tid == "t4" and attempt == 0 else 0,
+                 "correct_solver_moves": 5 if tid == "t4" and attempt == 0 else 0}
+                for tid in tasks for attempt in range(4)]
+    report = train.summarize(outcomes, tasks)
+    assert report["pass_at_k"]["1"] == pytest.approx(.0025)
+    assert report["pass_at_k"]["4"] == pytest.approx(.01)
+    assert report["mean_correct_half_moves"] == pytest.approx(9/400)
+    assert report["breakdowns"]["mate_in"]["5"]["mean_correct_half_moves"] == pytest.approx(9/80)
+    assert report["breakdowns"]["rating_band"]["0-999"]["mean_correct_half_moves"] == pytest.approx(9/100)
+    with pytest.raises(ValueError, match="exactly four"):
+        train.summarize(outcomes[:-1], tasks)
+
+
+def test_twenty_jobs_are_preflighted_before_the_first_evaluation(monkeypatch, tmp_path):
+    checked, submitted = [], []
+    def tasks(_, bid):
+        return {f"{bid}-{i}": {"puzzle_id": str(i), "variant": bid} for i in range(100)}
+    def check(*args, **kwargs):
+        checked.append(args)
+    def submit(*args):
+        assert len(checked) == 20
+        submitted.append(args)
+    monkeypatch.setattr(evaluate, "evaluation_tasks", tasks)
+    monkeypatch.setattr(evaluate, "model_options", check)
+    monkeypatch.setattr(evaluate, "evaluate", submit)
+    evaluate.run_matrix(object(), {"reasoning": "reasoning", "python": "python"}, tmp_path)
+    assert len(submitted) == 20
+    assert len(evaluate.OPEN_MODELS) == 6 and len(evaluate.CLOSED_MODELS) == 4
+    assert train.EVAL_OPTIONS["val_num_tasks"] * train.EVAL_OPTIONS["val_trajectories_per_task"] == 400
+
+
+def test_reference_replay_is_labeled_and_contains_all_visible_turns(puzzle):
+    from trace import reference_trace
+    record = reference_trace(puzzle)
+    assert record["kind"] == "reference_replay" and record["model_calls"] == 0
+    assert [m["role"] for m in record["messages"]] == ["system", "user", "assistant", "tool", "assistant"]
+    assert json.loads(record["messages"][3]["content"])["moves_remaining"] == 1
+    assert record["result"]["reward"] == 1.0
+    assert record["result"]["moves_remaining"] == 0
+    assert chess.Board(record["result"]["final_fen"]).is_checkmate()

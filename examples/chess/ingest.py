@@ -12,19 +12,19 @@ from pathlib import Path
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import DockerfileBuild, start_push, start_task_diagnostic
 
-from dataset import audit
+from dataset import audit, evaluation_subset
 
 ROOT = Path(__file__).parent
 MODEL = "Qwen/Qwen3.5-4B"
-OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_turn": 4096,
-           "max_output_tokens_per_trajectory": 45056, "max_turns_per_trajectory": 24,
+OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_turn": 4000,
+           "max_output_tokens_per_trajectory": 44000, "max_turns_per_trajectory": 24,
            "trajectory_timeout_seconds": 900}
 
 
 def task(record, variant):
     return TaskSpec(
         name=f"chess/{variant}/mateIn{record['mate_in']}/{record['puzzle_id']}",
-        split=record["split"], run_command="python -u /opt/chess/chess_harness.py",
+        split=record["split"], run_command=f"python -u /opt/chess/{variant}_harness.py",
         env_vars={"CHESS_VARIANT": variant, "CHESS_PUZZLE": json.dumps(record)},
         tags=["chess", variant, f"mateIn{record['mate_in']}", record["rating_band"]],
     )
@@ -64,7 +64,9 @@ def diagnose_task(client, record, variant, agent_name, model=MODEL):
 
 def ingest(client, records, variant, agent_name, name=None):
     audit(records)
-    operation = start_push(client, build_benchmark(records, variant, name),
+    selected = [r for r in records if r["split"] == "train"] + evaluation_subset(records)
+    audit(selected, test_per_category=20)
+    operation = start_push(client, build_benchmark(selected, variant, name),
                            agent_name=agent_name, root=ROOT / "runtime", build_images=True)
     print(f"operation_id={operation.id}", flush=True)
     result = operation.result(timeout=2700)

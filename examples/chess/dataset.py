@@ -196,6 +196,18 @@ def audit(records, train_per_category=1000, test_per_category=100):
     return {str(k): v for k, v in sorted(counts.items())}
 
 
+def evaluation_subset(records):
+    """Select the same 100 held-out puzzles for every model and harness."""
+    pools = {(mate, band): sorted(
+        (r for r in records if r["split"] == "test"
+         and r["mate_in"] == mate and r["rating_band"] == band),
+        key=lambda r: r["puzzle_id"],
+    ) for mate in range(1, 6) for band in BANDS}
+    counts = allocate({key: len(rows) for key, rows in pools.items()}, per_category=20)
+    selected = [row for key, rows in pools.items() for row in rows[:counts[key]]]
+    return sorted(selected, key=lambda r: (r["mate_in"], r["rating_band"], r["puzzle_id"]))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", default=SOURCE)
