@@ -9,8 +9,9 @@ instead of the source release's GPT-4.1 defaults. The cookbook sorts task IDs in
 and 17 held-out test tasks; this split is for training, not the full 97-task, five-repeat
 leaderboard evaluation.
 
-The SDK supplies agent inference and records the source evaluator's reward. Error endings and
-cut-off replies are ungraded. The one simulator change retries an empty user response up to
+The SDK supplies agent inference and records the source evaluator's reward, including when an
+earlier model reply reached its output limit. Error endings are ungraded. The one simulator
+change retries an empty user response up to
 three times without adding it to the conversation; exhaustion still fails the task.
 
 Choose an existing agent and organization API key using the
@@ -23,6 +24,10 @@ uv run --with trajectory-sdk python -c \
   'import os; from trajectory import Client; Client().secrets.create(name="OPENAI_API_KEY", value=os.environ["OPENAI_API_KEY"])'
 uv run examples/tau3_banking/ingest.py --agent-name YOUR_AGENT_NAME
 ```
+
+To use an OpenRouter customer and judge model, register `OPENROUTER_API_KEY` instead and pass
+`--user-judge-model openrouter/MODEL` when ingesting. The native GPT-5.4 Mini medium setting
+remains the default.
 
 Ingestion waits for a new runtime build. Follow the
 [benchmark diagnostic guidance](../../task_diagnostics.md) to execute a subset before training,
