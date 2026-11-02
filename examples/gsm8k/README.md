@@ -130,13 +130,54 @@ evaluation = client.evals.create(
     base_model_slug="Qwen/Qwen3.5-4B",
     options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
 )
-print("Evaluation:", evaluation.eval_run_id)
 ```
 
-Sample output after the evaluation is accepted:
+Wait for the evaluation to finish, then fetch its mean reward across the held-out tasks:
+
+```python
+while True:
+    result = client.evals.runs.retrieve(evaluation.eval_run_id)
+    if result.status in {"completed", "failed", "cancelled"}:
+        break
+    time.sleep(5)
+
+print("Status:", result.status)
+print("Mean reward:", result.reward_mean)
+```
+
+Sample output for a completed evaluation (illustrative scores):
 
 ```text
-Evaluation: evr_<evaluation-id>
+Status: completed
+Mean reward: 0.75
+```
+
+Inspect an individual attempt to see its grade and recorded steps. List the evaluation's
+trajectories, then fetch the first one with its steps and reward components included:
+
+```python
+attempts = client.trajectories.list(eval_run_id=evaluation.eval_run_id)
+attempt = next(iter(attempts))
+detail = client.trajectories.retrieve(
+    attempt.trajectory_id,
+    include_steps=True,
+    include_reward_components=True,
+)
+
+print("Trajectory:", attempt.trajectory_id)
+print("Ending:", detail.termination_reason)
+for reward in detail.reward_components or []:
+    print(f"{reward.name}: {reward.value}")
+print("Recorded steps:", len(detail.steps or []))
+```
+
+Sample output for a correct answer:
+
+```text
+Trajectory: trj_<trajectory-id>
+Ending: ENV_DONE
+reward_accuracy: 1.0
+Recorded steps: 1
 ```
 
 Next, train the same model on the training split for three steps. Training produces checkpoints
