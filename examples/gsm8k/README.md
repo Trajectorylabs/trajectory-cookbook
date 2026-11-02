@@ -133,32 +133,20 @@ evaluation = client.evals.create(
 )
 ```
 
-For an evaluation with recorded attempts, inspect an attempt to see its grade and steps. List the evaluation's
-trajectories, then fetch the first one with its steps and reward components included:
+Fetch the evaluation run to see its current status and mean reward across the held-out tasks:
 
 ```python
-attempts = client.trajectories.list(eval_run_id=evaluation.eval_run_id)
-attempt = next(iter(attempts))
-detail = client.trajectories.retrieve(
-    attempt.trajectory_id,
-    include_steps=True,
-    include_reward_components=True,
-)
+result = client.evals.runs.retrieve(evaluation.eval_run_id)
 
-print("Trajectory:", attempt.trajectory_id)
-print("Ending:", detail.termination_reason)
-for reward in detail.reward_components or []:
-    print(f"{reward.name}: {reward.value}")
-print("Recorded steps:", len(detail.steps or []))
+print("Status:", result.status)
+print("Mean reward:", result.reward_mean)
 ```
 
-Sample output for a correct answer:
+Illustrative output for a completed evaluation:
 
 ```text
-Trajectory: trj_<trajectory-id>
-Ending: ENV_DONE
-reward_accuracy: 1.0
-Recorded steps: 1
+Status: completed
+Mean reward: 0.75
 ```
 
 ## Train
