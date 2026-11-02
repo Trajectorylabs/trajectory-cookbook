@@ -32,7 +32,6 @@ starts the harness with `--task_id 0`, which selects the first row of the JSONL 
 report below to check whether the task ran, how it ended, and what reward it received:
 
 ```python
-import time
 from pathlib import Path
 
 import trajectory
@@ -57,9 +56,11 @@ diagnostic = trajectory.lib.start_task_diagnostic(
 )
 
 diagnostic_id = diagnostic.benchmark_diagnostic_id
-while client.diagnostics.get_status(diagnostic_id).status in {"pending", "running"}:
-    time.sleep(5)
+```
 
+Fetch the diagnostic report to inspect the task's status and reward:
+
+```python
 report = client.diagnostics.get_diagnostics(diagnostic_id)
 print("Diagnostic:", report.status)
 for task in report.tasks:
@@ -135,18 +136,27 @@ evaluation = client.evals.create(
     base_model_slug="Qwen/Qwen3.5-4B",
     options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
 )
-print("Evaluation:", evaluation.eval_run_id)
 ```
 
-Sample output after the evaluation is accepted:
+Fetch the evaluation run to see its current status and mean reward across the held-out tasks:
+
+```python
+result = client.evals.runs.retrieve(evaluation.eval_run_id)
+
+print("Status:", result.status)
+print("Mean reward:", result.reward_mean)
+```
+
+Illustrative output for a completed evaluation:
 
 ```text
-Evaluation: evr_<evaluation-id>
+Status: completed
+Mean reward: 0.75
 ```
 
 ## Training
 
-Next, train the same model on the training split for three steps. Training produces checkpoints
+Train the same model on the training split for three steps. Training produces checkpoints
 that you can evaluate on the same held-out problems:
 
 ```python
