@@ -65,20 +65,16 @@ def main() -> None:
 
     client = trajectory.Client()
     trajectory_id = client.trajectories.create().tid
-    try:
-        response = client.chat.completions.create(
-            model="gsm8k",  # Any model name.
-            messages=[
-                {"role": "user", "content": _PROMPT.format(question=question)},
-            ],
-            extra_body={"tools": [_SUBMIT_ANSWER_TOOL]},
-            # Managed runs apply the run's output limit and sampling settings instead.
-            max_tokens=2_048,
-            x_trajectory_id=trajectory_id,
-        )
-    except trajectory.APIError:
-        client.trajectories.complete(trajectory_id, termination_reason="ERROR")
-        raise
+    response = client.chat.completions.create(
+        model="gsm8k",  # Any model name.
+        messages=[
+            {"role": "user", "content": _PROMPT.format(question=question)},
+        ],
+        extra_body={"tools": [_SUBMIT_ANSWER_TOOL]},
+        # Managed runs apply the run's output limit and sampling settings instead.
+        max_tokens=2_048,
+        x_trajectory_id=trajectory_id,
+    )
     choice = response.choices[0]
     submitted = extract_submitted_answer(choice.message.tool_calls)
     reward = float(
