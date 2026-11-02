@@ -27,6 +27,7 @@ recorded reward, and completed trajectory.
 | [Inspect](inspect.md) | Actor routing, native scoring, errors, and a separate judge. |
 | [Harvey LAB](examples/harvey_labs/README.md) | An existing harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/banking.md) | An upstream evaluator and multi-turn customer-agent task. |
+| [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
 
 [Reward integration](reward_integration.md) works through an adapter that preserves
 the source scorer. [Cut-off reply handling](termination_reasons.md) shows when to
