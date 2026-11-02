@@ -32,7 +32,7 @@ uv run examples/tau3_banking/ingest.py --agent-name YOUR_AGENT_NAME
 ```
 
 Ingestion waits for a new runtime build. Follow the
-[benchmark diagnostic guidance](../task_diagnostics.md) to execute a subset before training,
+[benchmark diagnostic guidance](../../task_diagnostics.md) to execute a subset before training,
 with the model and options you will evaluate with, such as
 `base_model_slug="Qwen/Qwen3.6-35B-A3B"` and the sampling options below. Without them, a
 diagnostic runs on the API's default diagnostic model. Image build readiness alone does not

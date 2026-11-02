@@ -11,7 +11,7 @@ pip install --upgrade trajectory-sdk
 export TRAJECTORY_API_KEY="..."
 ```
 
-This example uses the cookbook's [T Factory runtime](t_factory/runtime/).
+This example uses the cookbook's [T Factory runtime](examples/t_factory/runtime/).
 [Choose or create an agent](https://docs.trajectory.ai/agent), then run the Python code
 from the repository root, replacing `YOUR_AGENT_NAME` with its name.
 

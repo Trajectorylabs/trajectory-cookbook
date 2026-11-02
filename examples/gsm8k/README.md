@@ -60,7 +60,7 @@ task_diagnose(agent_name=agent_name)
 runs it on `Qwen/Qwen3.5-4B` with the settings the evaluations below use. It prints the
 diagnostic ID, status, task report, and each task's ending and reward.
 Zero is a valid grade. Fix packaging or grading failures and repeat the diagnostic.
-For a different harness, use the [task upload validation recipe](../task_diagnostics.md).
+For a different harness, use the [task upload validation recipe](../../task_diagnostics.md).
 
 ## 4. Evaluate one held-out task and confirm a grade
 
@@ -251,6 +251,6 @@ or shell tools must keep reference answers, including `EXPECTED_ANSWER`, outside
 access.
 
 Use the [runtime packaging guidance](https://docs.trajectory.ai/guides/benchmarks#package-the-harness-in-an-image) and the
-[Harvey](../harvey_labs/README.md) or [Inspect](../inspect.md) recipes for an existing harness.
+[Harvey](../harvey_labs/README.md) or [Inspect](../../inspect.md) recipes for an existing harness.
 Benchmark-specific source inspection may be necessary to understand those inputs and grading
 rules.
