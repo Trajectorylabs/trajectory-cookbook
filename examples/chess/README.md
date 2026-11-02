@@ -8,7 +8,7 @@ The example uses SDK **0.9.37**. Run the commands from the cookbook root with
 [uv](https://docs.astral.sh/uv/). Local tests and reference replays have passed;
 the managed evaluations, training runs, and platform screenshots are still pending.
 
-## 1. Try a puzzle locally
+## Dataset
 
 Start with [`puzzles.jsonl`](puzzles.jsonl). Each line holds one puzzle. Here are the
 task fields from puzzle `00KYU`; the file also keeps the source game and setup move.
@@ -62,7 +62,7 @@ uv run --with playwright playwright install chromium
 uv run examples/chess/visualize.py
 ```
 
-## 2. Follow the two harnesses
+## Harness
 
 Both harnesses ask the model to call `submit_move` for each of its moves. The
 harness checks the move, plays the opponent's reply, and returns the new position.
@@ -131,7 +131,7 @@ grader, and [`runtime/python_tool.py`](runtime/python_tool.py) for the worker.
 <!-- Add visuals/platform-harnesses.png here after diagnostics. Show one real
      trajectory from each harness, including submissions and opponent replies. -->
 
-## 3. Upload both variants
+## Ingestion
 
 Set a staging API key and choose an existing agent. The commands below use
 `CHESSSS`; replace it with your agent's name if needed.
@@ -179,7 +179,7 @@ PYTHON_BENCH_ID="YOUR_PYTHON_BENCH_ID"
 <!-- Add visuals/platform-ingestion.png here after both uploads pass. Show the
      benchmark versions, 5,000/100 task splits, and ready runtime status. -->
 
-## 4. Evaluate ten models
+## Eval
 
 Run the evaluation script with those two benchmark IDs:
 
@@ -251,7 +251,7 @@ Check failure and completion counts before comparing scores. The script requires
 <!-- Add visuals/platform-evaluation.png and the four measured plots here after
      completion. The platform screenshot should show the twenty evaluation jobs. -->
 
-## 5. Train two models and compare their checkpoints
+## Train
 
 Use the same benchmark IDs to train Qwen3.5-4B and Qwen3.6-35B-A3B with both
 harnesses. This creates four training runs:
@@ -297,14 +297,31 @@ prefixes for the four runs. Reports and job IDs are saved under `results/`. Keep
 those files to resume a command. Use a new results directory when changing benchmark
 versions or settings, so an old run cannot be mistaken for the new comparison.
 
-See [`train.py`](train.py) for checkpoint evaluation and result collection. The tests
-can be run locally without starting managed jobs:
+See [`train.py`](train.py) for checkpoint evaluation and result collection.
+
+<!-- Add visuals/platform-training.png, visuals/before-after.png, and a platform
+     training-curve screenshot here after the four runs finish. Include the actual
+     optimizer steps and checkpoint IDs with the results. -->
+
+## Appendix
+
+### Sources
+
+- [Lichess puzzle dataset and format](https://database.lichess.org/#puzzles): source
+  fields, UCI moves, ratings, and the setup move that must be applied before solving.
+- [Lichess puzzle download](https://database.lichess.org/lichess_db_puzzle.csv.zst):
+  the source CSV used by [`dataset.py`](dataset.py).
+- [CC0 license](https://creativecommons.org/publicdomain/zero/1.0/): the license for
+  the Lichess database exports.
+- [`puzzles.manifest.json`](puzzles.manifest.json): the source URL, checksum of the
+  generated puzzle file, split counts, and forcing-move filter.
+- [Trajectory Cookbook README](../../README.md): SDK setup, examples, and guides.
+
+### Local checks
+
+Run the tests locally without starting managed jobs:
 
 ```bash
 uv run --with trajectory-sdk==0.9.37 --with chess==1.11.2 --with zstandard --with pytest \
   pytest -q examples/chess/test_chess.py
 ```
-
-<!-- Add visuals/platform-training.png, visuals/before-after.png, and a platform
-     training-curve screenshot here after the four runs finish. Include the actual
-     optimizer steps and checkpoint IDs with the results. -->
