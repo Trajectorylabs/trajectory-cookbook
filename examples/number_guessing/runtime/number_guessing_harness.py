@@ -18,8 +18,10 @@ COMPACT_PROMPT = (
 )
 COMPACT_EVERY = 3
 MAX_GUESSES = 12
+# Managed runs apply the run's output limit and sampling settings instead.
 GUESS_MAX_TOKENS = 8_192
 COMPACT_MAX_TOKENS = 32_768
+CUT_OFF = ("length", "max_tokens")
 
 
 def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
@@ -30,14 +32,17 @@ def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
         {"role": "user", "content": "I've picked a number from 1 to 100. Guess it."}
     ]
     compactions = 0
+    solved = truncated = False
     for guesses in range(1, MAX_GUESSES + 1):
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": GUESS_PROMPT}, *history],
             max_tokens=GUESS_MAX_TOKENS,
-            temperature=1.0,
             x_trajectory_id=tid,
         )
+        truncated = response.choices[0].finish_reason in CUT_OFF
+        if truncated:
+            break
         answer = response.choices[0].message.content or ""
         history.append({"role": "assistant", "content": answer})
         guess = (
@@ -46,12 +51,8 @@ def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
         if guess is None or not 1 <= guess <= 100:
             feedback = "Invalid guess. Output one integer from 1 to 100."
         elif guess == secret:
-            return {
-                "solved": True,
-                "guesses": guesses,
-                "compactions": compactions,
-                "reward": 1 / max(guesses - 1, 1),
-            }
+            solved = True
+            break
         else:
             feedback = "Higher." if guess < secret else "Lower."
         history.append({"role": "user", "content": feedback})
@@ -72,9 +73,11 @@ def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
                     },
                 ],
                 max_tokens=COMPACT_MAX_TOKENS,
-                temperature=1.0,
                 x_trajectory_id=tid,  # Compaction belongs to the same trajectory.
             )
+            truncated = summary_response.choices[0].finish_reason in CUT_OFF
+            if truncated:
+                break
             summary = summary_response.choices[0].message.content
             if not summary or not summary.strip():
                 raise RuntimeError("The compaction model returned an empty summary")
@@ -89,10 +92,11 @@ def run_game(client: Client, tid: str, secret: int, model: str) -> dict:
             compactions += 1
 
     return {
-        "solved": False,
-        "guesses": MAX_GUESSES,
+        "solved": solved,
+        "guesses": guesses,
         "compactions": compactions,
-        "reward": 0.0,
+        "reward": 1 / max(guesses - 1, 1) if solved else 0.0,
+        "truncated": truncated,
     }
 
 
@@ -114,8 +118,10 @@ def main() -> None:
     except Exception:
         client.trajectories.complete(tid, termination_reason="ERROR")
         raise
-    completed = client.trajectories.complete(tid, termination_reason="ENV_DONE")
-    if completed.status != "completed":
+    completed = client.trajectories.complete(
+        tid, termination_reason="TRUNCATION" if result["truncated"] else "ENV_DONE"
+    )
+    if completed.status not in ("completed", "finalizing"):
         raise RuntimeError(f"trajectory completion failed: {completed}")
     print(json.dumps({"trajectory_id": tid, **result}), flush=True)
 

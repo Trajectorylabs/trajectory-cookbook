@@ -1,7 +1,8 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.16"]
+# requires-python = ">=3.11"
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
-"""Evaluate, train, and compare Qwen on the prompted T-starting-word task."""
+"""Evaluate, train, and compare Qwen 3.5 4B on the prompted T-starting-word task."""
 
 import argparse
 import time
@@ -13,7 +14,8 @@ from trajectory.types.training.training_run_response import TrainingRunResponse
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 _TEST_TASKS = 64
-_MAX_ACTIVE_ROLLOUTS = 4
+# One batch: four task groups of eight attempts, the default group size.
+_MAX_ACTIVE_ROLLOUTS = 32
 _MAX_OUTPUT_TOKENS = 2_048
 
 
@@ -30,34 +32,38 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> tuple[Evaluation, Evaluation, str]:
-    benchmark = client.benchmarks.specs.retrieve(bench_id)
+    # Spec detail omits tasks unless asked.
+    benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
     if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
         "train",
         "test",
     }:
         raise ValueError("The benchmark must contain explicit train and test splits")
 
-    baseline = _evaluate_model(
-        client,
-        bench_id,
-        model,
-        "T Factory baseline",
-        poll_seconds,
-    )
+    baseline_id = _start_evaluation(client, bench_id, model, "T Factory baseline")
+    # Training does not use the baseline score, so start it without waiting.
     created = client.training.create(
         bench_id=bench_id,
         base_model_slug=model,
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "num_steps": num_steps,
             "train_batch_size": 4,
+            "max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
             "max_turns_per_trajectory": 1,
-            "max_response_chars_per_tool_call": 256,
         },
     )
     run_id = created.training_run_id
     print(f"training_run_id={run_id}", flush=True)
+    try:
+        baseline = _wait_for_evaluation(
+            client, baseline_id, "T Factory baseline", poll_seconds
+        )
+    except RuntimeError:
+        # Training on a benchmark whose baseline failed would be wasted.
+        client.training.runs.cancel(run_id)
+        raise
     run = _wait_for_training(client, run_id, poll_seconds)
     if str(run.status) != "succeeded":
         raise RuntimeError(f"training ended with status={run.status}: {run.failure}")
@@ -90,27 +96,50 @@ def _evaluate_model(
     poll_seconds: float,
     parent_checkpoint_id: str | None = None,
 ) -> Evaluation:
+    eval_id = _start_evaluation(
+        client, bench_id, model, display_name, parent_checkpoint_id
+    )
+    return _wait_for_evaluation(client, eval_id, display_name, poll_seconds)
+
+
+def _start_evaluation(
+    client: Client,
+    bench_id: str,
+    model: str,
+    display_name: str,
+    parent_checkpoint_id: str | None = None,
+) -> str:
     evaluation = client.evals.create(
         bench_id=bench_id,
         base_model_slug=model,
         parent_checkpoint_id=parent_checkpoint_id,
         display_name=display_name,
         options={
-            "disable_thinking": True,
+            "reasoning_effort": "off",
             "evaluation_max_samples": _TEST_TASKS,
-            "evaluation_max_active_rollouts": _MAX_ACTIVE_ROLLOUTS,
+            # Run every held-out task at once.
+            "evaluation_max_active_rollouts": _TEST_TASKS,
             "max_output_tokens_per_step": _MAX_OUTPUT_TOKENS,
         },
     )
     eval_id = evaluation.eval_run_id
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
+    return eval_id
+
+
+def _wait_for_evaluation(
+    client: Client, eval_id: str, display_name: str, poll_seconds: float
+) -> Evaluation:
+    last = None
     while True:
         progress = client.evals.runs.progress(eval_id)
-        print(
+        line = (
             f"evaluation={display_name} status={progress.status} "
-            f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}",
-            flush=True,
+            f"rollouts={progress.terminal_rollouts}/{progress.total_rollouts}"
         )
+        if line != last:
+            print(line, flush=True)
+            last = line
         if progress.status == "completed":
             break
         if progress.status in {"failed", "cancelled"}:
@@ -128,13 +157,14 @@ def _wait_for_training(
     run_id: str,
     poll_seconds: float,
 ) -> TrainingRunResponse:
+    last = None
     while True:
         run = client.training.runs.retrieve(run_id)
         progress = client.training.runs.progress(run_id)
-        print(
-            f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}",
-            flush=True,
-        )
+        line = f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}"
+        if line != last:
+            print(line, flush=True)
+            last = line
         if str(run.status) in _TERMINAL_STATUSES:
             return run
         time.sleep(poll_seconds)
@@ -147,19 +177,20 @@ def _print_task_results(
 ) -> None:
     baseline = {
         reward.task_id: reward
-        for reward in client.evals.rewards.list_trajectory_rewards(
-            baseline_eval_id
-        ).trajectory_rewards
+        # Iterating the page fetches every following page, so all rewards are compared.
+        for reward in client.evals.rewards.list_trajectory_rewards(baseline_eval_id)
     }
     final = {
         reward.task_id: reward
-        for reward in client.evals.rewards.list_trajectory_rewards(
-            final_eval_id
-        ).trajectory_rewards
+        for reward in client.evals.rewards.list_trajectory_rewards(final_eval_id)
     }
+    # Compare only tasks that recorded a reward in both evaluations, and say how many.
+    shared = [
+        task_id for task_id in baseline.keys() & final.keys() if task_id is not None
+    ]
+    print(f"compared_tasks={len(shared)}/{_TEST_TASKS}", flush=True)
     improved_task_id = max(
-        baseline,
-        key=lambda task_id: final[task_id].reward - baseline[task_id].reward,
+        shared, key=lambda task_id: final[task_id].reward - baseline[task_id].reward
     )
     before = client.trajectories.retrieve(
         baseline[improved_task_id].trajectory_id,
@@ -189,8 +220,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bench-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
-    parser.add_argument("--num-steps", type=int, default=20)
-    parser.add_argument("--poll-seconds", type=float, default=15)
+    parser.add_argument("--num-steps", type=int, default=10)
+    parser.add_argument("--poll-seconds", type=float, default=10)
     args = parser.parse_args()
     train_and_evaluate(
         Client(max_retries=20),

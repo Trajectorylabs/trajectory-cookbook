@@ -30,26 +30,27 @@ def main() -> None:
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
+            # Managed runs apply the run's output limit and sampling settings instead.
             max_tokens=2_048,
-            temperature=1.0,
-            top_p=0.95,
             x_trajectory_id=trajectory_id,
         )
     except APIError:
         client.trajectories.complete(trajectory_id, termination_reason="ERROR")
         raise
 
-    answer = response.choices[0].message.content
+    choice = response.choices[0]
+    answer = choice.message.content or ""
     reward = t_word_density(answer)
     client.trajectories.log_reward(
         trajectory_id,
         name="reward_t_word_density",
         value=reward,
     )
+    cut_off = choice.finish_reason in ("length", "max_tokens")
     completed = client.trajectories.complete(
-        trajectory_id, termination_reason="ENV_DONE"
+        trajectory_id, termination_reason="TRUNCATION" if cut_off else "ENV_DONE"
     )
-    if completed.status != "completed":
+    if completed.status not in ("completed", "finalizing"):
         raise RuntimeError(f"trajectory completion failed: {completed}")
 
 

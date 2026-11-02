@@ -1,9 +1,11 @@
 # /// script
-# dependencies = ["trajectory-sdk==0.9.16"]
+# requires-python = ">=3.11"
+# dependencies = ["trajectory-sdk>=0.9.33"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
 
 import argparse
+import time
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, TaskSpec
@@ -12,6 +14,10 @@ from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 _ROOT = Path(__file__).parent
 _RUN_COMMAND = "python -u /opt/t_factory/t_factory_harness.py"
 _BUILD_TIMEOUT_SECONDS = 45 * 60
+_DIAGNOSTIC_DONE = {"completed", "failed", "cancelled"}
+_MODEL = "Qwen/Qwen3.5-4B"
+# The settings train.py evaluates and trains with.
+_RUN_OPTIONS = {"reasoning_effort": "off", "max_output_tokens_per_step": 2_048}
 _TRAIN_TASKS = 128
 _TEST_TASKS = 64
 _TOPICS = (
@@ -65,7 +71,6 @@ def build_dataset() -> dict[str, list[str]]:
 def build_benchmark(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
-        family="t-factory",
         description="Respond normally while maximizing the fraction of T-starting words.",
         runtime=DockerfileBuild("runtime/Dockerfile"),
         tasks=[
@@ -82,8 +87,7 @@ def build_benchmark(name: str) -> BenchmarkSpec:
     )
 
 
-def ingest(name: str, agent_name: str, skip_build: bool) -> str:
-    client = Client()
+def ingest(client: Client, name: str, agent_name: str, skip_build: bool) -> str:
     result = push(
         client,
         build_benchmark(name),
@@ -101,13 +105,60 @@ def ingest(name: str, agent_name: str, skip_build: bool) -> str:
     return result.bench_id
 
 
+def benchmark_diagnostic(client: Client, bench_id: str) -> None:
+    # Run the uploaded harness on a sample of tasks before evaluation or training.
+    diagnostic = client.diagnostics.start_benchmark(
+        bench_id=bench_id, base_model_slug=_MODEL, options=_RUN_OPTIONS
+    )
+    diagnostic_id = diagnostic.benchmark_diagnostic_id
+    print(f"diagnostic_id={diagnostic_id}", flush=True)
+    last = None
+    while True:
+        status = client.diagnostics.get_status(diagnostic_id).status
+        if status != last:
+            print(f"diagnostic_status={status}", flush=True)
+            last = status
+        if status in _DIAGNOSTIC_DONE:
+            break
+        time.sleep(10)
+    result = client.diagnostics.get_diagnostics(diagnostic_id)
+    print(
+        f"diagnostic_status={result.status} model={result.base_model_slug}",
+        flush=True,
+    )
+    for task in result.tasks:
+        print(
+            f"task_id={task.task_id} status={task.status} "
+            f"ending={task.termination_reason} reward={task.reward}",
+            flush=True,
+        )
+        if task.failure is not None:
+            print(f"task_id={task.task_id} failure={task.failure}", flush=True)
+    passed = (
+        result.status == "completed"
+        and result.failure is None
+        and result.tasks
+        and all(
+            task.status == "completed" and task.reward is not None
+            for task in result.tasks
+        )
+    )
+    if not passed:
+        raise RuntimeError(
+            f"Diagnostic {diagnostic_id} did not pass; see the task results above"
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--name", default="t-factory")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
-    ingest(args.name, args.agent_name, args.skip_build)
+    client = Client(max_retries=20)
+    bench_id = ingest(client, args.name, args.agent_name, args.skip_build)
+    if not args.skip_build:
+        benchmark_diagnostic(client, bench_id)
     return 0
 
 
