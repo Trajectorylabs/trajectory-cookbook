@@ -41,14 +41,50 @@ diagnostic. Save the printed benchmark ID.
 
 ## Evaluate, train, and compare
 
+Start a Python session with the SDK:
+
 ```bash
-uv run examples/gsm8k/train.py \
-  --agent-name "gsm8k-cookbook" \
-  --bench-name "gsm8k-trajectory-sdk" \
-  --num-steps 3
+uv run --with trajectory-sdk python
 ```
 
-The script starts a baseline evaluation and training run, waits for both, resolves the final
-checkpoint, and evaluates it on the same 16 held-out tasks. It prints all run IDs and the
-baseline, final, and delta rewards. A short run validates the workflow; it is not evidence of
-training improvement.
+Start an evaluation:
+
+```python
+import trajectory
+
+client = trajectory.Client()
+bench_id = "YOUR_BENCHMARK_ID"
+evaluation = client.evals.create(
+    bench_id=bench_id,
+    base_model_slug="Qwen/Qwen3.5-4B",
+    options={
+        "reasoning_effort": "off",
+        "max_output_tokens_per_turn": 2_048,
+    },
+)
+```
+
+Start training:
+
+```python
+training = client.training.create(
+    bench_id=bench_id,
+    base_model_slug="Qwen/Qwen3.5-4B",
+    options={
+        "reasoning_effort": "off",
+        "num_steps": 3,
+        "batch_size": 4,
+        "max_concurrent_trajectories": 32,
+        "max_output_tokens_per_turn": 2_048,
+    },
+)
+```
+
+Print links to both runs in the product UI:
+
+```python
+organization = client.organizations.retrieve_current()
+product_url = f"https://platform.trajectory.ai/{organization['organization_key']}"
+print(f"{product_url}/evaluate/runs/{evaluation.eval_run_id}")
+print(f"{product_url}/models/{training.training_run_id}")
+```
