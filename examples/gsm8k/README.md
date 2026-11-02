@@ -1,6 +1,6 @@
 # GSM8K
 
-This example adapts a reproducible sample of the public
+This example adapts a sample of the public
 [GSM8K dataset](https://github.com/openai/grade-school-math/tree/3101c7d5072418e28b9008a6636bde82a006892c)
 to the Trajectory SDK. The selected rows are stored in [`runtime/tasks.jsonl`](runtime/tasks.jsonl).
 
@@ -9,51 +9,94 @@ reference, records `reward_accuracy`, and completes the trajectory as `ENV_DONE`
 
 ## Setup Runtime with Trajectory SDK
 
-Run commands from the repository root with a Trajectory API key:
+From the repository root:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with trajectory-sdk python -c \
-  'import trajectory; trajectory.Client().agents.create(name="gsm8k-cookbook", description="GSM8K math evaluation and training")'
+uv run --with 'trajectory-sdk>=0.10.0' python
+```
+
+```python
+from pathlib import Path
+
+import trajectory
+import trajectory.lib
+
+client = trajectory.Client()
+agent_name = "gsm8k-cookbook"
+runtime_root = Path("examples/gsm8k/runtime")
+runtime = trajectory.lib.DockerfileBuild("Dockerfile")
+run_command = "python -u /opt/gsm8k/gsm8k_harness.py"
+
+client.agents.create(
+    name=agent_name,
+    description="GSM8K math evaluation and training",
+)
+
+tasks = [
+    trajectory.TaskSpec(
+        name=f"gsm8k/{split}_{index:04d}",
+        split=split,
+        run_command=f"{run_command} --task_id {task_id}",
+        tags=["gsm8k"],
+    )
+    for split, start, count in (
+        ("train", 0, 64),
+        ("test", 64, 16),
+    )
+    for index, task_id in enumerate(range(start, start + count))
+]
+
+benchmark = trajectory.BenchmarkSpec(
+    name="gsm8k-trajectory-sdk",
+    description="GSM8K exact-match training benchmark.",
+    runtime=runtime,
+    tasks=tasks,
+)
 ```
 
 ## Diagnose with one task
 
-Build the runtime and run one training problem before uploading the full benchmark:
+```python
+diagnostic_task = trajectory.TaskSpec(
+    name="gsm8k/train_0000",
+    split="train",
+    runtime=runtime,
+    run_command=f"{run_command} --task_id 0",
+    tags=["gsm8k"],
+)
 
-```bash
-uv run --with trajectory-sdk python -c \
-  'from examples.gsm8k.ingest import task_diagnose; task_diagnose("gsm8k-cookbook")'
+diagnostic = trajectory.lib.start_task_diagnostic(
+    client,
+    diagnostic_task,
+    agent_name=agent_name,
+    root=runtime_root,
+    base_model_slug="Qwen/Qwen3.5-4B",
+    options={
+        "reasoning_effort": "off",
+        "max_output_tokens_per_turn": 2_048,
+    },
+)
+print(diagnostic.benchmark_diagnostic_id)
 ```
-
-The command prints the diagnostic ID and fails if execution or grading does not complete.
 
 ## Upload benchmark
 
-```bash
-uv run examples/gsm8k/ingest.py \
-  --agent-name "gsm8k-cookbook" \
-  --name "gsm8k-trajectory-sdk"
+```python
+result = trajectory.lib.push(
+    client,
+    benchmark,
+    agent_name=agent_name,
+    root=runtime_root,
+    build_images=True,
+)
+bench_id = result.bench_id
+print(bench_id)
 ```
-
-The uploader registers the 80 tasks, waits for the runtime image, and runs a benchmark
-diagnostic. Save the printed benchmark ID.
 
 ## Evaluate, train, and compare
 
-Start a Python session with the SDK:
-
-```bash
-uv run --with trajectory-sdk python
-```
-
-Start an evaluation:
-
 ```python
-import trajectory
-
-client = trajectory.Client()
-bench_id = "YOUR_BENCHMARK_ID"
 evaluation = client.evals.create(
     bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.5-4B",
@@ -63,8 +106,6 @@ evaluation = client.evals.create(
     },
 )
 ```
-
-Start training:
 
 ```python
 training = client.training.create(
@@ -79,8 +120,6 @@ training = client.training.create(
     },
 )
 ```
-
-Print links to both runs in the product UI:
 
 ```python
 organization = client.organizations.retrieve_current()
