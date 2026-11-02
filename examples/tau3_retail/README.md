@@ -6,9 +6,10 @@ split, and trains `Qwen/Qwen3.5-4B` on it. The agent is a customer-service repre
 17 tools; upstream's simulated customer drives each conversation from private instructions, and
 upstream's evaluator grades the final database and the task's natural-language assertions.
 
-The adapter uses upstream's simulator and evaluator. Its one grading exception is a malformed
-agent tool call: upstream raises, while this example records zero and completes that attempt so
-one invalid reply does not fail the evaluation. Agent errors are ungraded.
+The adapter uses upstream's simulator and evaluator, including their final grade when a
+conversation continues after an output-limited model reply. Its one grading exception is a
+malformed agent tool call: upstream raises, while this example records zero and completes the
+attempt so one invalid reply does not fail the evaluation. Agent errors are ungraded.
 
 Choose an agent using the [GSM8K setup guide](../gsm8k/README.md#2-choose-or-create-an-agent).
 Register the organization secret `OPENAI_API_KEY` for the simulated customer and judge. The
