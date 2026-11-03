@@ -80,7 +80,7 @@ Consider candidate moves, forcing lines, and the opponent's strongest replies.
 ### Python
 
 [`harness/python_harness.py`](harness/python_harness.py) also offers `python_chess`.
-It allows **50 model turns total**, shared between calculations and the final
+It allows **100 model turns total**, shared between calculations and the final
 submission, with **4,000 output tokens per response**:
 
 ```text
@@ -165,6 +165,40 @@ prompts, labels, and grading.
 
 ## Eval
 
+**Status:** this eval is planned. There are no completed model scores for this
+example yet. The current scorer uses exact reference-move accuracy. Before running,
+replace it with staging's CPL Reward C and keep exact accuracy as a separate metric:
+
+```python
+cpl = min(2000, max(0, best_cp - submitted_cp))
+reward_c = exp(-sqrt(cpl) / 20 - (cpl / 160) ** 2)
+```
+
+These are formula examples, not measured model scores:
+
+| CPL | Reward C |
+| ---: | ---: |
+| 0 | 1.0000 |
+| 10 | 0.8504 |
+| 25 | 0.7600 |
+| 50 | 0.6369 |
+| 100 | 0.4104 |
+| 200 | 0.1034 |
+
+Report mean Reward C, mean CPL for legal submissions, legal-submission rate, and
+exact-move pass@1, @2, @3, and @4. Include category and player-rating breakdowns.
+Missing or illegal submissions receive zero reward. Report their count separately
+so excluding them from mean CPL cannot hide failed attempts.
+
+| Harness | Positions | Attempts per position | Rollouts per model | Model turns per attempt |
+| --- | ---: | ---: | ---: | ---: |
+| `1-step` | 100 | 4 | 400 | 1 |
+| `python_chess` | 100 | 4 | 400 | Up to 100 |
+
+The Python limit includes the final submission: at most 99 Python calls followed
+by `submit_move`. Each model response has a 4,000-output-token cap. Every model and
+harness uses the same 100 held-out positions.
+
 Run ten models with both agents:
 
 ```bash
@@ -202,9 +236,9 @@ and stops on infrastructure failures or missing metrics.
 | `eval-rating.png` | Pass rates and tool use by player Elo |
 | `eval-category.png` | Pass rates and tool use by category |
 
-The platform ceilings allow 204,000 output tokens and 104 total turns per
+The platform ceilings allow 404,000 output tokens and 204 total turns per
 trajectory, with a 3,600-second timeout. The harness enforces one reasoning turn or
-50 Python-agent turns. Generation settings stay fixed across agents for a model.
+100 Python-agent turns. Generation settings stay fixed across agents for a model.
 
 Reports and job IDs go to `results/best-move/`. Repeating the command resumes those
 IDs. Use a fresh results directory if benchmark versions or settings change.

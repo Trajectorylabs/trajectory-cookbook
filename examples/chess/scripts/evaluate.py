@@ -147,7 +147,7 @@ def plot_results(results_dir, output_dir):
                     (
                         "Mean Python calls",
                         lambda r: r["mean_python_calls"],
-                        50,
+                        100,
                     ),
                 )
             ):

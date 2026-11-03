@@ -19,8 +19,8 @@ MODEL = "Qwen/Qwen3.5-4B"
 OPTIONS = {
     "reasoning_effort": "off",
     "max_output_tokens_per_turn": 4000,
-    "max_output_tokens_per_trajectory": 204000,
-    "max_turns_per_trajectory": 104,
+    "max_output_tokens_per_trajectory": 404000,
+    "max_turns_per_trajectory": 204,
     "trajectory_timeout_seconds": 3600,
 }
 

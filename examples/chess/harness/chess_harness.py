@@ -9,7 +9,7 @@ from trajectory import Client
 from python_tool import execute_chess_python
 
 MAX_OUTPUT_TOKENS = 4_000
-PYTHON_MAX_TURNS = 50
+PYTHON_MAX_TURNS = 100
 
 
 def tool(name, description, argument):

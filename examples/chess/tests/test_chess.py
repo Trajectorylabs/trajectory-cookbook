@@ -126,7 +126,7 @@ def test_wrong_missing_and_cut_off_moves(record, first, ending, monkeypatch):
     assert harness.play(client, "tid", record, "reasoning")[:2] == (0.0, ending)
 
 
-def test_python_fifty_step_limit_and_no_reference_payload(record, monkeypatch):
+def test_python_hundred_step_limit_and_no_reference_payload(record, monkeypatch):
     calls = []
 
     def execute(fen, root_moves, code):
@@ -135,13 +135,13 @@ def test_python_fifty_step_limit_and_no_reference_payload(record, monkeypatch):
 
     monkeypatch.setattr(harness, "execute_chess_python", execute)
     client, requests = client_for(
-        [response("python_chess", {"code": "print(board)"}) for _ in range(50)]
+        [response("python_chess", {"code": "print(board)"}) for _ in range(100)]
     )
     reward, ending, metrics = harness.play(client, "tid", record, "python")
     assert (reward, ending) == (0.0, "MAX_STEPS")
-    assert len(requests) == metrics["python_calls"] == 50
-    assert calls == [(record["fen"], {}, "print(board)")] * 50
-    assert "at most 50 model turns total" in requests[0]["messages"][0]["content"]
+    assert len(requests) == metrics["python_calls"] == 100
+    assert calls == [(record["fen"], {}, "print(board)")] * 100
+    assert "at most 100 model turns total" in requests[0]["messages"][0]["content"]
 
 
 def test_isolation_failure_is_an_error(record, monkeypatch):
@@ -153,17 +153,17 @@ def test_isolation_failure_is_an_error(record, monkeypatch):
         harness.play(client, "tid", record, "python")
 
 
-def test_python_can_complete_on_the_fiftieth_turn(record, monkeypatch):
+def test_python_can_complete_on_the_hundredth_turn(record, monkeypatch):
     monkeypatch.setattr(
         harness, "execute_chess_python", lambda *_: {"isolation_active": True}
     )
-    responses = [response("python_chess", {"code": "print(board)"}) for _ in range(49)]
+    responses = [response("python_chess", {"code": "print(board)"}) for _ in range(99)]
     responses += [response("submit_move", {"move": record["solution"][0]})]
     client, requests = client_for(responses)
     reward, ending, metrics = harness.play(client, "tid", record, "python")
     assert (reward, ending) == (1.0, "ENV_DONE")
-    assert len(requests) == metrics["model_turns"] == 50
-    assert metrics["python_calls"] == 49
+    assert len(requests) == metrics["model_turns"] == 100
+    assert metrics["python_calls"] == 99
 
 
 def test_variants_have_matching_source_tasks(record):
