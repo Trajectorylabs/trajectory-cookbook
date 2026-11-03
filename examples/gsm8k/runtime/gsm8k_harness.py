@@ -1,0 +1,98 @@
+"""Run and grade one GSM8K task."""
+
+import argparse
+import json
+import re
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+
+import trajectory
+
+_TASKS_PATH = Path(__file__).with_name("tasks.jsonl")
+
+_PROMPT = """Solve this grade-school math problem carefully. Show your reasoning, then submit
+the final numeric answer by calling the `submit_answer` tool. Do not state the final answer only
+as text -- you must call `submit_answer` for your answer to count.
+
+{question}"""
+_SUBMIT_ANSWER_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "submit_answer",
+        "description": "Submit the final numeric answer to the math problem.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string",
+                    "description": "The final numeric answer.",
+                }
+            },
+            "required": ["answer"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+
+def extract_number(text: str) -> Decimal | None:
+    matches = re.findall(r"-?\d+(?:\.\d+)?", text.replace(",", ""))
+    if not matches:
+        return None
+    try:
+        return Decimal(matches[-1])
+    except InvalidOperation:
+        return None
+
+
+def extract_submitted_answer(tool_calls) -> Decimal | None:
+    for tool_call in reversed(tool_calls or []):
+        if tool_call.function.name != "submit_answer":
+            continue
+        try:
+            arguments = json.loads(tool_call.function.arguments)
+            return extract_number(str(arguments["answer"]))
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return None
+    return None
+
+
+def main(task_id: int) -> None:
+    task = json.loads(_TASKS_PATH.read_text().splitlines()[task_id])
+    question = task["question"]
+    expected = extract_number(task["answer"])
+
+    client = trajectory.Client()
+    trajectory_id = client.trajectories.create().tid
+    response = client.chat.completions.create(
+        model="gsm8k",  # Any model name.
+        messages=[
+            {"role": "user", "content": _PROMPT.format(question=question)},
+        ],
+        extra_body={"tools": [_SUBMIT_ANSWER_TOOL]},
+        # Managed runs apply the run's output limit and sampling settings instead.
+        max_tokens=2_048,
+        x_trajectory_id=trajectory_id,
+    )
+    choice = response.choices[0]
+    submitted = extract_submitted_answer(choice.message.tool_calls)
+    reward = float(
+        submitted is not None and expected is not None and submitted == expected
+    )
+
+    client.trajectories.log_reward(
+        trajectory_id,
+        name="reward_accuracy",
+        value=reward,
+    )
+    if choice.finish_reason in ("length", "max_tokens"):
+        reason = "TRUNCATION"
+    else:
+        reason = "ENV_DONE"
+    client.trajectories.complete(trajectory_id, termination_reason=reason)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task_id", type=int, required=True)
+    main(parser.parse_args().task_id)
