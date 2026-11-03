@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["trajectory-sdk==0.9.37", "chess==1.11.2"]
 # ///
-"""Replay a reference line through the reasoning harness without calling a model."""
+"""Replay a stored best move through the reasoning harness without calling a model."""
 
 import argparse
 import copy
@@ -16,8 +16,8 @@ sys.path.insert(0, str(ROOT / "harness"))
 from chess_harness import play
 
 
-def reference_trace(puzzle):
-    submitted = iter(puzzle["solution"][::2])
+def reference_trace(record):
+    submitted = iter(record["solution"])
     transcript = []
     turn = 0
 
@@ -48,11 +48,11 @@ def reference_trace(puzzle):
     client = SimpleNamespace(
         chat=SimpleNamespace(completions=SimpleNamespace(create=respond))
     )
-    reward, ending, metrics = play(client, "reference_replay", puzzle, "reasoning")
+    reward, ending, metrics = play(client, "reference_replay", record, "reasoning")
     return {
         "kind": "reference_replay",
         "model_calls": 0,
-        "puzzle_id": puzzle["puzzle_id"],
+        "position_id": record["position_id"],
         "messages": transcript,
         "result": {"reward": reward, "ending": ending, **metrics},
     }
@@ -60,17 +60,22 @@ def reference_trace(puzzle):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--puzzle-id", default="00KYU")
+    parser.add_argument("--position-id", default=None)
     parser.add_argument(
         "--output", type=Path, default=ROOT / "visuals" / "reasoning-trace.json"
     )
     args = parser.parse_args()
-    puzzle = next(
+    record = next(
         json.loads(line)
-        for line in (ROOT / "data" / "puzzles.jsonl").read_text().splitlines()
-        if json.loads(line)["puzzle_id"] == args.puzzle_id
+        for line in (ROOT / "data" / "positions.jsonl").read_text().splitlines()
+        if (
+            args.position_id is None
+            and json.loads(line)["split"] == "test"
+            and json.loads(line)["category"] == "tactics"
+        )
+        or json.loads(line)["position_id"] == args.position_id
     )
-    result = reference_trace(puzzle)
+    result = reference_trace(record)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))

@@ -72,21 +72,21 @@ def model_options(client, bench_id, model, training=False, **overrides):
 def evaluation_tasks(client, bench_id):
     tasks = {}
     for task in client.benchmarks.tasks.list(bench_id, split="test"):
-        puzzle = json.loads(task.env_vars["CHESS_PUZZLE"])
+        record = json.loads(task.env_vars["CHESS_POSITION"])
         tasks[task.task_id] = {
-            k: puzzle[k] for k in ("puzzle_id", "mate_in", "rating_band")
+            k: record[k] for k in ("position_id", "category", "rating_band")
         }
         tasks[task.task_id]["variant"] = task.env_vars["CHESS_VARIANT"]
-    if len(tasks) != 100 or len({p["puzzle_id"] for p in tasks.values()}) != 100:
+    if len(tasks) != 100 or len({p["position_id"] for p in tasks.values()}) != 100:
         raise ValueError(
-            "The benchmark must contain exactly 100 distinct held-out puzzles"
+            "The benchmark must contain exactly 100 distinct held-out positions"
         )
     if len({p["variant"] for p in tasks.values()}) != 1:
         raise ValueError("A benchmark must contain one harness variant")
-    if set(Counter(p["mate_in"] for p in tasks.values()).values()) != {20}:
-        raise ValueError("Require twenty evaluation puzzles for each mate length")
-    if set(Counter(p["rating_band"] for p in tasks.values()).values()) != {25}:
-        raise ValueError("Require twenty-five evaluation puzzles for each rating band")
+    if Counter(p["category"] for p in tasks.values()) != {
+        category: 25 for category in ("openings", "tactics", "middlegame", "endgame")
+    }:
+        raise ValueError("Require twenty-five evaluation positions per category")
     return tasks
 
 
@@ -109,30 +109,27 @@ def summarize(outcomes, tasks):
     )
     if missing_tasks or wrong_attempt_count:
         raise ValueError(
-            "Require exactly four attempts for each of the same 100 puzzles"
+            "Require exactly four attempts for each of the same 100 positions"
         )
 
     def scores(task_ids):
         result = {}
         for k in range(1, 5):
-            per_puzzle = [
+            per_position = [
                 pass_at_k(4, sum(attempts_by_task[task_id]), k) for task_id in task_ids
             ]
-            result[str(k)] = mean(per_puzzle)
+            result[str(k)] = mean(per_position)
         return result
 
-    def prefix_stats(task_ids):
+    def usage_stats(task_ids):
         selected = [outcome for outcome in outcomes if outcome["task_id"] in task_ids]
-        half_moves = [outcome["correct_half_moves"] for outcome in selected]
-        solver_moves = [outcome["correct_solver_moves"] for outcome in selected]
         return {
-            "mean_correct_half_moves": mean(half_moves),
-            "mean_correct_solver_moves": mean(solver_moves),
-            "half_move_histogram": dict(Counter(str(count) for count in half_moves)),
+            "mean_python_calls": mean(outcome["python_calls"] for outcome in selected),
+            "mean_model_turns": mean(outcome["model_turns"] for outcome in selected),
         }
 
     breakdowns = {}
-    for field in ("mate_in", "rating_band"):
+    for field in ("category", "rating_band"):
         breakdowns[field] = {}
         categories = sorted({task[field] for task in tasks.values()})
         for category in categories:
@@ -140,11 +137,13 @@ def summarize(outcomes, tasks):
                 task_id for task_id, task in tasks.items() if task[field] == category
             ]
             breakdowns[field][str(category)] = {
+                "positions": len(task_ids),
+                "attempts": len(task_ids) * 4,
                 "pass_at_k": scores(task_ids),
-                **prefix_stats(task_ids),
+                **usage_stats(task_ids),
             }
 
-    return {"pass_at_k": scores(tasks), **prefix_stats(tasks), "breakdowns": breakdowns}
+    return {"pass_at_k": scores(tasks), **usage_stats(tasks), "breakdowns": breakdowns}
 
 
 def wait_evaluation(client, run_id, tasks):
@@ -180,8 +179,8 @@ def wait_evaluation(client, run_id, tasks):
                 "trajectory_id": attempt.trajectory_id,
                 "native_reward": grade,
                 "ending": detail.termination_reason,
-                "correct_half_moves": components.get("correct_half_moves"),
-                "correct_solver_moves": components.get("correct_solver_moves"),
+                "python_calls": components.get("python_calls"),
+                "model_turns": components.get("model_turns"),
                 "solved": grade == 1.0 and detail.termination_reason == "ENV_DONE",
             }
         )
@@ -209,7 +208,7 @@ def wait_evaluation(client, run_id, tasks):
         "reward_mean": result.reward_mean,
         "endings": dict(Counter(o["ending"] for o in outcomes)),
         "outcomes": outcomes,
-        "puzzle_ids": sorted(p["puzzle_id"] for p in tasks.values()),
+        "position_ids": sorted(p["position_id"] for p in tasks.values()),
     }
     if (
         progress.total_rollouts != 400
@@ -223,11 +222,8 @@ def wait_evaluation(client, run_id, tasks):
         raise RuntimeError(
             f"Evaluation needs 400 graded attempts and no infrastructure failures: {report}"
         )
-    if any(
-        o["correct_half_moves"] is None or o["correct_solver_moves"] is None
-        for o in outcomes
-    ):
-        raise RuntimeError("The harness did not record its continuation-prefix metrics")
+    if any(o["python_calls"] is None or o["model_turns"] is None for o in outcomes):
+        raise RuntimeError("The harness did not record its tool-usage metrics")
     report.update(summarize(outcomes, tasks))
     print(f"eval={run_id} graded={graded} pass_at_k={report['pass_at_k']}", flush=True)
     return report
@@ -242,7 +238,7 @@ def evaluate(client, bench_id, model, state_path, checkpoint_id=None):
         "checkpoint_id": checkpoint_id,
         "variant": next(iter(tasks.values()))["variant"],
         "options": options,
-        "puzzle_ids": sorted(p["puzzle_id"] for p in tasks.values()),
+        "position_ids": sorted(p["position_id"] for p in tasks.values()),
     }
     state = (
         json.loads(state_path.read_text()) if state_path.exists() else identity.copy()
@@ -370,10 +366,10 @@ def run(
         state["checkpoint_id"],
     )
     if (
-        baseline["puzzle_ids"] != final["puzzle_ids"]
+        baseline["position_ids"] != final["position_ids"]
         or baseline["options"] != final["options"]
     ):
-        raise RuntimeError("Before/after puzzle IDs or generation settings differ")
+        raise RuntimeError("Before/after record IDs or generation settings differ")
     state["before"] = baseline
     state["after"] = final
     state["pass_at_k_delta"] = {
@@ -395,7 +391,9 @@ def main():
     mode.add_argument("--reasoning-bench-id")
     parser.add_argument("--python-bench-id")
     parser.add_argument("--state", type=Path)
-    parser.add_argument("--results-dir", type=Path, default=ROOT / "results")
+    parser.add_argument(
+        "--results-dir", type=Path, default=ROOT / "results" / "best-move"
+    )
     parser.add_argument("--model", default=TRAIN_MODELS[0])
     parser.add_argument("--num-steps", type=int, default=100)
     args = parser.parse_args()
@@ -420,10 +418,12 @@ def main():
             evaluation_tasks(client, benchmark_id)
             for benchmark_id in benchmarks.values()
         ]
-        if {p["puzzle_id"] for p in tasks[0].values()} != {
-            p["puzzle_id"] for p in tasks[1].values()
+        if {p["position_id"] for p in tasks[0].values()} != {
+            p["position_id"] for p in tasks[1].values()
         }:
-            raise ValueError("The two benchmarks contain different evaluation puzzles")
+            raise ValueError(
+                "The two benchmarks contain different evaluation positions"
+            )
         for model in TRAIN_MODELS:
             for variant, benchmark_id in benchmarks.items():
                 stem = result_name(model, variant)

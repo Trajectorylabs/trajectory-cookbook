@@ -1,8 +1,8 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk==0.9.37", "chess==1.11.2", "zstandard>=0.25.0"]
+# dependencies = ["trajectory-sdk==0.9.37", "chess==1.11.2"]
 # ///
-"""Upload matched reasoning and Python variants of the balanced chess dataset."""
+"""Upload matched reasoning and Python variants of the balanced best-move dataset."""
 
 import argparse
 import json
@@ -27,11 +27,11 @@ OPTIONS = {
 
 def task(record, variant):
     return TaskSpec(
-        name=f"chess/{variant}/mateIn{record['mate_in']}/{record['puzzle_id']}",
+        name=f"chess/{variant}/{record['category']}/{record['position_id']}",
         split=record["split"],
         run_command=f"python -u /opt/chess/{variant}_harness.py",
-        env_vars={"CHESS_VARIANT": variant, "CHESS_PUZZLE": json.dumps(record)},
-        tags=["chess", variant, f"mateIn{record['mate_in']}", record["rating_band"]],
+        env_vars={"CHESS_VARIANT": variant, "CHESS_POSITION": json.dumps(record)},
+        tags=["chess", variant, record["category"], record["rating_band"]],
     )
 
 
@@ -39,8 +39,8 @@ def build_benchmark(records, variant, name=None):
     if variant not in {"reasoning", "python"}:
         raise ValueError(variant)
     return BenchmarkSpec(
-        name=name or f"chess-mates-{variant}",
-        description=f"Lichess forcing mates in 1–5; balanced ratings 0–3000; {variant}.",
+        name=name or f"chess-best-move-{variant}",
+        description=f"Four-category Stockfish best-move reasoning; {variant}.",
         runtime=DockerfileBuild("Dockerfile"),
         tasks=[task(r, variant) for r in records],
     )
@@ -89,7 +89,7 @@ def ingest(client, records, variant, agent_name, name=None):
     selected = [r for r in records if r["split"] == "train"] + evaluation_subset(
         records
     )
-    audit(selected, test_per_category=20)
+    audit(selected)
     operation = start_push(
         client,
         build_benchmark(selected, variant, name),
@@ -105,7 +105,9 @@ def ingest(client, records, variant, agent_name, name=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", type=Path, default=ROOT / "data" / "puzzles.jsonl")
+    parser.add_argument(
+        "--dataset", type=Path, default=ROOT / "data" / "positions.jsonl"
+    )
     parser.add_argument("--agent-name", required=True)
     parser.add_argument("--variant", choices=["reasoning", "python"], required=True)
     args = parser.parse_args()
@@ -114,7 +116,9 @@ def main():
     print(client.organizations.retrieve_current(), flush=True)
     diagnose_task(
         client,
-        next(r for r in records if r["split"] == "train" and r["mate_in"] == 2),
+        next(
+            r for r in records if r["split"] == "train" and r["category"] == "tactics"
+        ),
         args.variant,
         args.agent_name,
     )

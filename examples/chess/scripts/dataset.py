@@ -1,286 +1,208 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["chess==1.11.2", "zstandard>=0.25.0"]
+# dependencies = ["chess==1.11.2"]
 # ///
-"""Select and validate balanced Lichess mate-in-1 through mate-in-5 puzzles."""
+"""Select balanced best-move tasks from four curated Stockfish-labeled datasets."""
 
 import argparse
-import csv
 import hashlib
-import io
+import heapq
 import json
-import urllib.request
+from urllib.parse import urlparse
 from collections import Counter
-from contextlib import contextmanager
 from pathlib import Path
 
 import chess
-import zstandard
 
-SOURCE = "https://database.lichess.org/lichess_db_puzzle.csv.zst"
-BANDS = ("0-999", "1000-1499", "1500-1999", "2000-3000")
+ROOT = Path(__file__).resolve().parent.parent
+CATEGORIES = ("openings", "tactics", "middlegame", "endgame")
+BANDS = ("below-2000", "2000-2199", "2200-2399", "2400+")
 
 
 def rating_band(rating):
-    if not 0 <= rating <= 3000:
-        return None
-    if rating < 1000:
-        return BANDS[0]
-    if rating < 1500:
-        return BANDS[1]
     if rating < 2000:
+        return BANDS[0]
+    if rating < 2200:
+        return BANDS[1]
+    if rating < 2400:
         return BANDS[2]
     return BANDS[3]
 
 
-def game_id(url):
-    path = url.split("lichess.org/", 1)[1].removeprefix("game/")
-    return path.split("/", 1)[0].split("#", 1)[0][:8]
+def validate_position(row):
+    board = chess.Board(row["fen"])
+    if not board.is_valid() or board.is_game_over():
+        raise ValueError("Task must start at a valid, nonterminal position")
+    if row["category"] not in CATEGORIES or row["split"] not in {"train", "test"}:
+        raise ValueError("Unknown category or split")
+    if len(row["solution"]) != 1:
+        raise ValueError("A best-move task needs exactly one reference move")
+    move = board.parse_uci(row["solution"][0])
+    if row["engine"]["name"] != "Stockfish 19":
+        raise ValueError("Expected frozen Stockfish 19 labels")
+    passes = row["filter_passes"]
+    if [check["limit_nodes"] for check in passes] != [30_000, 180_000]:
+        raise ValueError("Expected both recorded search budgets")
+    for check in passes:
+        if len(check["lines"]) < 2 or check["gap_cp"] <= 0:
+            raise ValueError("Expected a recorded advantage over an alternative")
+        if check["lines"][0]["move"] != move.uci():
+            raise ValueError("Best move changed between recorded searches")
+        for line in check["lines"]:
+            replay = board.copy()
+            if not line["pv"] or line["pv"][0] != line["move"]:
+                raise ValueError("PV does not start with its labeled move")
+            for uci in line["pv"]:
+                replay.push_uci(uci)
+    recheck = row.get("eval_recheck")
+    if row["split"] == "test":
+        if not recheck or recheck["limit_nodes"] != 2_000_000:
+            raise ValueError("Held-out position is missing its deeper recheck")
+        if recheck["depth"] < 16 or recheck["gap_cp"] <= 0:
+            raise ValueError("Held-out recheck did not confirm a distinct best move")
+        if recheck["pv"][0] != move.uci():
+            raise ValueError("Held-out recheck disagrees with the reference move")
+        replay = board.copy()
+        for uci in recheck["pv"]:
+            replay.push_uci(uci)
+    source = row["source"]
+    if urlparse(source["game"]).hostname not in {
+        "lichess.org",
+        "chess.com",
+        "www.chess.com",
+    }:
+        raise ValueError("Expected a traceable Lichess or Chess.com source game")
+    player = "white_elo" if board.turn else "black_elo"
+    if row["player_rating"] != int(source[player]):
+        raise ValueError("Rating must belong to the side to move")
+    if row["rating_band"] != rating_band(row["player_rating"]):
+        raise ValueError("Incorrect player-rating band")
+    return row
 
 
-def validate_puzzle(row):
-    """Return a normalized puzzle only when its whole source line is valid."""
-    band = rating_band(int(row["Rating"]))
-    moves = row["Moves"].split()
-    mate = len(moves) // 2
-    if band is None or len(moves) != 2 * mate or not 1 <= mate <= 5:
-        return None
-    themes = row["Themes"].split()
-    # Lichess mateIn5 includes mates longer than five. Check the exact length above.
-    if "mate" not in themes or f"mateIn{mate}" not in themes:
-        return None
-    board = chess.Board(row["FEN"])
-    if not board.is_valid():
-        return None
-    try:
-        board.push_uci(moves[0])  # Source FEN precedes the opponent's setup move.
-        fen = board.fen()
-        for index, uci in enumerate(moves[1:]):
-            move = board.parse_uci(uci)
-            if index % 2 == 0 and not board.gives_check(move):
-                return None
-            board.push(move)
-        if not board.is_checkmate():
-            return None
-    except ValueError:
-        return None
-    return {
-        "puzzle_id": row["PuzzleId"],
-        "fen": fen,
-        "source_fen": row["FEN"],
-        "source_moves": moves,
-        "solution": moves[1:],
-        "mate_in": mate,
-        "rating": int(row["Rating"]),
-        "rating_band": band,
-        "themes": themes,
-        "game_url": row["GameUrl"],
+def normalize(row):
+    board = chess.Board(row["fen"])
+    rating = int(row["source"]["white_elo" if board.turn else "black_elo"])
+    record = {
+        "position_id": row["position_id"],
+        "split": row["split"],
+        "category": row["category"],
+        "fen": row["fen"],
+        "solution": row["solution_uci"],
+        "player_rating": rating,
+        "rating_band": rating_band(rating),
+        "source": row["source"],
+        "engine": row["engine"],
+        "label_version": row["label_version"],
+        "filter_passes": row["filter_passes"],
     }
+    for key in ("eval_recheck", "tablebase_check"):
+        if key in row:
+            record[key] = row[key]
+    return validate_position(record)
 
 
-@contextmanager
-def source_rows(source):
-    remote = source.startswith("https://")
-    with (
-        urllib.request.urlopen(source, timeout=120) if remote else open(source, "rb")
-    ) as raw:
-        if source.endswith(".zst"):
-            with zstandard.ZstdDecompressor().stream_reader(raw) as decoded:
-                with io.TextIOWrapper(decoded) as text:
-                    yield csv.DictReader(text)
-        else:
-            with io.TextIOWrapper(raw) as text:
-                yield csv.DictReader(text)
+def selection_key(row):
+    return hashlib.sha256(
+        ("chess-reasoning-v1:" + row["position_id"]).encode()
+    ).hexdigest()
 
 
-def allocate(available, per_category):
-    """Fill equal category and rating margins, keeping cells even where possible."""
-    from collections import deque
-
-    # Nodes 1–5 are mate lengths, and 6–9 are rating bands. Route each category's
-    # quota through these bands; reverse edges let a scarce cell borrow capacity.
-    source, sink = 0, 10
-    capacity = {}
-    flow = Counter()
-    for mate in range(1, 6):
-        capacity[source, mate] = per_category
-        for band_index, band in enumerate(BANDS):
-            capacity[mate, 6 + band_index] = available.get((mate, band), 0)
-    for band_index in range(4):
-        capacity[6 + band_index, sink] = 5 * per_category // 4
-    # Start close to equal in every cell; augmenting paths handle scarce cells.
-    for mate in range(1, 6):
-        for band_index in range(4):
-            band_node = 6 + band_index
-            n = min(per_category // 4, capacity[mate, band_node])
-            for edge in [(source, mate), (mate, band_node), (band_node, sink)]:
-                flow[edge] += n
-                flow[edge[::-1]] -= n
-    total = sum(flow[source, mate] for mate in range(1, 6))
-    while total < 5 * per_category:
-        parents = {source: None}
-        queue = deque([source])
-        while queue and sink not in parents:
-            node = queue.popleft()
-            # Rotate traversal so redistributed cells remain as even as possible.
-            for other in [(i + total) % 11 for i in range(11)]:
-                if (
-                    other not in parents
-                    and capacity.get((node, other), 0) > flow[node, other]
-                ):
-                    parents[other] = node
-                    queue.append(other)
-        if sink not in parents:
-            raise ValueError(
-                f"Not enough distinct source puzzles to balance {per_category} per mate category"
-            )
-        node = sink
-        while parents[node] is not None:
-            previous = parents[node]
-            flow[previous, node] += 1
-            flow[node, previous] -= 1
-            node = previous
-        total += 1
-    return {
-        (mate, band): flow[mate, 6 + index]
-        for mate in range(1, 6)
-        for index, band in enumerate(BANDS)
-    }
-
-
-def select(rows, train_per_category=1000, test_per_category=100):
-    pools, positions, games, ids = {}, set(), set(), set()
-    quotas = {"train": train_per_category, "test": test_per_category}
-    for scanned, row in enumerate(rows, 1):
-        if scanned % 500_000 == 0:
-            print(
-                json.dumps(
-                    {"scanned": scanned, "candidates": sum(map(len, pools.values()))}
-                ),
-                flush=True,
-            )
-        band = rating_band(int(row["Rating"]))
-        mate = len(row["Moves"].split()) // 2
-        if (
-            band is None
-            or not 1 <= mate <= 5
-            or f"mateIn{mate}" not in row["Themes"].split()
+def select(source_dir, train_per_category=1250, test_per_category=25):
+    records, sources = [], {}
+    for category in CATEGORIES:
+        path = source_dir / f"{category}-v3.jsonl"
+        pools = {"train": [], "test": []}
+        digest = hashlib.sha256()
+        with path.open("rb") as source:
+            for raw in source:
+                digest.update(raw)
+                row = json.loads(raw)
+                if row["category"] != category:
+                    raise ValueError(f"Wrong category in {path.name}")
+                pools[row["split"]].append(row)
+        sources[category] = {
+            "file": path.name,
+            "sha256": digest.hexdigest(),
+            "counts": {split: len(rows) for split, rows in pools.items()},
+        }
+        for split, count in (
+            ("train", train_per_category),
+            ("test", test_per_category),
         ):
-            continue
-        game = game_id(row["GameUrl"])
-        split = (
-            "test"
-            if int(hashlib.sha256(game.encode()).hexdigest(), 16) % 11 == 0
-            else "train"
-        )
-        key = (split, mate, band)
-        pool = pools.setdefault(key, [])
-        if len(pool) >= quotas[split] or game in games or row["PuzzleId"] in ids:
-            continue
-        record = validate_puzzle(row)
-        if record is None:
-            continue
-        position = " ".join(record["fen"].split()[:4])
-        if position in positions:
-            continue
-        record["split"] = split
-        pool.append(record)
-        positions.add(position)
-        games.add(game)
-        ids.add(record["puzzle_id"])
-    records = []
-    for split, quota in quotas.items():
-        available = {
-            (mate, band): len(pools.get((split, mate, band), []))
-            for mate in range(1, 6)
-            for band in BANDS
-        }
-        allocation = allocate(available, quota)
-        selected = {
-            (mate, band): pools.get((split, mate, band), [])[:n]
-            for (mate, band), n in allocation.items()
-        }
-        # Interleave cells, so small evaluations cover all available categories.
-        for index in range(max(allocation.values())):
-            for cell in selected.values():
-                if index < len(cell):
-                    records.append(cell[index])
-    return records
+            if len(pools[split]) < count:
+                raise ValueError(f"Not enough {split} positions for {category}")
+            records.extend(
+                normalize(row)
+                for row in heapq.nsmallest(count, pools[split], key=selection_key)
+            )
+    audit(records, train_per_category, test_per_category)
+    return records, sources
 
 
-def audit(records, train_per_category=1000, test_per_category=100):
-    counts, positions, games, ids = Counter(), set(), set(), set()
-    for record in records:
-        row = {
-            "PuzzleId": record["puzzle_id"],
-            "FEN": record["source_fen"],
-            "Moves": " ".join(record["source_moves"]),
-            "Rating": record["rating"],
-            "Themes": " ".join(record["themes"]),
-            "GameUrl": record["game_url"],
-        }
-        normalized = validate_puzzle(row)
-        if normalized is None or any(record[k] != v for k, v in normalized.items()):
-            raise ValueError(f"Invalid puzzle: {record['puzzle_id']}")
-        position = " ".join(record["fen"].split()[:4])
-        game = game_id(record["game_url"])
-        if position in positions or game in games or record["puzzle_id"] in ids:
-            raise ValueError("Duplicate puzzle, source game, or position")
-        positions.add(position)
-        games.add(game)
-        ids.add(record["puzzle_id"])
-        counts[(record["split"], record["mate_in"], record["rating_band"])] += 1
-    expected_splits = {"train": train_per_category, "test": test_per_category}
-    if any(s not in expected_splits for s, _, _ in counts):
-        raise ValueError("Invalid split")
-    for split, n in expected_splits.items():
-        for mate in range(1, 6):
-            if sum(counts[split, mate, band] for band in BANDS) != n:
-                raise ValueError(f"Incorrect category count: {split}, mate in {mate}")
-        for band in BANDS:
-            if sum(counts[split, mate, band] for mate in range(1, 6)) != 5 * n // 4:
-                raise ValueError(f"Incorrect rating-band count: {split}, {band}")
-    return {str(k): v for k, v in sorted(counts.items())}
+def audit(records, train_per_category=1250, test_per_category=25):
+    counts, ids, boards = Counter(), set(), set()
+    games = {"train": set(), "test": set()}
+    for row in records:
+        validate_position(row)
+        # Exclude repeated boards even when their clocks or castling rights differ.
+        board_key = " ".join(row["fen"].split()[:2])
+        if row["position_id"] in ids or board_key in boards:
+            raise ValueError("Duplicate position")
+        ids.add(row["position_id"])
+        boards.add(board_key)
+        game = row["source"]["game"].split("#")[0].rstrip("/")
+        games[row["split"]].add(game)
+        counts[row["split"], row["category"]] += 1
+    if games["train"] & games["test"]:
+        raise ValueError("Source game overlaps training and evaluation")
+    for split, count in (("train", train_per_category), ("test", test_per_category)):
+        for category in CATEGORIES:
+            if counts[split, category] != count:
+                raise ValueError(f"Incorrect {split} count for {category}")
+    return {str(key): value for key, value in sorted(counts.items())}
 
 
 def evaluation_subset(records):
-    """Select the same 100 held-out puzzles for every model and harness."""
-    pools = {}
-    for mate in range(1, 6):
-        for band in BANDS:
-            matching = [
-                puzzle
-                for puzzle in records
-                if puzzle["split"] == "test"
-                and puzzle["mate_in"] == mate
-                and puzzle["rating_band"] == band
-            ]
-            pools[mate, band] = sorted(matching, key=lambda puzzle: puzzle["puzzle_id"])
-    counts = allocate({key: len(rows) for key, rows in pools.items()}, per_category=20)
-    selected = [row for key, rows in pools.items() for row in rows[: counts[key]]]
-    return sorted(
-        selected, key=lambda r: (r["mate_in"], r["rating_band"], r["puzzle_id"])
+    selected = sorted(
+        (row for row in records if row["split"] == "test"),
+        key=lambda row: row["position_id"],
     )
+    if Counter(row["category"] for row in selected) != {
+        category: 25 for category in CATEGORIES
+    }:
+        raise ValueError("Expected 25 held-out positions in each of four categories")
+    return selected
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", default=SOURCE)
     parser.add_argument(
-        "--output", type=Path, default=Path(__file__).resolve().parent.parent / "data" / "puzzles.jsonl"
+        "--source-dir",
+        required=True,
+        type=Path,
+        help="Directory containing the four curated *-v3.jsonl source files",
+    )
+    parser.add_argument(
+        "--output", type=Path, default=ROOT / "data" / "positions.jsonl"
     )
     args = parser.parse_args()
-    with source_rows(args.source) as rows:
-        records = select(rows)
-    counts = audit(records)
-    payload = "".join(json.dumps(r, sort_keys=True) + "\n" for r in records)
+    records, sources = select(args.source_dir)
+    payload = "".join(json.dumps(row, sort_keys=True) + "\n" for row in records)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(payload)
     manifest = {
-        "source": args.source,
+        "task": "best-move-reasoning",
+        "source": "Curated Lichess and Chess.com game positions with frozen Stockfish 19 annotations",
+        "selection": "Lowest SHA256(chess-reasoning-v1: + position_id), within original category and split",
+        "source_files": sources,
         "sha256": hashlib.sha256(payload.encode()).hexdigest(),
         "count": len(records),
-        "counts": counts,
-        "forcing": "every solver move gives check",
+        "counts": audit(records),
+        "rating": "Player Elo of the side to move; observed distribution, no rating quotas",
+        "grading": "1.0 only for the stored best UCI move; all other submissions score 0.0",
+        "reference_searches": [30_000, 180_000],
+        "test_recheck_nodes": 2_000_000,
     }
     args.output.with_suffix(".manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n"

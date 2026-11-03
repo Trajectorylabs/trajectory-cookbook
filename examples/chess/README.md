@@ -1,163 +1,129 @@
-# Train a model to solve Lichess Mating Tactics
+# Train a model to reason about chess
 
-Let's teach a model to deliver checkmate!
+Let's teach a model to find the best chess move!
 
 Inspired by Claude Shannon's 1950 paper,
 [*Programming a Computer for Playing Chess*](https://www.computerhistory.org/chess/doc-431614f453dde/),
-we train models on a simpler variant of chess: finish a forcing checkmate from a
-given position.
-
-This cookbook takes you from data to ingestion, evaluation, and training with the
-Trajectory SDK. You'll compare two agents: one uses reasoning alone, and the other
-can calculate with Python and `python-chess`.
+we train models to choose a strong move from a given position. This cookbook takes
+you from data to ingestion, evaluation, and training with the Trajectory SDK.
 
 The cookbook has six sections:
 
-1. [Dataset](#dataset): Lichess puzzles, splits, and rating distribution.
-2. [Harness](#harness): the two agents, move handling, and an example trace.
-3. [Ingestion](#ingestion): upload both variants to Trajectory.
-4. [Eval](#eval): compare ten models on the same puzzles.
+1. [Dataset](#dataset): annotated positions, categories, and distribution.
+2. [Harness](#harness): reasoning and Python agents, with an example trace.
+3. [Ingestion](#ingestion): upload both variants.
+4. [Eval](#eval): compare ten models on the same 100 positions.
 5. [Train](#train): train two models with both agents and compare before and after.
-6. [Appendix](#appendix): sources, previews, and local checks.
+6. [Appendix](#appendix): sources, board previews, and local checks.
 
 ## Dataset
 
-We downloaded the [Lichess puzzle CSV](https://database.lichess.org/lichess_db_puzzle.csv.zst)
-from the [Lichess open database](https://database.lichess.org/#puzzles), under
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/). We kept mates in 1–5
-where every solver move gives check, then checked legality and final checkmate.
+We use four curated, preannotated sets: **openings, tactics, middlegames, and
+endgames**. Each source set has 50,000 training positions and 250 held-out positions.
+Most come from [Lichess rated game exports](https://database.lichess.org/#standard_games),
+with additional games from [Lichess Elite archives](https://database.nikonoel.fr/)
+and Chess.com. Each record keeps its source game,
+player ratings, Stockfish 19 scores, alternative moves, and principal variations.
 
-| Split | Puzzles | Per mate length |
+The reference move agrees across searches at **30,000 and 180,000 nodes**. Held-out
+positions also have a **2,000,000-node recheck**. These are frozen engine labels,
+not a proof of perfect play. We select a smaller, deterministic tutorial subset:
+
+| Split | Per category | Total |
 | --- | ---: | ---: |
-| Training | 5,000 | 1,000 |
-| Held-out pool | 500 | 100 |
-| Evaluation, selected from the held-out pool | 100 | 20 |
+| Training | 1,250 | 5,000 |
+| Evaluation | 25 | 100 |
 
-Each split has equal counts across four puzzle-rating bands: **0–999**,
-**1000–1499**, **1500–1999**, and **2000–3000**. Individual mate/rating cells vary.
+Both agents use these same positions. Player Elo belongs to the side to move;
+it is not a puzzle rating. Categories are balanced; rating counts follow the
+source data.
 
-Each line in [`data/puzzles.jsonl`](data/puzzles.jsonl) holds one puzzle, including
-its source game and setup move. Here are the task fields for **mate-in-2 `00KYU`**:
-`fen` is the starting board; `solution` lists both sides' moves in UCI notation.
+Each line in [`data/positions.jsonl`](data/positions.jsonl) is one task. Here are
+the task fields for a tactical position; the full record also keeps the engine
+annotations and source game:
 
 ```jsonl
-{"puzzle_id":"00KYU","split":"test","mate_in":2,"rating":1272,"rating_band":"1000-1499","fen":"3r1k2/p2n3p/1p2Bpp1/2r2N2/4q3/6QP/P5P1/5R1K w - - 2 41","solution":["g3d6","f8e8","d6e7"]}
+{"position_id":"087b256a0aba982113d7f99a235a18e99af82e364b4aed27eb4c5f7e0d65ea66","split":"test","category":"tactics","player_rating":2060,"rating_band":"2000-2199","fen":"5rk1/5ppp/8/p1p5/P1P1P1b1/3PR3/1q4PP/3B1R1K w - - 0 28","solution":["d1g4"]}
 ```
 
-![Mate in two: starting position, Qd6+ and Black's reply Ke8, then Qe7# for reward 1.0](visuals/mate-in-2.png)
+![A tactical position before and after Bxg4, earning reward 1.0](visuals/best-move.png)
 
-Play **Qd6+**, let the harness reply **Ke8**, then finish with **Qe7#**.
-Match the full reference line to earn **reward 1.0**.
+White submits **Bxg4** (`d1g4`), matching the stored best move for **reward 1.0**.
+The task ends after one submission. Explore [eight board previews](visuals/positions.png)
+and their [records](visuals/positions.jsonl), with two positions per category.
 
-Explore [all five mate lengths in ten board previews](visuals/puzzles.png), with
-two puzzles per category and their [JSONL records](visuals/puzzles.jsonl).
+![Training and evaluation counts by category and player Elo](visuals/dataset-distribution.png)
 
-![Dataset counts by mate length and rating band for training, the held-out pool, and the evaluation subset](visuals/dataset-distribution.png)
+The [manifest](data/positions.manifest.json) records source-file hashes, selection,
+and split counts. [Chart counts](visuals/dataset-distribution.json) are generated
+from the checked-in positions. The subset contains 5,072 Lichess positions and 28
+Chess.com opening positions, with player Elo from 2000 to 3394.
 
 ## Harness
 
-Both harnesses ask the model to call `submit_move` for each of its moves. The
-harness checks the move, plays the opponent's reply, and returns the new position.
-The reference solution stays in the harness.
-
-For the mate-in-2 puzzle above, the conversation is:
-
-```text
-Harness: You have 2 moves to make with submit_move. [starting board and FEN]
-Model:   submit_move({"move": "g3d6"})
-Harness: Correct. Black played f8e8. You have 1 move to make with submit_move.
-         [new board and FEN]
-Model:   submit_move({"move": "d6e7"})
-Harness: Full continuation matched. Reward: 1.0.
-```
-
-The model must complete the exact reference continuation. A different move scores
-0.0, including another legal checkmate. The harness records partial progress for
-analysis, but it does not give partial reward.
-
-### Example trace
-
-The [reference replay](visuals/reasoning-trace.json) shows `00KYU`'s prompt, moves,
-board updates, and grade. It is scripted and makes zero model calls.
-
-After `submit_move({"move": "g3d6"})`, the harness returns these fields, along with
-the updated board:
-
-```json
-{
-  "your_move": "g3d6",
-  "opponent_move": "f8e8",
-  "fen": "3rk3/p2n3p/1p1QBpp1/2r2N2/4q3/7P/P5P1/5R1K w - - 4 42",
-  "moves_remaining": 1,
-  "instruction": "You have 1 move to make with submit_move."
-}
-```
-
-The next submission, `submit_move({"move": "d6e7"})`, completes the line. The
-replay records reward `1.0`, two model turns, two correct solver moves, and three
-correct half-moves, including Black's automatic reply.
-
-To reproduce the trace from the cookbook root:
-
-```bash
-uv run examples/chess/scripts/trace.py --puzzle-id 00KYU
-```
-
-See [`scripts/trace.py`](scripts/trace.py) for the replay client and
-[`play()` in the shared harness](harness/chess_harness.py) for move handling.
+Both agents receive the board and FEN, then call `submit_move` once. Reward is
+**1.0 for the stored best UCI move and 0.0 for any other move**. Engine scores,
+reference moves, and principal variations stay in the grader.
 
 ### Reasoning
 
 [`harness/reasoning_harness.py`](harness/reasoning_harness.py) starts the shared
-loop with only `submit_move` available:
+loop with only `submit_move`. The model gets one response, capped at 4,000 output
+tokens. Its instructions include:
 
-```python
-from chess_harness import main
-
-if __name__ == "__main__":
-    main("reasoning")
+```text
+Play the best move in this chess position.
+You have 1 move to make with submit_move.
+Consider candidate moves, forcing lines, and the opponent's strongest replies.
 ```
-
-The model gets one response per solver move, up to five responses for mate in 5.
 
 ### Python
 
-[`harness/python_harness.py`](harness/python_harness.py) adds `python_chess`:
-
-```python
-from chess_harness import main
-
-if __name__ == "__main__":
-    main("python")
-```
-
-This agent gets 50 model turns, shared between calculations and move submissions.
-Its prompt includes:
+[`harness/python_harness.py`](harness/python_harness.py) also offers `python_chess`.
+It allows **50 model turns total**, shared between calculations and the final
+submission, with **4,000 output tokens per response**:
 
 ```text
-You have at most 50 model turns total, including Python calls and move submissions.
-Use python_chess to calculate with python-chess. Each call gets a fresh board
-at the current position. Reserve enough turns to submit every move.
+Use python_chess to calculate with python-chess.
+Each call gets a fresh board at the current position.
+Reserve a turn to submit your final move.
 ```
 
-A Python calculation does not change the puzzle board. The model still needs to
-call `submit_move` to play. Each calculation starts with `chess` and a fresh `board`
-at the current FEN. There is no chess engine.
+Calculations can explore either side's moves on a copy of the board. They do not
+change the task position. The agent submits only its chosen root move; the harness
+does not play an opponent reply in this one-move task. No engine is available to
+either agent.
 
-Both agents allow 4,000 output tokens per response. Python runs in an isolated
-Linux x86-64 worker with no network, credentials, or reference files. Each call
-has 10 CPU seconds, 15 wall seconds, 256 MiB memory, and 16 KiB output.
+Python runs in an isolated Linux x86-64 worker with no network, credentials, or
+reference files. Calls have 10 CPU seconds, 15 wall seconds, 256 MiB memory, and
+16 KiB output. Read the [shared loop and grader](harness/chess_harness.py) and
+[Python worker](harness/python_tool.py).
 
-Read [`harness/chess_harness.py`](harness/chess_harness.py) for the model loop and
-grader, and [`harness/python_tool.py`](harness/python_tool.py) for the worker.
+### Example trace
 
-<!-- Add visuals/platform-harnesses.png here after diagnostics. Show one real
-     trajectory from each harness, including submissions and opponent replies. -->
+The [reference replay](visuals/reasoning-trace.json) shows the exact prompt,
+submission, final board, and reward. It is scripted and makes zero model calls:
+
+```text
+Harness: Play the best move. You play White. [board and FEN]
+         You have 1 move to make with submit_move.
+Replay:  submit_move({"move": "d1g4"})
+Result:  reward=1.0, model_turns=1, python_calls=0
+```
+
+Reproduce it from the cookbook root:
+
+```bash
+uv run examples/chess/scripts/trace.py
+```
+
+See [`scripts/trace.py`](scripts/trace.py) for the replay client.
+
+<!-- Add a platform screenshot here after new best-move diagnostics pass. -->
 
 ## Ingestion
 
-Set a staging API key and choose an existing agent. The commands below use
-`CHESSSS`; replace it with your agent's name if needed.
+Set a staging API key and choose your agent:
 
 ```bash
 export TRAJECTORY_BASE_URL="https://staging.api.trajectory.ai"
@@ -168,43 +134,38 @@ uv run examples/chess/scripts/ingest.py --agent-name "$AGENT_NAME" --variant rea
 uv run examples/chess/scripts/ingest.py --agent-name "$AGENT_NAME" --variant python
 ```
 
-Each command first diagnoses one task, then uploads 5,000 training puzzles and the
-shared 100-puzzle test set. It waits for the image build and runs a benchmark
-diagnostic before returning.
-
-The uploader creates one task per puzzle. The important fields are:
+Each command diagnoses one task, uploads the 5,000/100 split, waits for the shared
+image build, and runs a benchmark diagnostic. The task command selects the agent:
 
 ```python
 TaskSpec(
-    name=f"chess/{variant}/mateIn{puzzle['mate_in']}/{puzzle['puzzle_id']}",
-    split=puzzle["split"],
+    name=f"chess/{variant}/{record['category']}/{record['position_id']}",
+    split=record["split"],
     run_command=f"python -u /opt/chess/{variant}_harness.py",
     env_vars={
         "CHESS_VARIANT": variant,
-        "CHESS_PUZZLE": json.dumps(puzzle),
+        "CHESS_POSITION": json.dumps(record),
     },
 )
 ```
 
-Both variants share an image. The task command selects the harness, and its
-environment supplies the puzzle to the parent process. The Python worker receives
-only the current FEN and the model's code.
-
-Save the printed operation and benchmark IDs. If an upload is interrupted, check
-its operation ID before starting another one. Use the same benchmark versions for
-all evaluations and training comparisons. See [`ingest.py`](scripts/ingest.py).
+The parent process keeps the labels; the Python worker receives only the FEN and
+model code. Save the printed operation and benchmark IDs. Check an interrupted
+operation before starting another upload. See [`ingest.py`](scripts/ingest.py).
 
 ```bash
-REASONING_BENCH_ID="YOUR_REASONING_BENCH_ID"
-PYTHON_BENCH_ID="YOUR_PYTHON_BENCH_ID"
+REASONING_BENCH_ID="YOUR_NEW_REASONING_BENCH_ID"
+PYTHON_BENCH_ID="YOUR_NEW_PYTHON_BENCH_ID"
 ```
 
-<!-- Add visuals/platform-ingestion.png here after both uploads pass. Show the
-     benchmark versions, 5,000/100 task splits, and ready runtime status. -->
+Use new benchmark IDs for this best-move task. Earlier mate benchmarks use different
+prompts, labels, and grading.
+
+<!-- Add a platform screenshot after both new benchmark uploads pass. -->
 
 ## Eval
 
-Run the evaluation script with those two benchmark IDs:
+Run ten models with both agents:
 
 ```bash
 uv run examples/chess/scripts/evaluate.py \
@@ -212,8 +173,8 @@ uv run examples/chess/scripts/evaluate.py \
   --python-bench-id "$PYTHON_BENCH_ID"
 ```
 
-The model list in [`evaluate.py`](scripts/evaluate.py) contains six open-weight models and
-four closed-weight models:
+The [model list](scripts/evaluate.py) contains six open-weight and four closed-weight
+models. Availability and options are checked before starting any job.
 
 | Open weights | Closed weights |
 | --- | --- |
@@ -224,60 +185,35 @@ four closed-weight models:
 | Nemotron 3.5 Lightning 30B-A3B | |
 | Nemotron 3.5 Super 120B-A12B | |
 
-Each model runs with both harnesses: **20 jobs**. Each job makes four independent
-attempts at each of the 100 test puzzles: **400 rollouts per job**, or **8,000 total**.
-Every attempt starts with a fresh conversation and board.
+Each of the **20 jobs** runs **100 positions × 4 independent attempts = 400
+rollouts**, for **8,000 baseline rollouts**. Each attempt starts fresh. Results
+include pass@1–4, exact-move accuracy, and mean Python calls and model turns,
+broken down by category and player Elo. Rating groups include their sample counts;
+empty groups are left blank in plots.
 
-Before starting, the script checks the model catalog and confirms that both
-benchmarks contain the same test puzzles. It saves each evaluation ID before
-waiting for results. Running the command again with the same result directory
-continues from those IDs.
-
-The model settings include:
-
-```python
-{
-    "val_num_tasks": 100,
-    "val_trajectories_per_task": 4,
-    "max_output_tokens_per_turn": 4000,
-    "max_output_tokens_per_trajectory": 204000,
-    "max_turns_per_trajectory": 104,
-    "trajectory_timeout_seconds": 3600,
-}
-```
-
-The larger platform limits leave room for 50 model responses and their tool
-results. The Python harness still stops after 50 model turns. Thinking and sampling
-settings are held fixed for a model's two harnesses and checkpoint comparisons.
-
-The report includes pass@1 through pass@4. If a puzzle is solved once in four
-attempts, its pass@1 estimate is 0.25 and its pass@4 estimate is 1.0. Scores are
-calculated per puzzle, then averaged across the 100 puzzles.
-
-Partial progress is reported separately. For example, matching `Qd6+ Ke8` before
-getting White's next move wrong gives two correct half-moves and one correct
-solver move, while reward stays 0.0. Automatic opponent replies count toward the
-half-move prefix, but not toward the model's solver-move count.
-
-After all jobs finish, the script writes four plots to `visuals/`:
+Pass@k is calculated per position, then averaged. One success in four attempts
+gives pass@1 = 0.25 and pass@4 = 1.0. The script requires all 400 graded attempts
+and stops on infrastructure failures or missing metrics.
 
 | Plot | What it shows |
 | --- | --- |
-| `eval-models.png` | Pass@1–4 for each model and harness |
-| `eval-prefix.png` | Mean correct half-moves and solver moves |
-| `eval-rating.png` | Scores and correct prefixes by rating band |
-| `eval-mate-length.png` | Scores and correct prefixes by mate length |
+| `eval-models.png` | Pass@1–4 by model and agent |
+| `eval-usage.png` | Mean Python calls and model turns |
+| `eval-rating.png` | Pass rates and tool use by player Elo |
+| `eval-category.png` | Pass rates and tool use by category |
 
-Check failure and completion counts before comparing scores. The script requires
-400 graded attempts per job and stops on missing grades or infrastructure failures.
+The platform ceilings allow 204,000 output tokens and 104 total turns per
+trajectory, with a 3,600-second timeout. The harness enforces one reasoning turn or
+50 Python-agent turns. Generation settings stay fixed across agents for a model.
 
-<!-- Add visuals/platform-evaluation.png and the four measured plots here after
-     completion. The platform screenshot should show the twenty evaluation jobs. -->
+Reports and job IDs go to `results/best-move/`. Repeating the command resumes those
+IDs. Use a fresh results directory if benchmark versions or settings change.
+
+<!-- Add measured plots and a platform screenshot after the 20 jobs complete. -->
 
 ## Train
 
-Use the same benchmark IDs to train Qwen3.5-4B and Qwen3.6-35B-A3B with both
-harnesses. This creates four training runs:
+Train Qwen3.5-4B and Qwen3.6-35B-A3B with both agents, giving **four runs**:
 
 ```bash
 uv run examples/chess/scripts/train.py \
@@ -286,7 +222,7 @@ uv run examples/chess/scripts/train.py \
   --num-steps 100
 ```
 
-Each run uses all 5,000 training puzzles with these settings:
+Each run uses all 5,000 training positions:
 
 ```python
 {
@@ -298,86 +234,75 @@ Each run uses all 5,000 training puzzles with these settings:
 }
 ```
 
-A batch has 16 task groups with eight rollouts each. That is at least 12,800 training
-rollouts per run for 100 steps. Groups without a learning signal can increase the
-number of attempts. To bound a stalled run, the script stops after 24 hours or four
-times that minimum rollout count.
+That is at least 12,800 training rollouts per run. Groups without a learning signal
+can add attempts; the script stops a stalled run after 24 hours or four times that
+minimum. It verifies 100 completed optimizer steps before evaluating checkpoint 100.
 
-The script reuses the four matching baselines from the evaluation step. After each
-training run succeeds, it checks the completed optimizer steps, retrieves checkpoint
-100, and evaluates that checkpoint on the same 100 puzzles with four attempts each.
-Those four final evaluations add **1,600 rollouts**. Baseline and final evaluations
-therefore total **9,600 rollouts**, separate from training.
+The four checkpoint evaluations reuse the same 100 positions, four attempts per
+position, and baseline generation settings. They add **1,600 rollouts**, giving
+**9,600 evaluation rollouts** including baselines, separate from training.
 
-Once the checkpoint evaluations finish, regenerate the plots:
+Regenerate plots after checkpoint evaluation:
 
 ```bash
 uv run examples/chess/scripts/evaluate.py --plot-only
 ```
 
-This adds `visuals/before-after.png`, comparing solve rates and correct half-move
-prefixes for the four runs. Reports and job IDs are saved under `results/`. Keep
-those files to resume a command. Use a new results directory when changing benchmark
-versions or settings, so an old run cannot be mistaken for the new comparison.
+`visuals/before-after.png` compares pass rates and tool use for the four runs.
+See [`train.py`](scripts/train.py) for training, checkpoint evaluation, and collection.
 
-See [`train.py`](scripts/train.py) for checkpoint evaluation and result collection.
-
-<!-- Add visuals/platform-training.png, visuals/before-after.png, and a platform
-     training-curve screenshot here after the four runs finish. Include the actual
-     optimizer steps and checkpoint IDs with the results. -->
+<!-- Add platform training curves and measured before/after plots after completion. -->
 
 ## Appendix
 
-### Sources
+### Sources and annotations
 
-- [Lichess puzzle dataset and format](https://database.lichess.org/#puzzles): source
-  fields, UCI moves, ratings, and the setup move that must be applied before solving.
-- [Lichess puzzle download](https://database.lichess.org/lichess_db_puzzle.csv.zst):
-  the source CSV used by [`dataset.py`](scripts/dataset.py).
-- [CC0 license](https://creativecommons.org/publicdomain/zero/1.0/): the license for
-  the Lichess database exports.
-- [`puzzles.manifest.json`](data/puzzles.manifest.json): the source URL, checksum of the
-  generated puzzle file, split counts, and forcing-move filter.
-- [Trajectory Cookbook README](../../README.md): SDK setup, examples, and guides.
+- [Lichess game exports](https://database.lichess.org/#standard_games): most positions
+  come from the January 2016 rated-game archive; each record names its archive and game.
+- [Lichess Elite archives](https://database.nikonoel.fr/): additional Lichess games,
+  with the exact monthly archive recorded in each position's `source`.
+- Chess.com opening positions retain their original game and archive links in `source`.
+- [`data/positions.manifest.json`](data/positions.manifest.json): source-file hashes,
+  original 50,000/250 splits, deterministic selection, and frozen label policy.
+- [`data/positions.jsonl`](data/positions.jsonl): all selected tasks, with engine
+  alternatives, principal variations, search budgets, and source metadata.
+- [Trajectory Cookbook README](../../README.md): SDK setup and other examples.
 
-### Dataset checks and previews
+The original curated sources are `openings-v3.jsonl`, `tactics-v3.jsonl`,
+`middlegame-v3.jsonl`, and `endgame-v3.jsonl`. To rebuild from those files:
 
-The loader checks legal moves, line length, checks, and final checkmate. Training
-and held-out puzzles share no puzzle IDs, source games, or starting positions.
-Mate labels come from Lichess; replay does not prove the shortest mate against
-every defense. Only ten source puzzles are all-check mate-in-5 below rating 1000.
+```bash
+uv run examples/chess/scripts/dataset.py --source-dir /path/to/curated-sources
+```
 
-See the [distribution counts](visuals/dataset-distribution.json) and
-[ten preview records](visuals/puzzles.jsonl) for the data behind the images.
+The builder preserves the original train/test assignments and checks unique boards,
+source-game separation, legal reference lines, stable best moves across recorded
+searches, and deeper held-out rechecks. It does not call Stockfish again.
 
-![Ten puzzles, with two examples for each mate length](visuals/puzzles.png)
+### Board previews
 
-Rebuild the distribution chart, walkthrough, and previews from the cookbook root:
+![Eight annotated positions: two each for openings, tactics, middlegames, and endgames](visuals/positions.png)
+
+Rebuild the chart, reference-move visual, and previews:
 
 ```bash
 uv run --with playwright playwright install chromium
 uv run examples/chess/scripts/visualize.py
 ```
 
-### Files
-
-The files are grouped by purpose:
+### Files and local checks
 
 ```text
 chess/
 ├── README.md
-├── data/       # Full puzzle dataset and manifest
-├── harness/    # Two agents, shared grader, Python worker, and Dockerfile
-├── scripts/    # Dataset preparation, ingestion, evaluation, training, and previews
-├── tests/      # Local checks
-└── visuals/    # Puzzle images, serialized previews, traces, and result plots
+├── data/       # Selected positions and source manifest
+├── harness/    # Two agents, shared grader, isolated Python worker, and Dockerfile
+├── scripts/    # Dataset selection, ingestion, evaluation, training, and previews
+├── tests/      # Offline checks
+└── visuals/    # Boards, distribution, replay, and measured result plots
 ```
 
-### Local checks
-
-Run the tests locally without starting managed jobs:
-
 ```bash
-uv run --with trajectory-sdk==0.9.37 --with chess==1.11.2 --with zstandard --with pytest \
+uv run --with trajectory-sdk==0.9.37 --with chess==1.11.2 --with pytest \
   pytest -q examples/chess/tests/test_chess.py
 ```

@@ -45,10 +45,10 @@ def run_matrix(client, benchmarks, results_dir):
     for variant, rows in tasks.items():
         if any(row["variant"] != variant for row in rows.values()):
             raise ValueError(f"Wrong harness supplied for {variant}")
-    if {p["puzzle_id"] for p in tasks["reasoning"].values()} != {
-        p["puzzle_id"] for p in tasks["python"].values()
+    if {p["position_id"] for p in tasks["reasoning"].values()} != {
+        p["position_id"] for p in tasks["python"].values()
     }:
-        raise ValueError("Both harnesses must use the same 100 evaluation puzzles")
+        raise ValueError("Both harnesses must use the same 100 evaluation positions")
     for model in MODELS:
         for benchmark_id in benchmarks.values():
             model_options(client, benchmark_id, model, **EVAL_OPTIONS)
@@ -97,7 +97,7 @@ def plot_results(results_dir, output_dir):
         ax.set_yticks(y, labels)
         ax.invert_yaxis()
         ax.set_title(title)
-        ax.set_xlabel("Score (%)" if percentage else "Correct moves per attempt")
+        ax.set_xlabel("Score (%)" if percentage else "Calls per attempt")
         ax.legend()
 
     fig, axes = plt.subplots(1, 4, figsize=(24, 7), sharey=True)
@@ -105,7 +105,7 @@ def plot_results(results_dir, output_dir):
         bars(
             ax,
             lambda r, k=k: 100 * r["pass_at_k"][str(k)],
-            f"Exact continuation: pass@{k}",
+            f"Exact best move: pass@{k}",
             True,
         )
         ax.set_xlim(0, 100)
@@ -113,21 +113,31 @@ def plot_results(results_dir, output_dir):
     fig, axes = plt.subplots(1, 2, figsize=(18, 7), sharey=True)
     bars(
         axes[0],
-        lambda r: r["mean_correct_half_moves"],
-        "Correct half-move prefix (includes automatic replies)",
+        lambda r: r["mean_python_calls"],
+        "Python calls per attempt",
     )
     bars(
         axes[1],
-        lambda r: r["mean_correct_solver_moves"],
-        "Correct solver moves (model submissions only)",
+        lambda r: r["mean_model_turns"],
+        "Model turns per attempt",
     )
-    finish(fig, "eval-prefix.png")
+    finish(fig, "eval-usage.png")
 
     for field, filename in (
         ("rating_band", "eval-rating.png"),
-        ("mate_in", "eval-mate-length.png"),
+        ("category", "eval-category.png"),
     ):
-        categories = sorted(next(iter(reports.values()))["breakdowns"][field])
+        categories = sorted(
+            {
+                category
+                for report in reports.values()
+                for category in report["breakdowns"][field]
+            }
+        )
+        tick_labels = [
+            f"{category}\n(n={next(report['breakdowns'][field][category]['positions'] for report in reports.values() if category in report['breakdowns'][field])})"
+            for category in categories
+        ]
         fig, axes = plt.subplots(2, 3, figsize=(19, 11))
         for row, variant in enumerate(("reasoning", "python")):
             for col, (title, extract, vmax) in enumerate(
@@ -135,15 +145,17 @@ def plot_results(results_dir, output_dir):
                     ("pass@1 (%)", lambda r: 100 * r["pass_at_k"]["1"], 100),
                     ("pass@4 (%)", lambda r: 100 * r["pass_at_k"]["4"], 100),
                     (
-                        "Mean correct half-move prefix",
-                        lambda r: r["mean_correct_half_moves"],
-                        9,
+                        "Mean Python calls",
+                        lambda r: r["mean_python_calls"],
+                        50,
                     ),
                 )
             ):
                 values = [
                     [
                         extract(reports[m, variant]["breakdowns"][field][c])
+                        if c in reports[m, variant]["breakdowns"][field]
+                        else float("nan")
                         for c in categories
                     ]
                     for m in MODELS
@@ -151,10 +163,10 @@ def plot_results(results_dir, output_dir):
                 ax = axes[row, col]
                 im = ax.imshow(values, cmap="viridis", vmin=0, vmax=vmax, aspect="auto")
                 ax.set_yticks(range(len(MODELS)), labels)
-                ax.set_xticks(range(len(categories)), categories)
+                ax.set_xticks(range(len(categories)), tick_labels)
                 ax.set_title(f"{variant}: {title}")
                 ax.set_xlabel(
-                    "Puzzle rating band" if field == "rating_band" else "Mate in N"
+                    "Player Elo band" if field == "rating_band" else "Position category"
                 )
                 fig.colorbar(im, ax=ax)
         finish(fig, filename)
@@ -175,8 +187,8 @@ def plot_results(results_dir, output_dir):
                 ("pass@1 (%)", lambda r: 100 * r["pass_at_k"]["1"]),
                 ("pass@4 (%)", lambda r: 100 * r["pass_at_k"]["4"]),
                 (
-                    "Mean correct half-move prefix",
-                    lambda r: r["mean_correct_half_moves"],
+                    "Mean Python calls",
+                    lambda r: r["mean_python_calls"],
                 ),
             ),
         ):
@@ -202,7 +214,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reasoning-bench-id")
     parser.add_argument("--python-bench-id")
-    parser.add_argument("--results-dir", type=Path, default=ROOT / "results")
+    parser.add_argument(
+        "--results-dir", type=Path, default=ROOT / "results" / "best-move"
+    )
     parser.add_argument("--visuals-dir", type=Path, default=ROOT / "visuals")
     parser.add_argument("--plot-only", action="store_true")
     args = parser.parse_args()

@@ -1,4 +1,4 @@
-"""Play and grade a Lichess puzzle, with optional isolated Python calculations."""
+"""Select and grade one best chess move, with optional isolated Python calculations."""
 
 import json
 import os
@@ -30,7 +30,7 @@ def tool(name, description, argument):
 
 SUBMIT_MOVE_TOOL = tool(
     "submit_move",
-    "Play your next puzzle move in UCI, for example e2e4 or a7a8q.",
+    "Submit your best move in UCI, for example e2e4 or a7a8q.",
     "move",
 )
 PYTHON_CHESS_TOOL = tool(
@@ -50,24 +50,20 @@ def position(board, moves_remaining):
     }
 
 
-def build_messages(puzzle, variant, board):
+def build_messages(variant, board):
     """Give the model the position and rules, without the reference moves."""
     instructions = (
-        "Solve this chess puzzle by reproducing its full reference mating continuation. "
-        f"{position(board, puzzle['mate_in'])['instruction']} "
-        "Play only your own moves, one at a time, with submit_move in UCI notation. "
-        "After each correct non-final move, the environment plays the opponent's reference reply "
-        "and returns the updated board. Do not submit the opponent's moves. "
-        "Reward is 1.0 only when every submitted move matches the reference and you complete "
-        "the whole continuation. Any different move scores 0.0, even another legal checkmate. "
-        "Think through checks and the opponent's defenses before you play. "
+        "Play the best move in this chess position. You have 1 move to make with submit_move. "
+        "Submit one legal move in UCI notation. Reward is 1.0 only if your move matches "
+        "the stored Stockfish reference move; any other move scores 0.0. "
+        "Consider candidate moves, forcing lines, and the opponent's strongest replies. "
         f"Make exactly one tool call per turn. Each response allows at most {MAX_OUTPUT_TOKENS} output tokens. "
     )
     if variant == "python":
         instructions += (
             f"You have at most {PYTHON_MAX_TURNS} model turns total, including Python calls and move submissions. "
             "Use python_chess to calculate with python-chess. Each call gets a fresh board at the current position. "
-            "Reserve enough turns to submit every move."
+            "Reserve a turn to submit your final move."
         )
     else:
         instructions += "Use your own reasoning. No calculation tool is available."
@@ -76,23 +72,25 @@ def build_messages(puzzle, variant, board):
         {"role": "system", "content": instructions},
         {
             "role": "user",
-            "content": f"Mate in {puzzle['mate_in']}. You play {'White' if board.turn else 'Black'}.\n"
-            f"{position(board, puzzle['mate_in'])['instruction']}\n"
+            "content": f"Play the best move. You play {'White' if board.turn else 'Black'}.\n"
+            f"{position(board, 1)['instruction']}\n"
             f"FEN: {board.fen()}\n{board}",
         },
     ]
 
 
-def play(client, trajectory_id, puzzle, variant):
-    """Play the solver's moves and supply the opponent's reference replies."""
+def play(client, trajectory_id, record, variant):
+    """Allow calculation, then grade one submitted move against the frozen label."""
     if variant not in {"reasoning", "python"}:
         raise ValueError(f"Unknown variant: {variant}")
 
-    board = chess.Board(puzzle["fen"])
-    solution = puzzle["solution"]
-    next_move_index = 0
-    max_steps = PYTHON_MAX_TURNS if variant == "python" else puzzle["mate_in"]
-    messages = build_messages(puzzle, variant, board)
+    board = chess.Board(record["fen"])
+    solution = record["solution"]
+    if len(solution) != 1:
+        raise ValueError("Best-move tasks require one reference move")
+    board.parse_uci(solution[0])
+    max_steps = PYTHON_MAX_TURNS if variant == "python" else 1
+    messages = build_messages(variant, board)
     tools = [SUBMIT_MOVE_TOOL]
     if variant == "python":
         tools.append(PYTHON_CHESS_TOOL)
@@ -101,10 +99,9 @@ def play(client, trajectory_id, puzzle, variant):
         "model_turns": 0,
         "python_calls": 0,
         "correct_moves": 0,
-        "correct_half_moves": 0,
         "final_fen": board.fen(),
         "final_board": str(board),
-        "moves_remaining": puzzle["mate_in"],
+        "moves_remaining": 1,
     }
     for _ in range(max_steps):
         metrics["model_turns"] += 1
@@ -136,34 +133,16 @@ def play(client, trajectory_id, puzzle, variant):
                 raise ValueError("Tool arguments must be an object")
             if tool_function["name"] == "submit_move":
                 submitted_move = arguments["move"]
-                # Exact continuation only: even another legal mating move scores zero.
-                if submitted_move != solution[next_move_index]:
-                    return 0.0, "ENV_DONE", metrics
                 move = board.parse_uci(submitted_move)
+                correct = submitted_move == solution[0]
                 board.push(move)
-                metrics["correct_moves"] += 1
-                metrics["correct_half_moves"] += 1
-                moves_remaining = puzzle["mate_in"] - metrics["correct_moves"]
                 metrics.update(
+                    correct_moves=int(correct),
                     final_fen=board.fen(),
                     final_board=str(board),
-                    moves_remaining=moves_remaining,
+                    moves_remaining=0,
                 )
-                next_move_index += 1
-                if next_move_index == len(solution):
-                    if not board.is_checkmate():
-                        raise RuntimeError("Reference solution did not end in mate")
-                    return 1.0, "ENV_DONE", metrics
-                opponent_move = solution[next_move_index]
-                board.push_uci(opponent_move)
-                next_move_index += 1
-                metrics["correct_half_moves"] += 1
-                metrics.update(final_fen=board.fen(), final_board=str(board))
-                observation = {
-                    "your_move": submitted_move,
-                    "opponent_move": opponent_move,
-                    **position(board, moves_remaining),
-                }
+                return float(correct), "ENV_DONE", metrics
             elif tool_function["name"] == "python_chess" and variant == "python":
                 metrics["python_calls"] += 1
                 observation = execute_chess_python(board.fen(), {}, arguments["code"])
@@ -171,9 +150,7 @@ def play(client, trajectory_id, puzzle, variant):
                     raise RuntimeError(
                         f"Python isolation failed: {observation.get('error')}"
                     )
-                observation.update(
-                    position(board, puzzle["mate_in"] - metrics["correct_moves"])
-                )
+                observation.update(position(board, 1))
             else:
                 raise ValueError("Unknown tool")
         except (ValueError, TypeError, KeyError):
@@ -193,17 +170,17 @@ def main(variant=None):
     client = Client(max_retries=2)
     trajectory_id = client.trajectories.create().tid
     try:
-        puzzle = json.loads(os.environ["CHESS_PUZZLE"])
+        record = json.loads(os.environ["CHESS_POSITION"])
         variant = variant or os.environ["CHESS_VARIANT"]
-        reward, reason, metrics = play(client, trajectory_id, puzzle, variant)
+        reward, reason, metrics = play(client, trajectory_id, record, variant)
         client.trajectories.log_event(
             trajectory_id,
             event_id="chess-result",
             name="chess_result",
             payload={
-                "puzzle_id": puzzle["puzzle_id"],
-                "mate_in": puzzle["mate_in"],
-                "rating_band": puzzle["rating_band"],
+                "position_id": record["position_id"],
+                "category": record["category"],
+                "rating_band": record["rating_band"],
                 "variant": variant,
                 **metrics,
             },
@@ -211,22 +188,15 @@ def main(variant=None):
         client.trajectories.log_reward(
             trajectory_id, name="reward_accuracy", value=reward
         )
-        client.trajectories.log_reward(
-            trajectory_id,
-            name="correct_half_moves",
-            value=metrics["correct_half_moves"],
-            min_value=0,
-            max_value=len(puzzle["solution"]),
-            weight=0,
-        )
-        client.trajectories.log_reward(
-            trajectory_id,
-            name="correct_solver_moves",
-            value=metrics["correct_moves"],
-            min_value=0,
-            max_value=puzzle["mate_in"],
-            weight=0,
-        )
+        for name in ("python_calls", "model_turns"):
+            client.trajectories.log_reward(
+                trajectory_id,
+                name=name,
+                value=metrics[name],
+                min_value=0,
+                max_value=PYTHON_MAX_TURNS,
+                weight=0,
+            )
     except Exception:
         client.trajectories.complete(trajectory_id, termination_reason="ERROR")
         raise
