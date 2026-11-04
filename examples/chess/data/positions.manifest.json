@@ -1,0 +1,58 @@
+{
+  "task": "best-move-reasoning",
+  "source": "Curated Lichess and Chess.com game positions with frozen Stockfish 19 annotations",
+  "selection": "Lowest SHA256(chess-reasoning-v1: + position_id), within original category and split",
+  "source_files": {
+    "openings": {
+      "file": "openings-v3.jsonl",
+      "sha256": "fcb2895b7b6a104565bf011668acacc2db557644503567b95e66dc246afddc03",
+      "counts": {
+        "train": 50000,
+        "test": 250
+      }
+    },
+    "tactics": {
+      "file": "tactics-v3.jsonl",
+      "sha256": "bb4a782d921a7d2938d81be38ec94b497cd8a55cf1a1f76ece89cfe32ef08f32",
+      "counts": {
+        "train": 50000,
+        "test": 250
+      }
+    },
+    "middlegame": {
+      "file": "middlegame-v3.jsonl",
+      "sha256": "78541a0946b0d110f44a3134f54dde97726c038aa70e2789963b369bb51b2e05",
+      "counts": {
+        "train": 50000,
+        "test": 250
+      }
+    },
+    "endgame": {
+      "file": "endgame-v3.jsonl",
+      "sha256": "2a966cb38ba9e3e3616077c3fab5f47fb0f0a784412e5c28df932ca44e8deaef",
+      "counts": {
+        "train": 50000,
+        "test": 250
+      }
+    }
+  },
+  "sha256": "013867c5e47ee01bc30463de881c0788541b8c9b7204038b29b11ac5806f75c3",
+  "count": 5100,
+  "counts": {
+    "('test', 'endgame')": 25,
+    "('test', 'middlegame')": 25,
+    "('test', 'openings')": 25,
+    "('test', 'tactics')": 25,
+    "('train', 'endgame')": 1250,
+    "('train', 'middlegame')": 1250,
+    "('train', 'openings')": 1250,
+    "('train', 'tactics')": 1250
+  },
+  "rating": "Player Elo of the side to move; observed distribution, no rating quotas",
+  "grading": "1.0 only for the stored best UCI move; all other submissions score 0.0",
+  "reference_searches": [
+    30000,
+    180000
+  ],
+  "test_recheck_nodes": 2000000
+}
