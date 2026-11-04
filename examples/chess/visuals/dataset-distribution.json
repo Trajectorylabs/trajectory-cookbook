@@ -1,0 +1,108 @@
+{
+  "Training": {
+    "total": 5000,
+    "categories": [
+      "openings",
+      "tactics",
+      "middlegame",
+      "endgame"
+    ],
+    "rating_bands": [
+      "below-2000",
+      "2000-2199",
+      "2200-2399",
+      "2400+"
+    ],
+    "counts": [
+      [
+        0,
+        201,
+        301,
+        748
+      ],
+      [
+        0,
+        906,
+        307,
+        37
+      ],
+      [
+        0,
+        887,
+        323,
+        40
+      ],
+      [
+        0,
+        880,
+        341,
+        29
+      ]
+    ],
+    "category_totals": [
+      1250,
+      1250,
+      1250,
+      1250
+    ],
+    "rating_totals": [
+      0,
+      2874,
+      1272,
+      854
+    ]
+  },
+  "Evaluation": {
+    "total": 100,
+    "categories": [
+      "openings",
+      "tactics",
+      "middlegame",
+      "endgame"
+    ],
+    "rating_bands": [
+      "below-2000",
+      "2000-2199",
+      "2200-2399",
+      "2400+"
+    ],
+    "counts": [
+      [
+        0,
+        6,
+        5,
+        14
+      ],
+      [
+        0,
+        20,
+        4,
+        1
+      ],
+      [
+        0,
+        21,
+        4,
+        0
+      ],
+      [
+        0,
+        19,
+        5,
+        1
+      ]
+    ],
+    "category_totals": [
+      25,
+      25,
+      25,
+      25
+    ],
+    "rating_totals": [
+      0,
+      66,
+      18,
+      16
+    ]
+  }
+}

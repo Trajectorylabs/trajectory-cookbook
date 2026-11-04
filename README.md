@@ -26,6 +26,7 @@ uv run --no-project --with 'trajectory-sdk>=0.10.1' python -c 'import importlib.
 | Benchmark | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
+| [Chess reasoning](examples/chess/README.md) | Stockfish-labeled best moves across four categories, with reasoning and Python agents, model evaluation, and checkpoint comparison. |
 | [Harvey LAB](examples/harvey_labs/README.md) | Legal research tasks with the source harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | Multi-turn banking tasks with the upstream simulator and evaluator. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |

@@ -1,0 +1,38 @@
+{
+  "kind": "reference_replay",
+  "model_calls": 0,
+  "position_id": "087b256a0aba982113d7f99a235a18e99af82e364b4aed27eb4c5f7e0d65ea66",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Play the best move in this chess position. You have 1 move to make with submit_move. Submit one legal move in UCI notation. Reward is 1.0 only if your move matches the stored Stockfish reference move; any other move scores 0.0. Consider candidate moves, forcing lines, and the opponent's strongest replies. Make exactly one tool call per turn. Each response allows at most 4000 output tokens. Use your own reasoning. No calculation tool is available."
+    },
+    {
+      "role": "user",
+      "content": "Play the best move. You play White.\nYou have 1 move to make with submit_move.\nFEN: 5rk1/5ppp/8/p1p5/P1P1P1b1/3PR3/1q4PP/3B1R1K w - - 0 28\n. . . . . r k .\n. . . . . p p p\n. . . . . . . .\np . p . . . . .\nP . P . P . b .\n. . . P R . . .\n. q . . . . P P\n. . . B . R . K"
+    },
+    {
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "id": "move_1",
+          "type": "function",
+          "function": {
+            "name": "submit_move",
+            "arguments": "{\"move\": \"d1g4\"}"
+          }
+        }
+      ]
+    }
+  ],
+  "result": {
+    "reward": 1.0,
+    "ending": "ENV_DONE",
+    "model_turns": 1,
+    "python_calls": 0,
+    "correct_moves": 1,
+    "final_fen": "5rk1/5ppp/8/p1p5/P1P1P1B1/3PR3/1q4PP/5R1K b - - 0 28",
+    "final_board": ". . . . . r k .\n. . . . . p p p\n. . . . . . . .\np . p . . . . .\nP . P . P . B .\n. . . P R . . .\n. q . . . . P P\n. . . . . R . K",
+    "moves_remaining": 0
+  }
+}
