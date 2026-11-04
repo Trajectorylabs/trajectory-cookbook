@@ -18,8 +18,12 @@ into your project, and copy it again after upgrading the SDK:
 ```bash
 dest=.claude/skills/trajectory  # Codex: .agents/skills/trajectory
 mkdir -p "$dest"
-uv run --no-project --with 'trajectory-sdk>=0.10.1' python -c 'import importlib.metadata as m, shutil, sys; shutil.copy(next(f.locate() for f in m.files("trajectory-sdk") if f.name == "SKILL.md"), sys.argv[1])' "$dest"
+uv run --no-project --with 'trajectory-sdk>=0.10.1' python -c 'import importlib.metadata as m, shutil, sys; shutil.copy(next(f.locate() for f in m.files("trajectory-sdk") if f.as_posix().endswith("skills/trajectory/SKILL.md")), sys.argv[1])' "$dest"
 ```
+
+To share feedback on Trajectory's API, SDK, documentation, or workflow, use the
+[agent-feedback skill](https://github.com/Trajectorylabs/trajectory-platform/blob/main/skills/agent-feedback/SKILL.md).
+A free-text message is enough; a category, custom label, or extra details are optional.
 
 ## Examples
 

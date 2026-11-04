@@ -71,6 +71,10 @@ The command prints the response, trajectory ID, reward, and completion status.
 Success means a reward is recorded (including zero) and `status` is `completed`, or
 `finalizing` while the platform finishes saving the trajectory.
 
+For feedback on Trajectory's API, SDK, or documentation along the way, use the
+[agent-feedback skill](https://github.com/Trajectorylabs/trajectory-platform/blob/main/skills/agent-feedback/SKILL.md).
+A free-text message is enough; a category, custom label, or extra details are optional.
+
 ## Ingestion
 
 After the one-task check, create an agent and upload the benchmark from the repository root:
