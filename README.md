@@ -12,18 +12,34 @@ snippets for fetching evaluation scores and the training reward history shown in
 For a smaller introduction to responses, rewards, and trajectory completion, try
 [T Factory](examples/t_factory/README.md#run-one-task).
 
-The SDK also installs a Trajectory skill for coding agents. Before adapting a benchmark, copy it
-into your project, and copy it again after upgrading the SDK:
+## Use with a coding agent
+
+The SDK bundles two skills: `trajectory` for integration and run inspection, and
+`agent-feedback` for customer-authorized product feedback. Copy both into your project
+before adapting an example. This replaces the bundled copies; keep your own instructions
+separate, and repeat after upgrading the SDK.
 
 ```bash
-dest=.claude/skills/trajectory  # Codex: .agents/skills/trajectory
-mkdir -p "$dest"
-uv run --no-project --with 'trajectory-sdk>=0.10.1' python -c 'import importlib.metadata as m, shutil, sys; shutil.copy(next(f.locate() for f in m.files("trajectory-sdk") if f.as_posix().endswith("skills/trajectory/SKILL.md")), sys.argv[1])' "$dest"
+dest=.claude/skills  # Codex: .agents/skills
+uv run --no-project --with 'trajectory-sdk>=0.10.10' python - "$dest" <<'PY'
+import importlib.metadata as metadata
+from pathlib import Path
+import shutil
+import sys
+
+files = metadata.files("trajectory-sdk")
+for name in ("trajectory", "agent-feedback"):
+    skill = next(f.locate() for f in files
+                 if f.as_posix().endswith(f"skills/{name}/SKILL.md"))
+    destination = Path(sys.argv[1]) / name
+    shutil.copytree(skill.parent, destination, dirs_exist_ok=True)
+    print(destination / "SKILL.md")
+PY
 ```
 
-To share feedback on Trajectory's API, SDK, documentation, or workflow, use the
-[agent-feedback skill](https://github.com/Trajectorylabs/trajectory-platform/blob/main/skills/agent-feedback/SKILL.md).
-A free-text message is enough; a category, custom label, or extra details are optional.
+Ask your coding agent to use the `trajectory` skill. It reads the SDK guides and links
+the specs, evaluations, and training runs it reports. Installing `agent-feedback` does
+not send anything or authorize reporting; use it when you want to share feedback.
 
 ## Examples
 
