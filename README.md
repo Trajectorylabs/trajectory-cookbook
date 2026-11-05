@@ -66,4 +66,6 @@ datasets retain their source licenses, linked from their example READMEs.
 
 The complete files under `skills/` are copied from the SDK package. Regenerate them with
 `uv run --no-project --with 'trajectory-sdk==0.10.10' python scripts/sync_skills.py --write`.
-CI checks the copies against that release and installs both skills for Codex and Claude Code.
+The exact SDK version reproduces this published snapshot; customer projects can use a
+minimum SDK version. CI checks the copies against that release and installs both skills
+for Codex and Claude Code.
