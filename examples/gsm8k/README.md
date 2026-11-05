@@ -20,7 +20,7 @@ from the repository root, then run the snippets below in order in that same sess
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with 'trajectory-sdk>=0.10.13' python
+uv run --with trajectory-sdk --upgrade-package trajectory-sdk python
 ```
 
 Create the agent that will own this benchmark and its runs:
