@@ -45,11 +45,9 @@ installer preserves differing files unless `--replace` is explicitly supplied.
 The agent should share a run link when work starts, then link the relevant evidence when
 reporting results or failures. Installing `agent-feedback` does not authorize sending feedback.
 
-Examples use the production API and platform by default. For another environment, set
-`TRAJECTORY_BASE_URL` and `TRAJECTORY_PLATFORM_URL` to the matching API and platform origins.
-The scripts pass the latter to [PlatformLinks](https://docs.trajectory.ai/platform); notebook
-or Python-session snippets can pass `platform_url=` explicitly. Never use a production link
-for a run in another environment.
+The GSM8K link snippets assume the production API and platform. With another API
+(`TRAJECTORY_BASE_URL`), pass its matching platform origin as `platform_url=` to
+`PlatformLinks.from_client(client)`; never use a production link for another environment.
 
 ## Examples
 
