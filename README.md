@@ -14,21 +14,10 @@ For a smaller introduction to responses, rewards, and trajectory completion, try
 
 ## Use with a coding agent
 
-The SDK bundles two skills: `trajectory` for integration and run inspection, and
-`agent-feedback` for customer-authorized product feedback. Install both complete skills:
-
-```bash
-npx skills add Trajectorylabs/trajectory-cookbook --skill trajectory --skill agent-feedback
-```
-
-Choose your coding agent when prompted, or append `--agent codex` or `--agent claude-code`.
-This installs instructions in the current project, not the Python SDK. Review existing
-skill files before replacing them. Installing feedback guidance does not authorize sending
-feedback. Ask your agent to read the installed `trajectory` skill before SDK work.
-
-These copies come from SDK 0.10.10. SDK upgrades do not update installed skills; review and
-refresh them separately with `npx skills update`. The skill uses the project's SDK guides
-for version-specific API details.
+Follow [coding-agent setup](https://docs.trajectory.ai/coding-agents) to install the SDK's
+`trajectory` and `agent-feedback` skills. Ask your agent to read the `trajectory` skill
+before SDK work. Expect platform links when work starts and when results are ready.
+Feedback requires your authorization.
 
 ## Examples
 
@@ -61,13 +50,3 @@ source evaluator before scaling up.
 
 Cookbook-authored code is Apache 2.0; see [LICENSE](LICENSE). External benchmarks and
 datasets retain their source licenses, linked from their example READMEs.
-
-## Maintaining the skills
-
-Author skills in `trajectory-platform/skills/`; the SDK ships them with its guides.
-This public `skills/` directory contains distribution copies for `npx`, not a second
-authoring location. Regenerate them from the SDK package with
-`uv run --no-project --with 'trajectory-sdk==0.10.10' python scripts/sync_skills.py --write`.
-The exact SDK version reproduces this published snapshot; customer projects can use a
-minimum SDK version. CI checks the copies against that release and installs both skills
-for Codex and Claude Code.

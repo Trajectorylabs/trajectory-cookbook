@@ -11,6 +11,8 @@ For each problem, the model submits its answer through a `submit_answer` tool. T
 of 1 for a correct answer or 0 otherwise. Problems and reference answers live in
 [`runtime/tasks.jsonl`](runtime/tasks.jsonl); only the question is sent to the model.
 
+If a coding agent is helping, [install the SDK skills](../../README.md#use-with-a-coding-agent).
+
 ## Setup
 
 The runtime packages the harness, task data, and SDK into a Docker image. Start a Python session
@@ -18,15 +20,17 @@ from the repository root, then run the snippets below in order in that same sess
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with 'trajectory-sdk>=0.10.1' python
+uv run --with 'trajectory-sdk>=0.10.13' python
 ```
 
 Create the agent that will own this benchmark and its runs:
 
 ```python
 import trajectory
+from trajectory.lib.platform_links import PlatformLinks
 
 client = trajectory.Client()
+links = PlatformLinks.from_client(client)
 agent = client.agents.create(
     name="gsm8k-cookbook",
     description="GSM8K math evaluation and training",
@@ -69,6 +73,7 @@ Fetch the diagnostic report to inspect the task's status and reward:
 ```python
 report = client.diagnostics.get_diagnostics(diagnostic_id)
 print("Diagnostic:", report.status)
+print("Inspect:", links.evaluation(report.eval_run_id))
 for task in report.tasks:
     print(f"Task: {task.status} | Ending: {task.termination_reason} | Reward: {task.reward}")
     if task.failure:
@@ -81,6 +86,7 @@ Illustrative output for a correct answer (all outputs below are examples, not re
 
 ```text
 Diagnostic: completed
+Inspect: https://platform.trajectory.ai/<organization>/evaluate/runs/<eval-run-id>/trajectories
 Task: completed | Ending: ENV_DONE | Reward: 1.0
 ```
 
@@ -142,7 +148,10 @@ evaluation = client.evals.create(
     base_model_slug="Qwen/Qwen3.5-4B",
     options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
 )
+print("Evaluation:", evaluation.eval_run_id, links.evaluation(evaluation.eval_run_id))
 ```
+
+Open the evaluation link to follow progress and inspect the model's answers.
 
 Fetch the evaluation run to see its current status and mean reward across the held-out tasks:
 
@@ -177,6 +186,7 @@ training = client.training.create(
         "max_concurrent_trajectories": 32,
     },
 )
+print("Training:", training.training_run_id, links.training(training.training_run_id))
 ```
 
 Fetch the training run to check its current status:
