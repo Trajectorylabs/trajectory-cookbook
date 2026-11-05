@@ -12,14 +12,12 @@ snippets for fetching evaluation scores and the training reward history shown in
 For a smaller introduction to responses, rewards, and trajectory completion, try
 [T Factory](examples/t_factory/README.md#run-one-task).
 
-The SDK also installs a Trajectory skill for coding agents. Before adapting a benchmark, copy it
-into your project, and copy it again after upgrading the SDK:
+## Use with a coding agent
 
-```bash
-dest=.claude/skills/trajectory  # Codex: .agents/skills/trajectory
-mkdir -p "$dest"
-uv run --no-project --with 'trajectory-sdk>=0.10.1' python -c 'import importlib.metadata as m, shutil, sys; shutil.copy(next(f.locate() for f in m.files("trajectory-sdk") if f.name == "SKILL.md"), sys.argv[1])' "$dest"
-```
+Follow [coding-agent setup](https://docs.trajectory.ai/coding-agents) to install the SDK's
+`trajectory` and `agent-feedback` skills. Ask your agent to read the `trajectory` skill
+before SDK work. Expect platform links when work starts and when results are ready.
+Feedback requires your authorization.
 
 ## Examples
 
