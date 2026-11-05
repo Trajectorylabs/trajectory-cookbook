@@ -15,31 +15,20 @@ For a smaller introduction to responses, rewards, and trajectory completion, try
 ## Use with a coding agent
 
 The SDK bundles two skills: `trajectory` for integration and run inspection, and
-`agent-feedback` for customer-authorized product feedback. Copy both into your project
-before adapting an example. The command preserves existing skill directories by refusing
-to overwrite them. Review existing instructions before refreshing after an SDK upgrade.
+`agent-feedback` for customer-authorized product feedback. Install both complete skills:
 
 ```bash
-dest=.claude/skills  # Codex: .agents/skills
-uv run --no-project --with 'trajectory-sdk>=0.10.10' python - "$dest" <<'PY'
-import importlib.metadata as metadata
-from pathlib import Path
-import shutil
-import sys
-
-files = metadata.files("trajectory-sdk")
-for name in ("trajectory", "agent-feedback"):
-    skill = next(f.locate() for f in files
-                 if f.as_posix().endswith(f"skills/{name}/SKILL.md"))
-    destination = Path(sys.argv[1]) / name
-    shutil.copytree(skill.parent, destination)
-    print(destination / "SKILL.md")
-PY
+npx skills add Trajectorylabs/trajectory-cookbook --skill trajectory --skill agent-feedback
 ```
 
-Ask your coding agent to use the `trajectory` skill. It reads the SDK guides and links
-the specs, evaluations, and training runs it reports. Installing `agent-feedback` does
-not send anything or authorize reporting; use it when you want to share feedback.
+Choose your coding agent when prompted, or append `--agent codex` or `--agent claude-code`.
+This installs instructions in the current project, not the Python SDK. Review existing
+skill files before replacing them. Installing feedback guidance does not authorize sending
+feedback. Ask your agent to read the installed `trajectory` skill before SDK work.
+
+These copies come from SDK 0.10.10. SDK upgrades do not update installed skills; review and
+refresh them separately with `npx skills update`. The skill uses the project's SDK guides
+for version-specific API details.
 
 ## Examples
 
@@ -72,3 +61,9 @@ source evaluator before scaling up.
 
 Cookbook-authored code is Apache 2.0; see [LICENSE](LICENSE). External benchmarks and
 datasets retain their source licenses, linked from their example READMEs.
+
+## Maintaining the skills
+
+The complete files under `skills/` are copied from the SDK package. Regenerate them with
+`uv run --no-project --with 'trajectory-sdk==0.10.10' python scripts/sync_skills.py --write`.
+CI checks the copies against that release and installs both skills for Codex and Claude Code.
