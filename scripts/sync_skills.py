@@ -1,9 +1,9 @@
 """Copy complete public skills from the SDK; check for drift by default."""
 
 import argparse
+import importlib.metadata as metadata
 from pathlib import Path
 
-from trajectory.lib.cli.agent_skills import AgentSkills
 
 
 def main() -> None:
@@ -11,19 +11,20 @@ def main() -> None:
     parser.add_argument("--write", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    source = AgentSkills.find_bundled_skill()
-    if source is None:
-        raise SystemExit("The installed trajectory-sdk is missing its bundled skills")
-    skills = AgentSkills(root, {}, source)
-    for name in AgentSkills.NAMES:
+    files = metadata.files("trajectory-sdk") or []
+    for name in ("trajectory", "agent-feedback"):
+        source = next((f.locate() for f in files
+                       if f.as_posix().endswith(f"skills/{name}/SKILL.md")), None)
+        if source is None:
+            raise SystemExit(f"The installed trajectory-sdk is missing the {name} skill")
         destination = root / "skills" / name / "SKILL.md"
-        content = skills.content(name)
+        content = source.read_text(encoding="utf-8")
         if args.write:
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(content, encoding="utf-8")
         elif not destination.is_file() or destination.read_text(encoding="utf-8") != content:
             raise SystemExit(f"{destination.relative_to(root)} differs from the SDK; run scripts/sync_skills.py --write")
-    print("Both public skills match the installed SDK installer.")
+    print("Both public skills match the installed SDK.")
 
 
 if __name__ == "__main__":
