@@ -1,4 +1,4 @@
-"""Generate public entrypoints with the SDK installer; check for drift by default."""
+"""Copy complete public skills from the SDK; check for drift by default."""
 
 import argparse
 from pathlib import Path
@@ -17,13 +17,13 @@ def main() -> None:
     skills = AgentSkills(root, {}, source)
     for name in AgentSkills.NAMES:
         destination = root / "skills" / name / "SKILL.md"
-        content = skills.entrypoint(name)
+        content = skills.content(name)
         if args.write:
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(content, encoding="utf-8")
         elif not destination.is_file() or destination.read_text(encoding="utf-8") != content:
             raise SystemExit(f"{destination.relative_to(root)} differs from the SDK; run scripts/sync_skills.py --write")
-    print("Both public skill entrypoints match the installed SDK installer.")
+    print("Both public skills match the installed SDK installer.")
 
 
 if __name__ == "__main__":

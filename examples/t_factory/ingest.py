@@ -1,17 +1,15 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.13"]
+# dependencies = ["trajectory-sdk>=0.10.1"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
 
 import argparse
-import os
 import time
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
-from trajectory.lib.platform_links import PlatformLinks
 
 _ROOT = Path(__file__).parent
 _RUN_COMMAND = "python -u /opt/t_factory/t_factory_harness.py"
@@ -90,9 +88,6 @@ def build_benchmark(name: str) -> BenchmarkSpec:
 
 
 def ingest(client: Client, name: str, agent_name: str, skip_build: bool) -> str:
-    links = PlatformLinks.from_client(
-        client, platform_url=os.environ.get("TRAJECTORY_PLATFORM_URL")
-    )
     result = push(
         client,
         build_benchmark(name),
@@ -101,8 +96,6 @@ def ingest(client: Client, name: str, agent_name: str, skip_build: bool) -> str:
     )
     print(f"agent_name={agent_name}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
-    agent_id = client.benchmarks.retrieve(result.bench_id).agent_id
-    print("Spec:", links.spec(agent_id, result.bench_id), flush=True)
     if not skip_build:
         wait_for_benchmark_images(
             client,

@@ -1,12 +1,11 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.13"]
+# dependencies = ["trajectory-sdk>=0.10.1"]
 # ///
 """Upload SWE-Bench Pro V2 tasks with a fixed train/test split, then run a diagnostic."""
 
 import argparse
 import hashlib
-import os
 import re
 import shutil
 import tarfile
@@ -19,7 +18,6 @@ from pathlib import Path
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import DockerfileBuild, start_push
 from trajectory.lib.benchmark_operations import BenchmarkOperationError
-from trajectory.lib.platform_links import PlatformLinks
 
 SOURCE_REPOSITORY = "https://github.com/scaleapi/SWE-bench_Pro-os"
 SOURCE_COMMIT = "66f92766bba642462d4bbe5479e83f91f9211862"
@@ -171,12 +169,8 @@ def ingest(
         benchmark = build_benchmark(
             stage_runtime(upstream, context), name, train_tasks, test_tasks
         )
-        client = Client()
-        links = PlatformLinks.from_client(
-            client, platform_url=os.environ.get("TRAJECTORY_PLATFORM_URL")
-        )
         operation = start_push(
-            client, benchmark, agent_name=agent_name, root=context, build_images=True
+            Client(), benchmark, agent_name=agent_name, root=context, build_images=True
         )
         print(f"operation_id={operation.id} tasks={len(benchmark.tasks)}", flush=True)
         try:
@@ -186,8 +180,6 @@ def ingest(
                 print(failure.to_json(), flush=True)
             raise
     print(f"bench_id={result.status.bench_id}", flush=True)
-    agent_id = client.benchmarks.retrieve(result.status.bench_id).agent_id
-    print("Spec:", links.spec(agent_id, result.status.bench_id), flush=True)
     return result.status.bench_id
 
 

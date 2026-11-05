@@ -6,13 +6,15 @@ on:
   push:
     branches: [main]
     paths: ["skills/**", "scripts/sync_skills.py", ".github/workflows/skills.yml", "README.md"]
+  schedule:
+    - cron: "0 9 * * 1"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  sdk-entrypoints:
+  sdk-skills:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -24,5 +26,5 @@ jobs:
           npx --yes skills@1.7.6 add "$GITHUB_WORKSPACE" --skill trajectory --skill agent-feedback --agent codex --agent claude-code --yes
           diff -r "$GITHUB_WORKSPACE/skills" "$skills_test_dir/.agents/skills"
           diff -r "$GITHUB_WORKSPACE/skills" "$skills_test_dir/.claude/skills"
-      - name: Compare public entrypoints with the released SDK installer
+      - name: Compare public skills with the released SDK installer
         run: uv run --no-project --with 'trajectory-sdk>=0.10.13' python scripts/sync_skills.py

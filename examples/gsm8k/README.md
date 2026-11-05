@@ -35,7 +35,6 @@ agent = client.agents.create(
     name="gsm8k-cookbook",
     description="GSM8K math evaluation and training",
 )
-print("Agent:", links.agent(agent.agent_id))
 ```
 
 ## Diagnose with one task
@@ -129,7 +128,6 @@ result = trajectory.lib.push(
 bench_id = result.bench_id
 print("Benchmark:", bench_id)
 print("Tasks:", result.task_count)
-print("Spec:", links.spec(agent.agent_id, bench_id))
 ```
 
 Sample output; the benchmark ID will differ for your upload:
@@ -137,7 +135,6 @@ Sample output; the benchmark ID will differ for your upload:
 ```text
 Benchmark: bm_<benchmark-id>
 Tasks: 80
-Spec: https://platform.trajectory.ai/<organization>/agents/<agent-id>/benchmarks/<benchmark-id>
 ```
 
 ## Evaluate a model
@@ -220,35 +217,3 @@ Step 0: 0.50
 Step 1: 0.75
 Step 2: 0.75
 ```
-
-## Compare on the held-out problems
-
-Training reward alone does not tell you whether the model improved on the held-out
-problems. After training succeeds, evaluate its final checkpoint on the same benchmark
-version and with the baseline's settings:
-
-```python
-run = client.training.runs.retrieve(training.training_run_id)
-if run.status != "succeeded":
-    raise RuntimeError(f"Training is {run.status}; wait for success before comparing.")
-checkpoint = max(
-    client.training.checkpoints.list(training.training_run_id),
-    key=lambda item: item.step_index,
-)
-checkpoint_evaluation = client.evals.create(
-    bench_id=bench_id,
-    base_model_slug=checkpoint.base_model_slug,
-    parent_checkpoint_id=checkpoint.checkpoint_id,
-    options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
-)
-print("Checkpoint evaluation:", links.evaluation(checkpoint_evaluation.eval_run_id))
-print("Compare:", links.comparison(
-    agent.agent_id, bench_id,
-    [evaluation.eval_run_id, checkpoint_evaluation.eval_run_id],
-))
-```
-
-Wait for both evaluations to complete before interpreting their means. In the comparison,
-check that all 16 held-out problems have grades, inspect failures, and read the answers
-behind any score changes. This small walkthrough checks the workflow; it does not establish
-training improvement on GSM8K.

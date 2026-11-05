@@ -1,11 +1,10 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["trajectory-sdk>=0.10.13"]
+# dependencies = ["trajectory-sdk>=0.10.1"]
 # ///
 """Upload pinned Terminal-Bench 4.0 tasks and run a diagnostic."""
 
 import argparse
-import os
 import re
 import shutil
 import subprocess
@@ -16,7 +15,6 @@ from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, TaskSpec
 from trajectory.lib import DockerfileBuild, start_push
-from trajectory.lib.platform_links import PlatformLinks
 
 SOURCE = "https://github.com/harbor-framework/terminal-bench.git"
 SOURCE_COMMIT = "452bf305c6daa62fc59061d22133a7cbc7c1572e"
@@ -182,19 +180,13 @@ def main() -> None:
         parser.error("--task must be an upstream task name")
     with tempfile.TemporaryDirectory() as workspace:
         context, spec = stage(Path(workspace), tasks, args.agent_timeout)
-        client = Client()
-        links = PlatformLinks.from_client(
-            client, platform_url=os.environ.get("TRAJECTORY_PLATFORM_URL")
-        )
         operation = start_push(
-            client, spec, agent_name=args.agent_name, root=context, build_images=True
+            Client(), spec, agent_name=args.agent_name, root=context, build_images=True
         )
         print(f"operation_id={operation.id} tasks={len(tasks)}", flush=True)
         result = operation.result(timeout=2700)
     bench_id = result.status.bench_id
     print(f"bench_id={bench_id}", flush=True)
-    agent_id = client.benchmarks.retrieve(bench_id).agent_id
-    print("Spec:", links.spec(agent_id, bench_id), flush=True)
     diagnose(bench_id, args.agent_timeout)
 
 

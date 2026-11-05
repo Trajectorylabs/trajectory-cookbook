@@ -1,18 +1,16 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.13"]
+# dependencies = ["trajectory-sdk>=0.10.1"]
 # ///
 """Ingest the pinned public Harvey LAB tasks with the Trajectory runtime overlay."""
 
 import argparse
 import hashlib
-import os
 import shlex
 from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, SecretRef, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
-from trajectory.lib.platform_links import PlatformLinks
 from trajectory.types.benchmarks.task_spec import EnvResources
 
 ROOT = Path(__file__).parent
@@ -96,13 +94,8 @@ def ingest(
 ) -> str:
     benchmark = build_benchmark(name, judges, judge_base_url)
     with Client() as client:
-        links = PlatformLinks.from_client(
-            client, platform_url=os.environ.get("TRAJECTORY_PLATFORM_URL")
-        )
         result = push(client, benchmark, agent_name=agent_name, root=ROOT)
         print(f"bench_id={result.bench_id}", flush=True)
-        agent_id = client.benchmarks.retrieve(result.bench_id).agent_id
-        print("Spec:", links.spec(agent_id, result.bench_id), flush=True)
         wait_for_benchmark_images(client, result.bench_id, timeout_seconds=60 * 60)
         return result.bench_id
 

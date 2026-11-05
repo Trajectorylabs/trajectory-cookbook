@@ -1,7 +1,5 @@
 # Terminal-Bench 4.0
 
-For coding-agent setup, [install the SDK skills](../../README.md#use-with-a-coding-agent).
-
 ## Dataset
 
 [Terminal-Bench 4.0](https://github.com/harbor-framework/terminal-bench/tree/v4.0.0)
@@ -24,7 +22,7 @@ API key. The task runtime needs nested Docker, as in the
 
 ```sh
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with 'trajectory-sdk>=0.10.13' python -c \
+uv run --with 'trajectory-sdk>=0.10.1' python -c \
   'from trajectory import Client; Client().agents.create(name="terminal-bench-4", description="Terminal-Bench 4.0 evaluation")'
 uv run examples/terminal_bench_4/ingest.py --agent-name terminal-bench-4 --agent-timeout 300
 ```
@@ -46,11 +44,8 @@ To evaluate the same uploaded version, use the printed `bench_id`:
 
 ```python
 from trajectory import Client
-from trajectory.lib.platform_links import PlatformLinks
 
-client = Client()
-links = PlatformLinks.from_client(client)
-run = client.evals.create(
+run = Client().evals.create(
     bench_id="YOUR_BENCH_ID",
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options={
@@ -61,7 +56,7 @@ run = client.evals.create(
         "trajectory_timeout_seconds": 2100,
     },
 )
-print("Evaluation:", run.eval_run_id, links.evaluation(run.eval_run_id))
+print(run.eval_run_id)
 ```
 
 The `2100`-second evaluation limit matches the 300-second smoke upload above and leaves

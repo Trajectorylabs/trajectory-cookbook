@@ -1,16 +1,14 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.13"]
+# dependencies = ["trajectory-sdk>=0.10.1"]
 # ///
 """Evaluate the test tasks, train briefly, and evaluate the final checkpoint."""
 
 import argparse
-import os
 import time
 from collections import Counter
 
 from trajectory import Client
-from trajectory.lib.platform_links import PlatformLinks
 
 MODEL = "Qwen/Qwen3.6-35B-A3B"
 # Shared by every run so the baseline and checkpoint scores are comparable.
@@ -25,9 +23,8 @@ RUN_OPTIONS = {
 }
 
 
-def wait_for_evaluation(client: Client, eval_run_id: str, links: PlatformLinks) -> None:
+def wait_for_evaluation(client: Client, eval_run_id: str) -> None:
     print(f"eval_run_id={eval_run_id}", flush=True)
-    print("Evaluation:", links.evaluation(eval_run_id), flush=True)
     while True:
         progress = client.evals.runs.progress(eval_run_id)
         print(
@@ -69,9 +66,6 @@ def main() -> None:
     parser.add_argument("--group-size", type=int, default=4)
     args = parser.parse_args()
     client = Client(max_retries=20)
-    links = PlatformLinks.from_client(
-        client, platform_url=os.environ.get("TRAJECTORY_PLATFORM_URL")
-    )
 
     baseline = client.evals.create(
         agent_name=args.agent_name,
@@ -82,7 +76,7 @@ def main() -> None:
     )
     bench_id = baseline.bench_id
     print(f"bench_id={bench_id}", flush=True)
-    wait_for_evaluation(client, baseline.eval_run_id, links)
+    wait_for_evaluation(client, baseline.eval_run_id)
 
     training = client.training.create(
         bench_id=bench_id,
@@ -103,7 +97,6 @@ def main() -> None:
     )
     run_id = training.training_run_id
     print(f"training_run_id={run_id}", flush=True)
-    print("Training:", links.training(run_id), flush=True)
     while True:
         run = client.training.runs.retrieve(run_id)
         progress = client.training.runs.progress(run_id)
@@ -125,7 +118,7 @@ def main() -> None:
         display_name=f"SWE-Bench Pro step {args.num_steps}",
         options=RUN_OPTIONS,
     )
-    wait_for_evaluation(client, final.eval_run_id, links)
+    wait_for_evaluation(client, final.eval_run_id)
 
 
 if __name__ == "__main__":

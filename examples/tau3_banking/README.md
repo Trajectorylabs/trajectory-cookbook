@@ -1,7 +1,5 @@
 # Tau 3 Banking
 
-For coding-agent setup, [install the SDK skills](../../README.md#use-with-a-coding-agent).
-
 ## Dataset
 
 This example packages Sierra's public 97-task Banking benchmark from
@@ -57,11 +55,8 @@ cut off a model reply. The sampling values follow
 
 ```python
 from trajectory import Client
-from trajectory.lib.platform_links import PlatformLinks
 
-client = Client()
-links = PlatformLinks.from_client(client)
-evaluation = client.evals.create(
+Client().evals.create(
     bench_id="bm_<your-benchmark-id>",
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options={
@@ -73,7 +68,6 @@ evaluation = client.evals.create(
         "max_output_tokens_per_trajectory": 262144,
     },
 )
-print("Evaluation:", evaluation.eval_run_id, links.evaluation(evaluation.eval_run_id))
 ```
 
 ## Training

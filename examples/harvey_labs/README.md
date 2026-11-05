@@ -1,7 +1,5 @@
 # Harvey LAB
 
-For coding-agent setup, [install the SDK skills](../../README.md#use-with-a-coding-agent).
-
 ## Dataset
 
 This example uses the public [Harvey LAB source](https://github.com/harveyai/harvey-labs)
@@ -71,10 +69,8 @@ Remove `val_num_tasks` to evaluate all 120 held-out tasks.
 
 ```python
 from trajectory import Client
-from trajectory.lib.platform_links import PlatformLinks
 
 client = Client()
-links = PlatformLinks.from_client(client)
 bench_id = "YOUR_BENCH_ID"
 model = "Qwen/Qwen3.6-35B-A3B"
 limits = {
@@ -98,7 +94,7 @@ After the diagnostic completes with grades, continue in the same Python session:
 baseline = client.evals.create(
     bench_id=bench_id, base_model_slug=model, options=evaluation_options
 )
-print("Evaluation:", baseline.eval_run_id, links.evaluation(baseline.eval_run_id))
+print(baseline.eval_run_id)
 ```
 
 The source's `criteria_fraction` and `all_pass` components are available with
@@ -123,7 +119,7 @@ training = client.training.create(
         "val_enabled": False,
     },
 )
-print("Training:", training.training_run_id, links.training(training.training_run_id))
+print(training.training_run_id)
 ```
 
 After training succeeds, select the highest-step checkpoint and evaluate it with
@@ -140,7 +136,7 @@ final = client.evals.create(
     parent_checkpoint_id=checkpoint.checkpoint_id,
     options=evaluation_options,
 )
-print("Evaluation:", final.eval_run_id, links.evaluation(final.eval_run_id))
+print(final.eval_run_id)
 ```
 
 A Qwen 3.6 35B A3B smoke run using the OpenRouter `openai/gpt-6-luna` judge
