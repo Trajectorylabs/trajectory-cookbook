@@ -1,10 +1,11 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.10.13"]
 # ///
 """Ingest the pinned public Tau 3 Banking tasks and build their SDK runtime."""
 
 import argparse
+import os
 from pathlib import Path
 
 from runtime.tau3_banking.protocol import (
@@ -22,6 +23,7 @@ from runtime.tau3_banking.protocol import (
 )
 from trajectory import BenchmarkSpec, Client, SecretRef, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
+from trajectory.lib.platform_links import PlatformLinks
 
 ROOT = Path(__file__).parent
 
@@ -79,6 +81,9 @@ def build_benchmark(
 
 def ingest(name: str, agent_name: str, user_judge_model: str) -> str:
     with Client() as client:
+        links = PlatformLinks.from_client(
+            client, platform_url=os.environ.get("TRAJECTORY_PLATFORM_URL")
+        )
         result = push(
             client,
             build_benchmark(name, user_judge_model),
@@ -86,6 +91,8 @@ def ingest(name: str, agent_name: str, user_judge_model: str) -> str:
             root=ROOT,
         )
         print(f"bench_id={result.bench_id}", flush=True)
+        agent_id = client.benchmarks.retrieve(result.bench_id).agent_id
+        print("Spec:", links.spec(agent_id, result.bench_id), flush=True)
         wait_for_benchmark_images(client, result.bench_id, timeout_seconds=45 * 60)
         return result.bench_id
 

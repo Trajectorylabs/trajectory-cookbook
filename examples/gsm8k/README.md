@@ -11,6 +11,8 @@ For each problem, the model submits its answer through a `submit_answer` tool. T
 of 1 for a correct answer or 0 otherwise. Problems and reference answers live in
 [`runtime/tasks.jsonl`](runtime/tasks.jsonl); only the question is sent to the model.
 
+If a coding agent is helping, [install the SDK skills](../../README.md#use-with-a-coding-agent).
+
 ## Setup
 
 The runtime packages the harness, task data, and SDK into a Docker image. Start a Python session
@@ -18,19 +20,22 @@ from the repository root, then run the snippets below in order in that same sess
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with 'trajectory-sdk>=0.10.1' python
+uv run --with 'trajectory-sdk>=0.10.13' python
 ```
 
 Create the agent that will own this benchmark and its runs:
 
 ```python
 import trajectory
+from trajectory.lib.platform_links import PlatformLinks
 
 client = trajectory.Client()
+links = PlatformLinks.from_client(client)
 agent = client.agents.create(
     name="gsm8k-cookbook",
     description="GSM8K math evaluation and training",
 )
+print("Agent:", links.agent(agent.agent_id))
 ```
 
 ## Diagnose with one task
@@ -69,6 +74,7 @@ Fetch the diagnostic report to inspect the task's status and reward:
 ```python
 report = client.diagnostics.get_diagnostics(diagnostic_id)
 print("Diagnostic:", report.status)
+print("Inspect:", links.evaluation(report.eval_run_id))
 for task in report.tasks:
     print(f"Task: {task.status} | Ending: {task.termination_reason} | Reward: {task.reward}")
     if task.failure:
@@ -81,6 +87,7 @@ Illustrative output for a correct answer (all outputs below are examples, not re
 
 ```text
 Diagnostic: completed
+Inspect: https://platform.trajectory.ai/<organization>/evaluate/runs/<eval-run-id>/trajectories
 Task: completed | Ending: ENV_DONE | Reward: 1.0
 ```
 
@@ -122,6 +129,7 @@ result = trajectory.lib.push(
 bench_id = result.bench_id
 print("Benchmark:", bench_id)
 print("Tasks:", result.task_count)
+print("Spec:", links.spec(agent.agent_id, bench_id))
 ```
 
 Sample output; the benchmark ID will differ for your upload:
@@ -129,6 +137,7 @@ Sample output; the benchmark ID will differ for your upload:
 ```text
 Benchmark: bm_<benchmark-id>
 Tasks: 80
+Spec: https://platform.trajectory.ai/<organization>/agents/<agent-id>/benchmarks/<benchmark-id>
 ```
 
 ## Evaluate a model
@@ -142,7 +151,10 @@ evaluation = client.evals.create(
     base_model_slug="Qwen/Qwen3.5-4B",
     options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
 )
+print("Evaluation:", evaluation.eval_run_id, links.evaluation(evaluation.eval_run_id))
 ```
+
+Open the evaluation link to follow progress and inspect the model's answers.
 
 Fetch the evaluation run to see its current status and mean reward across the held-out tasks:
 
@@ -177,6 +189,7 @@ training = client.training.create(
         "max_concurrent_trajectories": 32,
     },
 )
+print("Training:", training.training_run_id, links.training(training.training_run_id))
 ```
 
 Fetch the training run to check its current status:
@@ -207,3 +220,35 @@ Step 0: 0.50
 Step 1: 0.75
 Step 2: 0.75
 ```
+
+## Compare on the held-out problems
+
+Training reward alone does not tell you whether the model improved on the held-out
+problems. After training succeeds, evaluate its final checkpoint on the same benchmark
+version and with the baseline's settings:
+
+```python
+run = client.training.runs.retrieve(training.training_run_id)
+if run.status != "succeeded":
+    raise RuntimeError(f"Training is {run.status}; wait for success before comparing.")
+checkpoint = max(
+    client.training.checkpoints.list(training.training_run_id),
+    key=lambda item: item.step_index,
+)
+checkpoint_evaluation = client.evals.create(
+    bench_id=bench_id,
+    base_model_slug=checkpoint.base_model_slug,
+    parent_checkpoint_id=checkpoint.checkpoint_id,
+    options={"reasoning_effort": "off", "max_output_tokens_per_turn": 2048},
+)
+print("Checkpoint evaluation:", links.evaluation(checkpoint_evaluation.eval_run_id))
+print("Compare:", links.comparison(
+    agent.agent_id, bench_id,
+    [evaluation.eval_run_id, checkpoint_evaluation.eval_run_id],
+))
+```
+
+Wait for both evaluations to complete before interpreting their means. In the comparison,
+check that all 16 held-out problems have grades, inspect failures, and read the answers
+behind any score changes. This small walkthrough checks the workflow; it does not establish
+training improvement on GSM8K.

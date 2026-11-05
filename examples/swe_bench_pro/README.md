@@ -1,5 +1,7 @@
 # SWE-Bench Pro
 
+For coding-agent setup, [install the SDK skills](../../README.md#use-with-a-coding-agent).
+
 ## Dataset
 
 [SWE-Bench Pro](https://github.com/scaleapi/SWE-bench_Pro-os) is Scale AI's benchmark of
@@ -97,13 +99,16 @@ printed benchmark ID:
 
 ```python
 from trajectory import Client
+from trajectory.lib.platform_links import PlatformLinks
 
-baseline = Client().evals.create(
+client = Client()
+links = PlatformLinks.from_client(client)
+baseline = client.evals.create(
     bench_id="YOUR_BENCH_ID",
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options=RUN_OPTIONS,
 )
-print(baseline.eval_run_id)
+print("Evaluation:", baseline.eval_run_id, links.evaluation(baseline.eval_run_id))
 ```
 
 An attempt can pull a 0.6–4.7 GB compressed image, work for up to 50 minutes, and then
@@ -147,6 +152,7 @@ output, image digest, and model-call count. Inspect one attempt with:
 
 ```python
 from trajectory import Client
+from trajectory.lib.platform_links import PlatformLinks
 
 for event in Client().trajectories.list_events("YOUR_TRAJECTORY_ID"):
     if event.event["name"] == "swe_bench_pro_result":

@@ -2,7 +2,7 @@
 
 Examples for evaluating and training agents with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/). Each example packages a task harness
-and grader, uploads a benchmark, and shows how to launch runs. Use **trajectory-sdk 0.10.1
+and grader, uploads a benchmark, and shows how to launch runs. Use **trajectory-sdk 0.10.13
 or newer** and run commands from this repository’s root.
 
 **Start with [GSM8K](examples/gsm8k/README.md):** create an agent, diagnose one math problem,
@@ -15,31 +15,28 @@ For a smaller introduction to responses, rewards, and trajectory completion, try
 ## Use with a coding agent
 
 The SDK bundles two skills: `trajectory` for integration and run inspection, and
-`agent-feedback` for customer-authorized product feedback. Copy both into your project
-before adapting an example. This replaces the bundled copies; keep your own instructions
-separate, and repeat after upgrading the SDK.
+`agent-feedback` for customer-authorized product feedback. Install their entrypoints
+using the same Python environment you will use for the example:
 
 ```bash
-dest=.claude/skills  # Codex: .agents/skills
-uv run --no-project --with 'trajectory-sdk>=0.10.10' python - "$dest" <<'PY'
-import importlib.metadata as metadata
-from pathlib import Path
-import shutil
-import sys
-
-files = metadata.files("trajectory-sdk")
-for name in ("trajectory", "agent-feedback"):
-    skill = next(f.locate() for f in files
-                 if f.as_posix().endswith(f"skills/{name}/SKILL.md"))
-    destination = Path(sys.argv[1]) / name
-    shutil.copytree(skill.parent, destination, dirs_exist_ok=True)
-    print(destination / "SKILL.md")
-PY
+uv run --with 'trajectory-sdk>=0.10.13' trajectory skills install --directory .agents/skills
+# For Claude Code, use --directory .claude/skills instead.
 ```
 
-Ask your coding agent to use the `trajectory` skill. It reads the SDK guides and links
-the specs, evaluations, and training runs it reports. Installing `agent-feedback` does
-not send anything or authorize reporting; use it when you want to share feedback.
+Ask your coding agent to use the `trajectory` skill. Each entrypoint reads the full
+instructions from the project's installed SDK, so an SDK upgrade updates the guidance
+it loads. Reload the skill in an already-running agent after upgrading. Existing custom
+skills are preserved; [the setup guide](https://docs.trajectory.ai/coding-agents) explains
+how to migrate old copied skills with a backup.
+
+The agent should share a run link when work starts, then link the relevant evidence when
+reporting results or failures. Installing `agent-feedback` does not authorize sending feedback.
+
+Examples use the production API and platform by default. For another environment, set
+`TRAJECTORY_BASE_URL` and `TRAJECTORY_PLATFORM_URL` to the matching API and platform origins.
+The scripts pass the latter to [PlatformLinks](https://docs.trajectory.ai/platform); notebook
+or Python-session snippets can pass `platform_url=` explicitly. Never use a production link
+for a run in another environment.
 
 ## Examples
 

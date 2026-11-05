@@ -1,14 +1,16 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.10.13"]
 # ///
 """Evaluate, train, and compare Qwen 3.5 4B on the prompted T-starting-word task."""
 
 import argparse
+import os
 import time
 from dataclasses import dataclass
 
 from trajectory import Client
+from trajectory.lib.platform_links import PlatformLinks
 from trajectory.types.training.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
@@ -32,6 +34,9 @@ def train_and_evaluate(
     num_steps: int,
     poll_seconds: float,
 ) -> tuple[Evaluation, Evaluation, str]:
+    links = PlatformLinks.from_client(
+        client, platform_url=os.environ.get("TRAJECTORY_PLATFORM_URL")
+    )
     # Spec detail omits tasks unless asked.
     benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
     if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
@@ -40,7 +45,9 @@ def train_and_evaluate(
     }:
         raise ValueError("The benchmark must contain explicit train and test splits")
 
-    baseline_id = _start_evaluation(client, bench_id, model, "T Factory baseline")
+    baseline_id = _start_evaluation(
+        client, bench_id, model, "T Factory baseline", links
+    )
     # Training does not use the baseline score, so start it without waiting.
     created = client.training.create(
         bench_id=bench_id,
@@ -56,6 +63,7 @@ def train_and_evaluate(
     )
     run_id = created.training_run_id
     print(f"training_run_id={run_id}", flush=True)
+    print("Training:", links.training(run_id), flush=True)
     try:
         baseline = _wait_for_evaluation(
             client, baseline_id, "T Factory baseline", poll_seconds
@@ -75,6 +83,7 @@ def train_and_evaluate(
         model,
         f"T Factory {run_id} step {num_steps}",
         poll_seconds,
+        links,
         parent_checkpoint_id=checkpoint.checkpoint_id,
     )
     print(f"baseline_reward={baseline.reward:.6f}", flush=True)
@@ -84,6 +93,7 @@ def train_and_evaluate(
         client,
         baseline.eval_run_id,
         final.eval_run_id,
+        links,
     )
     return baseline, final, run_id
 
@@ -94,10 +104,11 @@ def _evaluate_model(
     model: str,
     display_name: str,
     poll_seconds: float,
+    links: PlatformLinks,
     parent_checkpoint_id: str | None = None,
 ) -> Evaluation:
     eval_id = _start_evaluation(
-        client, bench_id, model, display_name, parent_checkpoint_id
+        client, bench_id, model, display_name, links, parent_checkpoint_id
     )
     return _wait_for_evaluation(client, eval_id, display_name, poll_seconds)
 
@@ -107,6 +118,7 @@ def _start_evaluation(
     bench_id: str,
     model: str,
     display_name: str,
+    links: PlatformLinks,
     parent_checkpoint_id: str | None = None,
 ) -> str:
     evaluation = client.evals.create(
@@ -124,6 +136,7 @@ def _start_evaluation(
     )
     eval_id = evaluation.eval_run_id
     print(f"evaluation={display_name} eval_run_id={eval_id}", flush=True)
+    print("Evaluation:", links.evaluation(eval_id), flush=True)
     return eval_id
 
 
@@ -174,6 +187,7 @@ def _print_task_results(
     client: Client,
     baseline_eval_id: str,
     final_eval_id: str,
+    links: PlatformLinks,
 ) -> None:
     baseline = {
         reward.task_id: reward
@@ -202,8 +216,12 @@ def _print_task_results(
     )
     print(f"improved_task_id={improved_task_id}", flush=True)
     print(f"before_tid={before.trajectory_id}", flush=True)
+    print(
+        "Before:", links.evaluation(baseline_eval_id, before.trajectory_id), flush=True
+    )
     print(f"before={_last_assistant_message(before)}", flush=True)
     print(f"after_tid={after.trajectory_id}", flush=True)
+    print("After:", links.evaluation(final_eval_id, after.trajectory_id), flush=True)
     print(f"after={_last_assistant_message(after)}", flush=True)
 
 
