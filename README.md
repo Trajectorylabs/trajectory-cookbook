@@ -82,8 +82,9 @@ datasets retain their source licenses, linked from their example READMEs.
 
 ## Maintaining the skills
 
-`skills/` contains complete copies of the SDK's canonical skills. After publishing an SDK
-release that changes them, update the public copies:
+Author skills in `trajectory-platform/skills/`; the SDK ships them with its guides.
+This public `skills/` directory contains distribution copies for `npx`. After publishing
+an SDK release that changes them, update the copies:
 
 ```bash
 uv run --no-project --with 'trajectory-sdk>=0.10.13' python scripts/sync_skills.py --write

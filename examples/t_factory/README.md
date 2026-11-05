@@ -71,10 +71,6 @@ The command prints the response, trajectory ID, reward, and completion status.
 Success means a reward is recorded (including zero) and `status` is `completed`, or
 `finalizing` while the platform finishes saving the trajectory.
 
-If a coding agent is helping, [install the SDK's two skills](../../README.md#use-with-a-coding-agent).
-Use `trajectory` for the integration and `agent-feedback` when you want to share
-feedback on the API, SDK, or documentation.
-
 ## Ingestion
 
 After the one-task check, create an agent and upload the benchmark from the repository root:
