@@ -26,24 +26,18 @@ The [cookbook](https://github.com/Trajectorylabs/trajectory-cookbook) offers wor
 
 ## Link what you report
 
-Make remote work observable without waiting to be asked. When a resource is created,
-provide its ID and a labeled platform link; after a long-running action starts, share its
-link before waiting. When work finishes, send a completion update with its outcome and
-platform link, even if you already shared the link at launch. For failed work, link the
-run and relevant failure evidence. In progress and result reports, link the evidence that supports the
-claim: the run, selected trajectory, comparison, or deployed model. Prefer one useful
-link beside the relevant statement over a repeated list of every resource.
+When a resource is created, share its ID and a labeled platform link before waiting.
+When work finishes, report its outcome and link again. Link the evidence behind results
+or failures: a selected trajectory, training step, comparison, or deployed model. Place
+links beside the relevant claim; use the run link when a more specific selection is unavailable.
 
-Use `PlatformLinks` from `trajectory.lib.platform_links`; read bundled `platform.mdx`
-for its methods. Resolve the organization once with `PlatformLinks.from_client(client)`.
-For a nondefault API, pass the supplied or observed matching `platform_url`; never guess
-an environment or organization. If the host or required ID is unavailable, report the ID
-and that limitation. Never put credentials in URLs.
+Use `PlatformLinks` from `trajectory.lib.platform_links`; see bundled `platform.mdx`.
+Resolve the organization once with `PlatformLinks.from_client(client)`. For a nondefault
+API, supply its known matching `platform_url`. Never guess hosts or IDs or include credentials
+in URLs. If a link cannot be constructed, report the available ID and the missing context.
 
-State what happened, what remains running or unverified, and what the human can inspect
-or decide next. Distinguish a submitted job from a successful result. Link a specific
-training step or trajectory when its recorded selection is available; otherwise link the
-run. Keep local-only findings local; do not invent a platform resource for them.
+Distinguish submitted, running, successful, failed, and unverified work. State what the
+human can inspect or decide next. Local-only findings need no platform link.
 
 ## Integrate a spec
 
@@ -111,6 +105,5 @@ Report observed evidence with resource IDs and links. Do not guess an unavailabl
 reason. Repeat the affected validation after a fix and confirm requested remote cancellation
 or cleanup.
 
-For Trajectory feedback, suggestions, positive observations, or friction, follow the bundled
-[agent-feedback skill](../agent-feedback/SKILL.md) when feedback collection is authorized.
-It explains what to share and how to submit feedback without blocking the customer's task.
+For authorized product feedback, follow the
+[agent-feedback skill](../agent-feedback/SKILL.md).

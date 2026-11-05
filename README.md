@@ -33,18 +33,16 @@ uv run trajectory skills install --directory .agents/skills
 # For Claude Code, use --directory .claude/skills instead.
 ```
 
-Choose one installer. The public copies are generated from the SDK's canonical skills;
-for a project pinned to an older SDK, use its Python installer. Ask your agent to read the
-installed `trajectory` skill. It contains the workflow and reporting policy and consults
-the project's SDK guides for API details.
+Choose one installer and ask your agent to read the `trajectory` skill. Use the Python
+installer for skills matching your project's SDK; public copies come from the SDK's
+canonical skills.
 
-After upgrading the SDK, refresh skills separately: use `npx skills update` or repeat the
-Python installation command. Review local edits before replacing files; the Python
-installer preserves differing files unless `--replace` is explicitly supplied.
-[The setup guide](https://docs.trajectory.ai/coding-agents) explains backups and migration.
+SDK upgrades do not refresh skills. Review local edits, then run `npx skills update` or
+repeat the Python installation command. The Python installer preserves differing files
+unless you pass `--replace`; see [updates and backups](https://docs.trajectory.ai/coding-agents#update).
 
-The agent should share a run link when work starts, then link the relevant evidence when
-reporting results or failures. Installing `agent-feedback` does not authorize sending feedback.
+Expect a platform link when work starts and an outcome/link update when it finishes,
+with evidence for results or failures. Installing `agent-feedback` does not authorize reports.
 
 The GSM8K link snippets assume the production API and platform. With another API
 (`TRAJECTORY_BASE_URL`), pass its matching platform origin as `platform_url=` to

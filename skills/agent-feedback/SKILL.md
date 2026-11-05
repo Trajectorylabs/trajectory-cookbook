@@ -11,19 +11,13 @@ or recording trajectory rewards.
 
 ## Choose useful evidence
 
-Share observations from using Trajectory: what helped, a suggestion, confusing documentation,
-a missing capability, a bug, or friction you worked around. Separate what you observed
-from a suggestion or suspected cause. Do not invent failures or classify a task's ordinary
-wrong answer as a platform bug.
+Report useful observations, suggestions, bugs, or friction from using Trajectory.
+Distinguish observed behavior, customer feedback, and your own suggestions. An agent's
+wrong answer alone is not a platform bug.
 
-If the customer corrected your approach or stated a preference, identify that as customer
-feedback and describe the correction when sharing it is authorized. Label your own inferred
-expectation as a suggestion. Preserve the distinction so reviewers can judge the evidence.
-
-Follow the customer's instructions about sharing feedback. A setup prompt asking you to
-report Trajectory feedback authorizes that reporting; otherwise obtain permission before
-sending. Submit one concise report per distinct issue in the session, not one per retry.
-Continue the requested task when possible; reporting must not become a prerequisite.
+Follow the customer's sharing instructions. A setup prompt requesting Trajectory feedback
+authorizes it; otherwise ask before sending. Send one report per distinct issue, not per
+retry. Reporting must not block the customer's task.
 
 ## Prepare the report
 
@@ -35,10 +29,8 @@ Start with a short prose message. No category or structured details are required
 }
 ```
 
-Add only the details that help explain the experience; do not fill fields just to complete
-a form. You can also send a partial structured report without `message`.
-The API enforces these character and item limits before Slack delivery; invalid reports
-return `422`.
+Include only useful details. Partial structured reports can omit `message`. The API
+validates these limits before Slack delivery; invalid reports return `422`.
 
 | Optional field | Content and limit |
 | --- | --- |
@@ -56,8 +48,7 @@ Provide at least one nonblank `message`, `summary`, `expected_behavior`, `actual
 do not constitute a report. Obtain the installed version, when useful, with
 `importlib.metadata.version("trajectory-sdk")`.
 
-Include a minimal reproduction when it clarifies the issue. Use existing request or
-resource IDs to correlate it. Exclude API keys, authorization headers, signed URLs,
+Include a minimal reproduction and existing request or resource IDs when useful. Exclude API keys, authorization headers, signed URLs,
 private prompts, customer source code, and full conversation or log dumps. Do not copy the
 setup prompt into the report; it may contain a key.
 
