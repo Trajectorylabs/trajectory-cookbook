@@ -16,8 +16,8 @@ For a smaller introduction to responses, rewards, and trajectory completion, try
 
 The SDK bundles two skills: `trajectory` for integration and run inspection, and
 `agent-feedback` for customer-authorized product feedback. Copy both into your project
-before adapting an example. This replaces the bundled copies; keep your own instructions
-separate, and repeat after upgrading the SDK.
+before adapting an example. The command preserves existing skill directories by refusing
+to overwrite them. Review existing instructions before refreshing after an SDK upgrade.
 
 ```bash
 dest=.claude/skills  # Codex: .agents/skills
@@ -32,7 +32,7 @@ for name in ("trajectory", "agent-feedback"):
     skill = next(f.locate() for f in files
                  if f.as_posix().endswith(f"skills/{name}/SKILL.md"))
     destination = Path(sys.argv[1]) / name
-    shutil.copytree(skill.parent, destination, dirs_exist_ok=True)
+    shutil.copytree(skill.parent, destination)
     print(destination / "SKILL.md")
 PY
 ```
