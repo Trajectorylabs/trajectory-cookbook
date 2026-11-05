@@ -6,8 +6,6 @@ on:
   push:
     branches: [main]
     paths: ["skills/**", "scripts/sync_skills.py", ".github/workflows/skills.yml", "README.md"]
-  schedule:
-    - cron: "0 9 * * 1"
   workflow_dispatch:
 
 permissions:
