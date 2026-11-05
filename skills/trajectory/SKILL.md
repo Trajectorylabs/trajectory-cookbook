@@ -28,7 +28,9 @@ The [cookbook](https://github.com/Trajectorylabs/trajectory-cookbook) offers wor
 
 Make remote work observable without waiting to be asked. When a resource is created,
 provide its ID and a labeled platform link; after a long-running action starts, share its
-link before waiting. In progress and result reports, link the evidence that supports the
+link before waiting. When work finishes, send a completion update with its outcome and
+platform link, even if you already shared the link at launch. For failed work, link the
+run and relevant failure evidence. In progress and result reports, link the evidence that supports the
 claim: the run, selected trajectory, comparison, or deployed model. Prefer one useful
 link beside the relevant statement over a repeated list of every resource.
 
