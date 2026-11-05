@@ -25,10 +25,11 @@ Choose your coding agent when prompted. For a specific target, add `--agent code
 `--agent claude-code`. Installation is project-local by default and needs no Trajectory API
 key or access to a private repository. Review existing skill files before replacing them.
 
-For a Python-only environment, the SDK installs the bundled skills:
+For a Python-only project using uv, add `trajectory-sdk>=0.10.13` to that project,
+then run its SDK installer from the project environment:
 
 ```bash
-uv run --with 'trajectory-sdk>=0.10.13' trajectory skills install --directory .agents/skills
+uv run trajectory skills install --directory .agents/skills
 # For Claude Code, use --directory .claude/skills instead.
 ```
 
