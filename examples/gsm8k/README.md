@@ -68,9 +68,18 @@ diagnostic = trajectory.lib.start_task_diagnostic(
 diagnostic_id = diagnostic.benchmark_diagnostic_id
 ```
 
-Fetch the diagnostic report to inspect the task's status and reward:
+`get_diagnostics()` returns HTTP 409 while the diagnostic is still running. Poll `get_status()` until it reaches
+`completed`, `failed`, or `cancelled`, then inspect the task's status and reward:
 
 ```python
+import time
+
+while True:
+    status = client.diagnostics.get_status(diagnostic_id)
+    if status.status in {"completed", "failed", "cancelled"}:
+        break
+    time.sleep(5)
+
 report = client.diagnostics.get_diagnostics(diagnostic_id)
 print("Diagnostic:", report.status)
 print("Inspect:", links.evaluation(report.eval_run_id))
