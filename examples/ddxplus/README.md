@@ -1,6 +1,14 @@
-# DDXPlus synthetic diagnostic interviews
+# Diagnostic interview agent (DDXPlus)
 
-Evaluate and train an agent to collect evidence and rank a diagnosis using the
+Build an agent that decides which evidence to ask for next and when it has enough
+information to rank possible conditions. DDXPlus supplies synthetic patient profiles
+for this interview workflow.
+
+- **Input:** demographics, initial evidence, and a catalog of available questions and conditions.
+- **Agent workflow:** choose a question → observe the released answer → update the interview → submit a ranked differential.
+- **Training objective:** correct top-ranked condition within a fixed question budget.
+
+The starting data comes from the
 [official English DDXPlus dataset, Figshare version 2](https://figshare.com/articles/dataset/DDXPlus_Dataset_English_/22687585/2).
 This is a static synthetic-patient research exercise: the agent asks questions of
 released patient profiles, with no LLM patient simulator. It does not establish

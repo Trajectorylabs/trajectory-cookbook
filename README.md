@@ -21,12 +21,16 @@ Feedback requires your authorization.
 
 ## Examples
 
-| Benchmark | What it shows |
+Choose a recipe for the job you want your agent to do. Each example makes its
+input, interaction workflow and grading rule explicit; the dataset supplies the
+starting tasks. Several recipes share a tool-using reasoning loop.
+
+| Agent recipe | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
 | [Harvey LAB](examples/harvey_labs/README.md) | Legal research tasks with the source harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | Multi-turn banking tasks with the upstream simulator and evaluator. |
-| [DDXPlus](examples/ddxplus/README.md) | Ask a synthetic patient structured evidence questions, then submit a ranked differential; deterministic diagnosis grading. |
+| [Diagnostic interview agent (DDXPlus)](examples/ddxplus/README.md) | Ask a synthetic patient structured evidence questions, then submit a ranked differential; deterministic diagnosis grading. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
 | [Terminal-Bench 4.0](examples/terminal_bench_4/README.md) | Evaluation-only tasks using Harbor’s environment and verifier. |
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
