@@ -21,10 +21,14 @@ Feedback requires your authorization.
 
 ## Examples
 
-| Benchmark | What it shows |
+Choose a recipe for the job you want your agent to do. Each example makes its
+input, interaction workflow and grading rule explicit; the dataset supplies the
+starting tasks. Several recipes share a tool-using reasoning loop.
+
+| Agent recipe | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
-| [School Math](examples/school_math/README.md) | Generate fresh school-level algebra and polynomial tasks from pinned DeepMind source; use a calculator and exact numeric grading. |
+| [Math problem solver (school math)](examples/school_math/README.md) | Generate fresh school-level algebra and polynomial tasks from pinned DeepMind source; use a calculator and exact numeric grading. |
 | [Harvey LAB](examples/harvey_labs/README.md) | Legal research tasks with the source harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | Multi-turn banking tasks with the upstream simulator and evaluator. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |

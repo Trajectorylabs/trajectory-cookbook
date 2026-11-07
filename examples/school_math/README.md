@@ -1,7 +1,14 @@
-# School math with arithmetic tools
+# Math problem solver agent (school math)
 
-Generate a small school-math dataset, evaluate a tool-using agent, and train against
-an exact numeric reward. This recipe uses DeepMind's
+Build an agent that turns a math question into arithmetic steps, checks calculations
+with a tool, and submits an exact answer. Generated school-math questions supply
+the starting tasks for this problem-solving workflow.
+
+- **Input:** a linear equation or polynomial-evaluation question.
+- **Agent workflow:** derive arithmetic steps → use the calculator → submit a final number.
+- **Training objective:** exact numeric correctness, including equivalent fractions and decimals.
+
+This recipe uses DeepMind's
 [Mathematics Dataset generator](https://github.com/google-deepmind/mathematics_dataset/tree/427f45075f84b8b9774950196ad63867ca20ffb3)
 for linear equations in one unknown and polynomial evaluation. These are different
 tasks from the cookbook's GSM8K word problems.
