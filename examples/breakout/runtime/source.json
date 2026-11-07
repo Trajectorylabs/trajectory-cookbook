@@ -1,0 +1,11 @@
+{
+  "source": "https://github.com/RikiyaT/lm_understand-logs/tree/4d09ba6d6a7e891dd8063974dfe81b3d78e3494f/exp5_write_from_scratch",
+  "logs_revision": "4d09ba6d6a7e891dd8063974dfe81b3d78e3494f",
+  "minatar_version": "1.0.15",
+  "prompt_sha256": "7468153e679a869f181392ea73fa86e6680a3fc45155f09558f80ddf243c1f50",
+  "adaptations": [
+    "64 episodes per training reward; 256 episodes per validation reward",
+    "Fixed disjoint seed bundles",
+    "Explicit numeric-parser bounds and invalid-submission handling"
+  ]
+}
