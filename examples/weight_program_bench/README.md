@@ -27,20 +27,11 @@ in training games. This split does not establish that every test mechanic is nov
 The task is inspired by [weight-space programming](https://rikiyat.github.io/blog/weight-space-programming/)
 by Rikiya Takehi, Jayden Teoh, Alex Zhang, and Omar Khattab, especially
 [Experiment 5](https://github.com/RikiyaT/lm_understand-logs/tree/4d09ba6d6a7e891dd8063974dfe81b3d78e3494f/exp5_write_from_scratch).
-The expanded training environments and task context come from
-[Trajectory's minatar-synth](https://github.com/Trajectorylabs/minatar-synth/tree/4038830175c4201ca10e004ed4441985f2acddf2).
-Crisp game designs are credited to ABA Games and contributors: 136 conversions cite
-[crisp-game-lib-games](https://github.com/abagames/crisp-game-lib-games/tree/cfb39d2f988feb5918eb83697145b5a35adabf58),
-eight cite [crisp-game-lib-11-games](https://github.com/abagames/crisp-game-lib-11-games/tree/6fea4eefe2deaa42706051d96a04ec9e36104696),
-and 122 cite the [portable C/SDL port](https://github.com/joyrider3774/crisp-game-lib-portable-sdl/tree/04bc2c4cfc2853628eda25a46190bb7ac6fe216a)
-by Joyrider3774 and contributors. The five test games come from
-[MinAtar](https://github.com/kenjyoung/MinAtar) by Kenny Young and Tian Tian.
-
-See [TASK_ORIGINS.json](TASK_ORIGINS.json) for each game's family and source link,
-and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution and license scopes.
-The synthetic source snapshot has no declared upstream license; its redistribution
-terms must be settled before merging this example. The example is self-contained:
-running it does not require access to the private upstream repository.
+The frozen prompts, game sources, attribution, and license notices live in the
+[WeightProgramBench dataset](https://huggingface.co/datasets/neilkale/WeightProgramBench).
+Its dataset card links every conversion to its source and includes the standalone
+numeric verifier. The cookbook retains the small SDK harness; it downloads the pinned
+dataset before building the sandbox image. Rollouts then run without network access.
 
 ## Network and reward
 
@@ -66,18 +57,39 @@ independent language-model samples.
 
 ## Upload and evaluate
 
-Install `trajectory-sdk>=0.10.1`, configure `TRAJECTORY_API_KEY`, and run the following
-from the repository root. Reuse an agent in your organization, or create one for this
-project. Model inference is paid.
+From the repository root, install the SDK and Hugging Face clients, then configure
+`TRAJECTORY_API_KEY`. Private datasets also require a local Hugging Face login.
+Model inference is paid.
+
+```bash
+uv venv .venv
+uv pip install 'trajectory-sdk==0.10.1' huggingface_hub datasets
+.venv/bin/python
+```
+
+Run the Python snippets below in that interpreter. The dataset has `train` and `test` splits. Each row includes the exact prompt and its
+original `task_id`; those IDs select the matching row in the packaged runtime.
+
+```python
+from datasets import load_dataset
+from examples.weight_program_bench.upload import DATASET_REPO_ID, DATASET_REVISION
+
+dataset = load_dataset(DATASET_REPO_ID, revision=DATASET_REVISION)
+print(len(dataset["train"]), len(dataset["test"]))  # 317, 5
+```
+
+Prepare the offline runtime, upload the benchmark, and evaluate one policy per held-out
+game. Reuse an existing agent or create one for this project:
 
 ```python
 from trajectory import Client
 from trajectory.lib import push
-from examples.weight_program_bench.upload import RUNTIME_ROOT, build_spec
+from examples.weight_program_bench.upload import RUNTIME_ROOT, build_spec, prepare_runtime
 
 client = Client()
 organization = client.organizations.retrieve_current()
 agent = client.agents.create(name="weight-program-bench")
+prepare_runtime()  # Downloads the same pinned revision, once before image construction.
 spec = build_spec()
 uploaded = push(client, spec, agent_name=agent.name, root=RUNTIME_ROOT, build_images=True)
 bench_id = uploaded.bench_id
@@ -108,7 +120,7 @@ are distinct from independent evaluation samples. No training starts during uplo
 For an existing agent, the upload-only command is:
 
 ```bash
-uv run --with 'trajectory-sdk>=0.10.1' python examples/weight_program_bench/upload.py --agent-name weight-program-bench
+uv run --with 'trajectory-sdk==0.10.1' --with huggingface_hub python examples/weight_program_bench/upload.py --agent-name weight-program-bench
 ```
 
 Wait for the evaluation, then inspect each task's ending and grade:
@@ -166,10 +178,13 @@ and is not a dollar cap. Other settings use the selected model's platform defaul
 
 ```bash
 uv venv .venv
-uv pip install 'trajectory-sdk==0.10.1' 'numpy==2.3.4'
+uv pip install 'trajectory-sdk==0.10.1' 'numpy==2.3.4' huggingface_hub
 uv pip install --no-deps 'MinAtar==1.0.15'
+.venv/bin/python -c 'from examples.weight_program_bench.upload import prepare_runtime; prepare_runtime()'
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -m unittest discover -s examples/weight_program_bench/tests -v
 ```
 
-The CPU-only image contains the frozen task prompts and game sources. No reference
+The download is cached by Hugging Face; `.runtime/` is an ignored, generated build
+context. The tests use that prepared directory and make no network calls. The CPU-only
+image contains the frozen task prompts and game sources. No reference
 solution, trained weights, internal organization IDs, or runtime secrets are included.

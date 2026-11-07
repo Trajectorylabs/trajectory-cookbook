@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -14,10 +15,15 @@ import httpx2
 import numpy as np
 from trajectory import APIConnectionError
 
-RUNTIME = Path(__file__).resolve().parents[1] / "runtime"
+EXAMPLE = Path(__file__).resolve().parents[1]
+RUNTIME = EXAMPLE / ".runtime"
+if not (RUNTIME / "tasks.jsonl").is_file():
+    raise RuntimeError("Run upload.prepare_runtime() once before these offline tests.")
 sys.path.insert(0, str(RUNTIME))
+sys.path.insert(0, str(EXAMPLE))
 harness = importlib.import_module("harness")
 verify = importlib.import_module("verify")
+upload = importlib.import_module("upload")
 
 TASKS = [
     json.loads(line) for line in (RUNTIME / "tasks.jsonl").read_text().splitlines()
@@ -40,6 +46,37 @@ def make_client(answer=ZERO_POLICY, finish_reason="stop", capture_status="comple
 
 
 class RuntimeTest(unittest.TestCase):
+    def test_prepare_runtime_pins_dataset_and_replaces_old_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "runtime"
+            destination.mkdir()
+            (destination / "stale.py").write_text("old game")
+            snapshot = Path(directory) / "snapshot"
+            snapshot.mkdir()
+            (snapshot / "runtime").symlink_to(RUNTIME, target_is_directory=True)
+            with (
+                patch.object(upload, "RUNTIME_ROOT", destination),
+                patch.object(
+                    upload, "snapshot_download", return_value=str(snapshot)
+                ) as download,
+            ):
+                upload.prepare_runtime()
+                download.assert_called_once_with(
+                    repo_id=upload.DATASET_REPO_ID,
+                    repo_type="dataset",
+                    revision=upload.DATASET_REVISION,
+                    allow_patterns=["runtime/**"],
+                )
+            self.assertFalse((destination / "stale.py").exists())
+            self.assertEqual(
+                (destination / "tasks.jsonl").read_bytes(),
+                (RUNTIME / "tasks.jsonl").read_bytes(),
+            )
+            self.assertEqual(
+                (destination / "harness.py").read_bytes(),
+                (RUNTIME / "harness.py").read_bytes(),
+            )
+
     def test_frozen_roster_prompts_and_source_hashes(self):
         source = json.loads((RUNTIME / "source.json").read_text())
         self.assertEqual(
