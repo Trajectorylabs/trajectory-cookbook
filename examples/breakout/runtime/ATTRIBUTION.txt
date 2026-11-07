@@ -1,0 +1,11 @@
+The prompt is adapted from Experiment 5 in lm_understand-logs by Rikiya Takehi,
+Jayden Teoh, Alex Zhang, and Omar Khattab, licensed CC BY 4.0.
+Source: https://github.com/RikiyaT/lm_understand-logs/tree/4d09ba6d6a7e891dd8063974dfe81b3d78e3494f/exp5_write_from_scratch
+License: https://creativecommons.org/licenses/by/4.0/
+Adaptations: fixed seed bundles, 64 training episodes and 256 validation episodes
+per submission, and explicit numeric-parser bounds and invalid-answer handling.
+
+The prompt includes unchanged MinAtar 1.0.15 Breakout source by Kenny Young and
+Tian Tian, with its original author header. MinAtar is licensed GPL-3.0; see
+LICENSE-MinAtar. Its license continues to apply to that included source.
+Source: https://github.com/kenjyoung/MinAtar
