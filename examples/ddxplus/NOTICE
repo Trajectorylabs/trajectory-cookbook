@@ -1,0 +1,16 @@
+DDXPlus: A New Dataset For Automatic Medical Diagnosis (NeurIPS 2022).
+Dataset authors: Arsene Fansi Tchango, Rishab Goel, Zhi Wen, Julien Martel, Joumana Ghosn.
+Official project: https://mila-iqia.github.io/ddxplus/
+Paper: https://arxiv.org/abs/2205.09148
+English data pinned to Figshare article 22687585, version 2:
+https://figshare.com/articles/dataset/DDXPlus_Dataset_English_/22687585/2
+Data license: Creative Commons Attribution 4.0 International (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/legalcode
+
+Adaptation: selected source CSV rows are converted to JSONL; evidence queries are
+bounded to 15 distinct follow-up questions and expose static released observations.
+The first diagnosis in a submitted ranked list receives exact pathology accuracy.
+This adaptation is not an official DDXPlus evaluation protocol or a clinical system.
+No medical correctness, clinical validity, safety or deployment fitness is claimed.
+Patients are synthetic, generated from a proprietary knowledge base and commercial
+rule-based ASD system, not de-identified records of real patients.
