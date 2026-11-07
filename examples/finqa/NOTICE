@@ -1,0 +1,16 @@
+FinQA public data and evaluator
+Source: https://github.com/czyssrs/FinQA
+Pinned commit: 0f16e2867befa6840783e58be38c9efb9229d742
+Copyright (c) 2021 Zhiyu Chen. MIT notice: packaged SOURCE_LICENSE.
+
+Please cite Chen et al., FinQA: A Dataset of Numerical Reasoning over Financial Data,
+EMNLP 2021, https://arxiv.org/abs/2109.00122.
+
+The upstream evaluator is copied unchanged and verified by SHA-256. This cookbook
+adds bounded report tools, a managed model loop, packaging and reward publication.
+The native execution result comparison is preserved. Tool-enabled results are an
+adaptation and should not be presented as unchanged FinQANet leaderboard results.
+
+Repository MIT licensing does not independently establish rights to every original
+financial report. Preserve source IDs/provenance and assess original document rights
+for your intended use. The cookbook does not redistribute original report PDFs.
