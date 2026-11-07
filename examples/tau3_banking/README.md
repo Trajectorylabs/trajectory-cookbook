@@ -1,5 +1,19 @@
 # Tau 3 Banking
 
+> [!TIP]
+> **Run this example with a coding agent**
+>
+> 1. In the [Trajectory platform](https://platform.trajectory.ai), click **Copy setup prompt**.
+> 2. Paste the prompt into your coding agent of choice (Claude Code, Codex, Vercel, etc.).
+> 3. Then paste this example's GitHub link and ask the agent to run it:
+>
+>    ```text
+>    https://github.com/Trajectorylabs/trajectory-cookbook/tree/main/examples/tau3_banking
+>    ```
+
+<img width="1056" height="425" alt="copy-setup-prompt" src="https://github.com/user-attachments/assets/4dd66ef8-3972-4926-8276-748e1634514a" />
+
+
 ## Dataset
 
 This example packages Sierra's public 97-task Banking benchmark from
