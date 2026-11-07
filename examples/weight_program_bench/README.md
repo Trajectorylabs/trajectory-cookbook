@@ -173,18 +173,3 @@ print(progress.status, progress.completed_steps, progress.total_steps)
 
 The short run demonstrates SDK usage; it is not the 100-update research experiment
 and is not a dollar cap. Other settings use the selected model's platform defaults.
-
-## Local validation
-
-```bash
-uv venv .venv
-uv pip install 'trajectory-sdk==0.10.1' 'numpy==2.3.4' huggingface_hub
-uv pip install --no-deps 'MinAtar==1.0.15'
-.venv/bin/python -c 'from examples.weight_program_bench.upload import prepare_runtime; prepare_runtime()'
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -m unittest discover -s examples/weight_program_bench/tests -v
-```
-
-The download is cached by Hugging Face; `.runtime/` is an ignored, generated build
-context. The tests use that prepared directory and make no network calls. The CPU-only
-image contains the frozen task prompts and game sources. No reference
-solution, trained weights, internal organization IDs, or runtime secrets are included.
