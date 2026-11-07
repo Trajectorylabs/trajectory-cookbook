@@ -18,6 +18,7 @@ from trajectory.lib import DockerfileBuild, start_push, start_task_diagnostic
 from trajectory.lib.platform_links import PlatformLinks
 
 ROOT = Path(__file__).parent
+CURRICULA = json.loads((ROOT / "curricula.json").read_text())
 COMMIT = "427f45075f84b8b9774950196ad63867ca20ffb3"
 OPTIONS = {
     "reasoning_effort": "off",
@@ -26,15 +27,27 @@ OPTIONS = {
 }
 
 
-def package_tasks(data_dir: Path, package_dir: Path) -> list[dict]:
+def package_tasks(
+    data_dir: Path, package_dir: Path, curriculum: str | None = None
+) -> list[dict]:
     if package_dir.exists():
         raise FileExistsError(f"Choose a new package directory: {package_dir}")
     manifest = json.loads((data_dir / "manifest.json").read_text())
-    if manifest["source_commit"] != COMMIT or set(manifest["modules"]) != {
-        "algebra__linear_1d",
-        "polynomials__evaluate",
-    }:
+    declared_curriculum = manifest.get("curriculum", "basic")
+    if declared_curriculum not in CURRICULA:
+        raise ValueError(f"Unknown curriculum: {declared_curriculum}")
+    if curriculum is not None and curriculum != declared_curriculum:
+        raise ValueError("Requested curriculum does not match the prepared manifest")
+    if (
+        manifest["source_commit"] != COMMIT
+        or manifest["modules"] != CURRICULA[declared_curriculum]
+    ):
         raise ValueError("Unexpected source revision or modules")
+    if (
+        declared_curriculum == "composed"
+        and manifest["entity_ordering"] != "stable_description_before_seeded_shuffle_v1"
+    ):
+        raise ValueError("Unexpected composed entity-ordering adapter")
     seen, seeds, rows = set(), set(), []
     for split in ("train", "validation", "test"):
         payload = (data_dir / f"{split}.jsonl").read_bytes()
@@ -104,6 +117,11 @@ def main() -> None:
     )
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--package-dir", type=Path, required=True)
+    parser.add_argument(
+        "--curriculum",
+        choices=tuple(CURRICULA),
+        help="Verify the prepared curriculum; otherwise use its manifest",
+    )
     parser.add_argument("--agent-name")
     parser.add_argument("--name", default="school-math-generated-numeric")
     parser.add_argument("--model", default="Qwen/Qwen3.5-4B")
@@ -112,7 +130,7 @@ def main() -> None:
         parser.error(
             "--agent-name is required for managed actions; create or choose an agent first"
         )
-    rows = package_tasks(args.data_dir, args.package_dir)
+    rows = package_tasks(args.data_dir, args.package_dir, args.curriculum)
     print(f"package_dir={args.package_dir} tasks={len(rows)}", flush=True)
     if args.action == "package":
         return

@@ -8,12 +8,33 @@ import random
 import shutil
 import sys
 from fractions import Fraction
+from functools import partial
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from examples.school_math.prepare import COMMIT, DEPENDENCIES, SOURCE
+from examples.school_math.prepare import COMMIT, CURRICULA, DEPENDENCIES, SOURCE
 
-MODULES = ("algebra__linear_1d", "polynomials__evaluate")
+ENTITY_ORDERING = "stable_description_before_seeded_shuffle_v1"
+
+
+def stable_expand_entities(context, entity_class, **kwargs):
+    """Adapt DeepMind expand_entities to remove object-address ordering before shuffle."""
+    kwargs = kwargs.copy()
+    entities = set(context.child_entities)
+    for key, maybe_entity in kwargs.items():
+        if isinstance(maybe_entity, entity_class):
+            entities.add(maybe_entity)
+            kwargs[key] = maybe_entity.handle
+    entities = sorted(
+        entities, key=lambda entity: (entity.child_description, entity._description)
+    )
+    random.shuffle(entities)
+    descriptions = []
+    for entity in entities:
+        descriptions.append(entity.child_description)
+        if not entity.expression_used:
+            descriptions.append(entity.description)
+    return " ".join(description for description in descriptions if description), kwargs
 
 
 def atomic_text(path: Path, content: str) -> None:
@@ -26,7 +47,11 @@ def atomic_text(path: Path, content: str) -> None:
 
 
 def generate(
-    source_dir: Path, output_dir: Path, counts: dict[str, int], seed: int
+    source_dir: Path,
+    output_dir: Path,
+    counts: dict[str, int],
+    seed: int,
+    curriculum: str = "basic",
 ) -> dict:
     if any(count < 1 for count in counts.values()) or seed < 0:
         raise ValueError("Counts must be positive and seed nonnegative")
@@ -34,9 +59,18 @@ def generate(
         raise ValueError(
             "Run via prepare.py so Python's hash seed is fixed at process startup"
         )
+    if curriculum not in CURRICULA:
+        raise ValueError(f"Unknown curriculum: {curriculum}")
+    modules = CURRICULA[curriculum]
     sys.path.insert(0, str(source_dir))
     import numpy as np
     from mathematics_dataset.modules import algebra, polynomials
+    from mathematics_dataset.util import composition
+
+    if curriculum == "composed":
+        composition.expand_entities = partial(
+            stable_expand_entities, entity_class=composition.Entity
+        )
 
     factories = {
         "train": {
@@ -56,14 +90,18 @@ def generate(
             "generator_dependencies": list(DEPENDENCIES),
             "seed": seed,
             "python_hash_seed": 0,
-            "modules": MODULES,
+            "curriculum": curriculum,
+            "entity_ordering": ENTITY_ORDERING
+            if curriculum == "composed"
+            else "upstream",
+            "modules": modules,
             "partitions": {},
         },
     )
     for split, count in counts.items():
         rows = []
         for index in range(count):
-            module = MODULES[index % len(MODULES)]
+            module = modules[index % len(modules)]
             category, name = module.split("__")
             accepted = False
             for attempt in range(100):
@@ -125,6 +163,7 @@ def main() -> None:
     parser.add_argument("--validation-count", type=int, required=True)
     parser.add_argument("--test-count", type=int, required=True)
     parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--curriculum", choices=tuple(CURRICULA), default="basic")
     args = parser.parse_args()
     generate(
         args.source_dir,
@@ -135,6 +174,7 @@ def main() -> None:
             "test": args.test_count,
         },
         args.seed,
+        args.curriculum,
     )
 
 

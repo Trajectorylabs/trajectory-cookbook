@@ -1,0 +1,12 @@
+{
+  "basic": [
+    "algebra__linear_1d",
+    "polynomials__evaluate"
+  ],
+  "composed": [
+    "algebra__linear_1d_composed",
+    "polynomials__evaluate_composed",
+    "algebra__linear_2d",
+    "algebra__linear_2d_composed"
+  ]
+}

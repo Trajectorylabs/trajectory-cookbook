@@ -1,12 +1,14 @@
 """Fetch the pinned generator and create reproducible numeric school-math tasks."""
 
 import argparse
+import json
 import os
 import subprocess
 from pathlib import Path
 
 COMMIT = "427f45075f84b8b9774950196ad63867ca20ffb3"
 SOURCE = "https://github.com/google-deepmind/mathematics_dataset.git"
+CURRICULA = json.loads(Path(__file__).with_name("curricula.json").read_text())
 DEPENDENCIES = (
     "numpy==1.26.4",
     "sympy==1.5.1",
@@ -35,6 +37,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-dir", type=Path)
+    parser.add_argument("--curriculum", choices=tuple(CURRICULA), default="basic")
     parser.add_argument("--train-count", type=int, default=64)
     parser.add_argument("--validation-count", type=int, default=16)
     parser.add_argument("--test-count", type=int, default=16)
@@ -67,6 +70,8 @@ def main() -> None:
             str(args.test_count),
             "--seed",
             str(args.seed),
+            "--curriculum",
+            args.curriculum,
         ]
     )
     subprocess.run(

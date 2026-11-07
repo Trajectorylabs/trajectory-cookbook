@@ -4,14 +4,28 @@ Build an agent that turns a math question into arithmetic steps, checks calculat
 with a tool, and submits an exact answer. Generated school-math questions supply
 the starting tasks for this problem-solving workflow.
 
-- **Input:** a linear equation or polynomial-evaluation question.
+- **Input:** a linear equation, a small system of equations or a polynomial-evaluation question.
 - **Agent workflow:** derive arithmetic steps → use the calculator → submit a final number.
 - **Training objective:** exact numeric correctness, including equivalent fractions and decimals.
 
 This recipe uses DeepMind's
 [Mathematics Dataset generator](https://github.com/google-deepmind/mathematics_dataset/tree/427f45075f84b8b9774950196ad63867ca20ffb3)
-for linear equations in one unknown and polynomial evaluation. These are different
+for linear equations and polynomial evaluation. These are different
 tasks from the cookbook's GSM8K word problems.
+
+Two curricula share the same arithmetic tools and exact numeric grader:
+
+- `basic` (default): linear equations in one unknown and polynomial evaluation.
+  Use this to verify the complete workflow.
+- `composed`: composed linear equations, composed polynomial evaluation, and
+  two-variable linear systems with or without composition. These require more
+  reasoning steps while retaining one numeric final answer. Use this preset when
+  the basic baseline is already perfect and offers no reward variation.
+
+In the initial basic-preset pilot, the base model and first trained checkpoint
+both answered all 32 held-out attempts correctly. That verifies execution but
+does not demonstrate a training improvement. The composed preset is an additional
+starting point for learning validation; improvement has not yet been established.
 
 The default dataset contains 64 training, 16 offline validation and 16 held-out test
 questions. Each partition has its own deterministic generation seeds; normalized
@@ -48,6 +62,20 @@ uv run --no-project --python .venv/bin/python python examples/school_math/prepar
   --output-dir /tmp/school-math-data
 ```
 
+For the harder preset, prepare a separate frozen dataset:
+
+```bash
+uv run --no-project --python .venv/bin/python python examples/school_math/prepare.py \
+  --output-dir /tmp/school-math-composed-data --curriculum composed --seed 20261107
+```
+
+Use that directory in every subsequent package, diagnostic and upload command.
+Pass `--curriculum composed` to `ingest.py` if you want an explicit consistency
+check; otherwise ingestion uses the curriculum declared in the manifest. Choose a
+separate spec name such as `--name school-math-composed-numeric` so its learning
+results remain distinct from the basic workflow check. The exact module presets
+are recorded in `curricula.json`; arbitrary module mixtures are rejected.
+
 This clones the pinned upstream commit into a sibling directory and runs generation
 in a separate uv environment. Generator dependencies are pinned in `prepare.py`;
 they do not replace your SDK environment's packages. The historical SymPy generator
@@ -56,11 +84,15 @@ clean checkout can be supplied with `--source-dir`. Generation fails if its comm
 or tracked files differ from the pin. Choose a new output directory on every run.
 
 The subprocess fixes `PYTHONHASHSEED=0` as well as Python and NumPy random seeds;
-the upstream generator uses hash-dependent symbol ordering. Two separate default
-generation runs were checked for identical partition bytes and manifests.
+the upstream generator uses hash-dependent symbol ordering. Composed generation
+also sorts entity descriptions before the upstream seeded shuffle, because its
+identity-hashed entity set otherwise changes independent statement order between
+processes. This attributed adapter changes presentation order, not mathematical
+generators or reference answers, and its version appears in the manifest. Both
+presets were checked in separate processes for identical partition bytes.
 
 The result includes `train.jsonl`, `validation.jsonl`, `test.jsonl`, the upstream
-Apache 2.0 license, and a manifest with source revision, seeds, modules, counts and
+Apache 2.0 license, and a manifest with source revision, curriculum, seeds, modules, counts and
 file checksums. Default seed: `20261106`. Increase `--train-count`,
 `--validation-count` and `--test-count` before freezing an experiment. Do not select
 test questions after seeing model scores. Generated data stays outside the repo.
@@ -152,12 +184,24 @@ three-step example, not a training run launched by this recipe:
 training = client.training.create(
     bench_id=bench_id,
     base_model_slug=model,
-    options={**options, "num_steps": 3, "batch_size": 2, "group_size": 4},
+    options={
+        **options,
+        "num_steps": 3,
+        "batch_size": 1,
+        "group_size": 4,
+        "min_trajectories_per_group": 2,
+        "learning_rate": 1e-5,
+        "val_enabled": False,
+        "train_on_truncation": False,
+        "train_on_error": False,
+        "train_on_timeout": False,
+    },
 )
 print(training.training_run_id, links.training(training.training_run_id))
 ```
 
-This targets at least 24 usable training trajectories, but retries, groups with
+This targets three optimizer updates using one mixed-reward group per update,
+with at least two eligible trajectories per group. Retries, groups with
 no reward variation and evaluation can increase attempts. Watch attempted,
 graded and unfinished trajectories as well as optimizer steps; cancel if your
 planned budget is exceeded. Uniformly easy problems may provide no training
@@ -189,13 +233,18 @@ uv run --no-project --python .venv/bin/python pytest examples/school_math/tests 
 uv run --no-project --python .venv/bin/python ruff check examples/school_math
 ```
 
-The tests cover exact/wrong numeric answers, bounded arithmetic, tool responses,
+The tests cover both curriculum contracts, exact/wrong numeric answers, bounded arithmetic, tool responses,
 private-answer isolation, malformed tool JSON, model errors, token/turn cutoff,
 split boundaries and altered data. `runtime/NOTICE` records the Apache 2.0 source
 attribution and the changes from the published benchmark.
 
-Development validation on 2026-11-06: 31 local tests pass. A managed
+Development validation on 2026-11-06: 39 local tests pass. Two fresh composed
+generations and two fresh basic generations matched byte-for-byte within each
+preset. A managed
 `Qwen/Qwen3.5-4B` diagnostic on the first frozen training question completed in
 three actor turns with `ENV_DONE` and reward 1. The actor recovered from a rejected
 calculator expression, calculated the answer and submitted it. This is one runtime
-smoke check; no training or held-out performance claim is made.
+smoke check. The basic preset scored 32/32 before and after one optimizer update
+from a bounded 162-attempt training pilot; it had no held-out headroom to show a gain.
+The composed preset is being evaluated separately, with a fresh baseline and a
+three-step pilot at learning rate 1e-5. No composed learning result is established yet.
