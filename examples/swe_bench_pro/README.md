@@ -1,5 +1,19 @@
 # SWE-Bench Pro
 
+> [!TIP]
+> **Run this example with a coding agent**
+>
+> 1. In the [Trajectory platform](https://platform.trajectory.ai), click **Copy setup prompt**.
+> 2. Paste the prompt into your coding agent of choice (Claude Code, Codex, Vercel, etc.).
+> 3. Then paste this example's GitHub link and ask the agent to run it:
+>
+>    ```text
+>    https://github.com/Trajectorylabs/trajectory-cookbook/tree/main/examples/swe_bench_pro
+>    ```
+
+<img width="1056" height="425" alt="copy-setup-prompt" src="https://github.com/user-attachments/assets/d717afbc-ae1f-40f0-8ff4-2c5572a0048d" />
+
+
 ## Dataset
 
 [SWE-Bench Pro](https://github.com/scaleapi/SWE-bench_Pro-os) is Scale AI's benchmark of
