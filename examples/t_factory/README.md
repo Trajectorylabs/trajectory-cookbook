@@ -1,5 +1,19 @@
 # T Factory
 
+> [!TIP]
+> **Run this example with a coding agent**
+>
+> 1. In the [Trajectory platform](https://platform.trajectory.ai), click **Copy setup prompt**.
+> 2. Paste the prompt into your coding agent of choice (Claude Code, Codex, Vercel, etc.).
+> 3. Then paste this example's GitHub link and ask the agent to run it:
+>
+>    ```text
+>    https://github.com/Trajectorylabs/trajectory-cookbook/tree/main/examples/t_factory
+>    ```
+
+<img width="1056" height="425" alt="copy-setup-prompt" src="https://github.com/user-attachments/assets/94540b9b-5623-45d5-9b4a-6676e5c13c46" />
+
+
 ## Dataset
 
 The uploader uses ordinary questions, split into 128 training and 64 held-out test tasks.
