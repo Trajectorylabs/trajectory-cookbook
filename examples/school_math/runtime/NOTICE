@@ -1,0 +1,10 @@
+This recipe generates questions using DeepMind's Mathematics Dataset, pinned at
+427f45075f84b8b9774950196ad63867ca20ffb3, under the Apache License 2.0.
+Source: https://github.com/google-deepmind/mathematics_dataset
+Copyright 2018-2019 DeepMind Technologies Limited.
+LICENSE-DeepMind is copied from that source during data preparation.
+
+This is a generated, numeric-answer adaptation using algebra__linear_1d and
+polynomials__evaluate. It is not the complete published Mathematics Dataset, an
+official test set, or a reproduction of published benchmark scores. The recipe
+uses exact rational equivalence, rather than the paper's answer-string metric.
