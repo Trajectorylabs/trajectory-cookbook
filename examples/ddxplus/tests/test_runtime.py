@@ -91,6 +91,7 @@ def test_static_values_dependencies_defaults_and_multichoice():
     assert state.ask({"evidence_id": "color"}) == {
         "error": "Ask parent evidence first",
         "parent_evidence_id": "rash",
+        "remaining_questions": 15,
     }
     assert state.ask({"evidence_id": "rash"})["values"] == [True]
     assert state.ask({"evidence_id": "color"})["values"] == ["red"]
@@ -100,7 +101,8 @@ def test_static_values_dependencies_defaults_and_multichoice():
     assert state.ask({"evidence_id": "sites"})["values"] == ["arm", "leg"]
     assert len(state.questions) == 5
     assert state.ask({"evidence_id": "../../tasks.jsonl"}) == {
-        "error": "Unknown evidence_id"
+        "error": "Unknown evidence_id",
+        "remaining_questions": 10,
     }
 
 
@@ -116,6 +118,7 @@ def test_inactive_parent_returns_metadata_default_without_inventing_symptoms():
         "values": ["none"],
         "meanings": ["none"],
         "not_applicable": True,
+        "remaining_questions": 13,
     }
 
 
@@ -141,9 +144,21 @@ def test_prompt_exposes_only_initial_observation_and_public_catalog():
         (["condition_a"], 1),
         (["condition_b", "condition_a"], 0),
         ([], 0),
-        (["condition_a", "condition_a"], 0),
+        (["condition_a", "condition_a"], 1),
         (["unknown"], 0),
         ([{}], 0),
+        (["condition_a", "unknown"], 1),
+        (
+            [
+                "condition_a",
+                "condition_b",
+                "condition_a",
+                "condition_b",
+                "condition_a",
+                "condition_b",
+            ],
+            1,
+        ),
     ],
 )
 def test_only_valid_top_one_earns_reward(conditions, score):
@@ -232,7 +247,37 @@ def test_budget_never_reveals_extra_evidence(monkeypatch):
     state = interview()
     state.ask({"evidence_id": "rash"})
     assert state.ask({"evidence_id": "color"}) == {
-        "error": "Question budget exhausted; submit your differential"
+        "error": "Question budget exhausted; submit your differential",
+        "remaining_questions": 0,
     }
     assert "color" not in state.revealed
     assert state.ask({"evidence_id": "rash"})["values"] == [True]
+
+
+def test_schema_enums_match_public_catalogs_and_are_not_shared_mutably():
+    state = interview()
+    tools = state.tools()
+    assert tools[0]["function"]["parameters"]["properties"]["evidence_id"][
+        "enum"
+    ] == list(state.evidences)
+    assert (
+        tools[1]["function"]["parameters"]["properties"]["conditions"]["items"]["enum"]
+        == state.conditions
+    )
+    tools[0]["function"]["parameters"]["properties"]["evidence_id"]["enum"].append(
+        "private_key"
+    )
+    assert (
+        "private_key"
+        not in interview().tools()[0]["function"]["parameters"]["properties"][
+            "evidence_id"
+        ]["enum"]
+    )
+
+
+def test_primary_accuracy_is_independent_of_invalid_secondary_differential():
+    metrics = interview().grade({"conditions": ["condition_a", "outside_catalog"]})
+    assert metrics["accuracy"] == 1.0
+    assert metrics["valid_primary"] is True
+    assert metrics["differential_valid"] is False
+    assert metrics["differential_recall"] == 0.0

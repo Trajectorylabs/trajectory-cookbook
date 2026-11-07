@@ -9,7 +9,9 @@ https://creativecommons.org/licenses/by/4.0/legalcode
 
 Adaptation: selected source CSV rows are converted to JSONL; evidence queries are
 bounded to 15 distinct follow-up questions and expose static released observations.
-The first diagnosis in a submitted ranked list receives exact pathology accuracy.
+Recipe v2 optionally restricts selection and the actor catalog to a fixed six-condition
+curriculum. The first canonical diagnosis receives exact pathology accuracy independently
+of secondary differential validity. Full49 source metadata is preserved.
 This adaptation is not an official DDXPlus evaluation protocol or a clinical system.
 No medical correctness, clinical validity, safety or deployment fitness is claimed.
 Patients are synthetic, generated from a proprietary knowledge base and commercial

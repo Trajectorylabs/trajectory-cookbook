@@ -2,6 +2,7 @@
 
 import argparse
 import json
+from copy import deepcopy
 from pathlib import Path
 
 from trajectory import Client
@@ -90,7 +91,22 @@ class Interview:
             ],
         }
 
+    def tools(self) -> list[dict]:
+        tools = deepcopy(TOOLS)
+        tools[0]["function"]["parameters"]["properties"]["evidence_id"]["enum"] = list(
+            self.evidences
+        )
+        schema = tools[1]["function"]["parameters"]["properties"]["conditions"]
+        schema["items"]["enum"] = self.conditions
+        schema["uniqueItems"] = True
+        return tools
+
     def ask(self, arguments: dict) -> dict:
+        result = self.ask_evidence(arguments)
+        result["remaining_questions"] = QUESTION_LIMIT - len(self.questions)
+        return result
+
+    def ask_evidence(self, arguments: dict) -> dict:
         if set(arguments) != {"evidence_id"} or not isinstance(
             arguments["evidence_id"], str
         ):
@@ -160,23 +176,26 @@ class Interview:
             isinstance(item, str) and item in self.conditions for item in ranked
         )
         valid = valid and len(set(ranked)) == len(ranked)
-        if not valid:
-            return {
-                "accuracy": 0.0,
-                "valid_submission": False,
-                "questions": len(self.questions),
-                "differential_recall": 0.0,
-            }
+        valid_primary = (
+            isinstance(ranked, list)
+            and len(ranked) > 0
+            and isinstance(ranked[0], str)
+            and ranked[0] in self.conditions
+        )
         expected = {
             label
             for label, probability in self.patient["differential"]
             if probability > 0
         }
         return {
-            "accuracy": float(ranked[0] == self.patient["pathology"]),
-            "valid_submission": True,
+            "accuracy": float(valid_primary and ranked[0] == self.patient["pathology"]),
+            "valid_primary": bool(valid_primary),
+            "valid_submission": bool(valid),
+            "differential_valid": bool(valid),
             "questions": len(self.questions),
-            "differential_recall": len(set(ranked) & expected) / len(expected),
+            "differential_recall": len(set(ranked) & expected) / len(expected)
+            if valid
+            else 0.0,
         }
 
 
@@ -194,7 +213,7 @@ def run_turns(interview: Interview, client: Client, tid: str) -> None:
         response = client.chat.completions.create(
             model="ddxplus-policy",
             messages=messages,
-            extra_body={"tools": TOOLS},
+            extra_body={"tools": interview.tools()},
             max_tokens=512,
             x_trajectory_id=tid,
         )
@@ -257,7 +276,7 @@ def main() -> None:
             if (row := json.loads(line))["task_id"] == args.task_id
         )
         evidences = json.loads((root / "release_evidences.json").read_text())
-        conditions = list(json.loads((root / "release_conditions.json").read_text()))
+        conditions = json.loads((root / "actor_conditions.json").read_text())
         interview = Interview(task["patient"], evidences, conditions)
     except Exception:
         client.trajectories.complete(tid, termination_reason="ERROR")

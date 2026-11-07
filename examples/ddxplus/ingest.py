@@ -34,6 +34,20 @@ def package_tasks(data_dir: Path, package_dir: Path) -> list[dict]:
         != "https://figshare.com/articles/dataset/DDXPlus_Dataset_English_/22687585/2"
     ):
         raise ValueError("Expected pinned official English DDXPlus v2 data")
+    if manifest.get("schema_version") != 2:
+        raise ValueError(
+            "DDXPlus recipe v2 requires re-preparing data with schema_version 2"
+        )
+    actor_conditions = json.loads((data_dir / "actor_conditions.json").read_text())
+    official_conditions = json.loads((data_dir / "release_conditions.json").read_text())
+    if (
+        actor_conditions != manifest["actor_conditions"]
+        or not actor_conditions
+        or not set(actor_conditions) <= set(official_conditions)
+    ):
+        raise ValueError(
+            "Actor catalog must match the manifest and official condition metadata"
+        )
     for name, expected in manifest["selected_sha256"].items():
         if hashlib.sha256((data_dir / name).read_bytes()).hexdigest() != expected:
             raise ValueError(f"Prepared data changed: {name}")
@@ -47,7 +61,18 @@ def package_tasks(data_dir: Path, package_dir: Path) -> list[dict]:
         ]
         if len(split_rows) != manifest["counts"][split] or not split_rows:
             raise ValueError("Manifest counts do not match data")
+        if manifest["mode"] == "common-six":
+            actual_counts = {
+                name: sum(row["patient"]["pathology"] == name for row in split_rows)
+                for name in actor_conditions
+            }
+            if set(actual_counts.values()) != {manifest["per_condition"][split]}:
+                raise ValueError(
+                    "Curriculum must cover every actor condition with its fixed quota"
+                )
         for row in split_rows:
+            if row["patient"]["pathology"] not in actor_conditions:
+                raise ValueError("Patient pathology outside actor condition catalog")
             if (
                 row["split"] != split
                 or row["task_id"] != f"{split}-row-{row['source_row_index']}"
@@ -73,6 +98,7 @@ def package_tasks(data_dir: Path, package_dir: Path) -> list[dict]:
     for name in ("Dockerfile", "ddxplus_harness.py"):
         atomic_copy(ROOT / "runtime" / name, package_dir / name)
     for name in (
+        "actor_conditions.json",
         "release_evidences.json",
         "release_conditions.json",
         "source_manifest.json",
@@ -99,7 +125,7 @@ def atomic_copy(source: Path, target: Path) -> None:
 def build_benchmark(rows: list[dict], name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
-        description="DDXPlus English v2 synthetic static-evidence interview adaptation; deterministic top-1 pathology accuracy. Research only.",
+        description="DDXPlus recipe v2 English synthetic closed-catalog static-evidence interview adaptation; deterministic top-1 pathology accuracy. Research only.",
         runtime=DockerfileBuild("Dockerfile"),
         tasks=[
             TaskSpec(
@@ -120,7 +146,7 @@ def main() -> None:
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--package-dir", type=Path, required=True)
     parser.add_argument("--agent-name")
-    parser.add_argument("--name", default="ddxplus-static-interview-v1")
+    parser.add_argument("--name", default="ddxplus-common-six-v2")
     parser.add_argument("--model", default="Qwen/Qwen3.5-4B")
     args = parser.parse_args()
     if args.action != "package" and not args.agent_name:

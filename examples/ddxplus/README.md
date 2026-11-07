@@ -14,20 +14,33 @@ This is a static synthetic-patient research exercise: the agent asks questions o
 released patient profiles, with no LLM patient simulator. It does not establish
 clinical validity or fitness for medical use.
 
-The default smoke subset contains 24 training patients and 12 held-out test patients;
-8 native validation patients stay offline. The preparer preserves official source
-splits. The CSV has no patient-ID field, so identities use native split plus zero-based
-CSV row index (`train-row-0`), with a hash of the canonical JSON of its CSV fields. Consecutive-row
-subsets make setup reproducible; they are not representative performance estimates.
+The default **common-six curriculum** is a small closed-set starter: URTI, GERD,
+Cluster headache, Panic attack, Pneumonia and Anemia. It selects four patients per
+condition from the native training split (24 total), and two per condition from each
+native validation and test split (12 each). Validation remains offline. The actor
+always sees this same six-condition catalog; it never gets patient-specific candidate
+labels. The full source metadata with all 49 conditions stays unchanged.
 
-The agent receives age, sex, initial evidence, an evidence-question catalog and the
-49 condition names. `ask_evidence(evidence_id)` reveals the corresponding released
-binary, categorical or multi-choice response. `submit_differential(conditions)`
-finishes with one to five distinct condition names, ranked most likely first.
-The only reward is exact top-1 pathology accuracy (1 or 0). Differential recall and
-number of distinct follow-up questions are recorded in the reward explanation;
-they do not change the reward. This ranked-list adaptation does not reproduce the
-paper's probabilistic differential metric or its full evaluation protocol.
+The agent receives age, sex, initial evidence and the complete evidence-question
+catalog. `ask_evidence(evidence_id)` reveals the corresponding released binary,
+categorical or multi-choice response and remaining question budget. Tool schemas
+list exactly the allowed evidence IDs and condition names. `submit_differential(conditions)`
+finishes with up to five ranked condition names.
+
+The only reward is **exact top-1 pathology accuracy** (1 or 0). A valid first canonical
+diagnosis earns its accuracy independently of invalid secondary labels, duplicates,
+or an oversized differential. Differential validity, source differential recall and
+question count are recorded separately in the reward explanation; they never change
+the reward. Source differential recall uses the original full-49 differential, so it
+can be below 1 even for a complete five-item list. This adaptation does not reproduce
+the paper's probabilistic differential metric or its full protocol.
+
+The CSV has no patient-ID field. Identities preserve native split plus zero-based CSV
+row index (`train-row-26`), with a hash of the canonical JSON of its CSV fields.
+Selection takes the first matching rows for each fixed condition quota after the
+chosen native split offset. Defaults start at train row 24, validation row 8 and test
+row 12 to exclude the original v1 smoke subset. This balanced synthetic starter is
+not a full-49 benchmark or a representative clinical performance estimate.
 
 Only the text prompt and these two tools reach the actor. The private patient
 profile, gold pathology and source differential remain in the harness; there are
@@ -58,7 +71,9 @@ agent = client.agents.create(
 ```bash
 uv run python examples/ddxplus/prepare_dataset.py \
   --output-dir /tmp/ddxplus-data --cache-dir /tmp/ddxplus-cache \
-  --train-count 24 --validation-count 8 --test-count 12
+  --mode common-six \
+  --train-per-condition 4 --validation-per-condition 2 --test-per-condition 2 \
+  --train-offset 24 --validation-offset 8 --test-offset 12
 
 uv run --with trajectory-sdk==0.10.13 python examples/ddxplus/ingest.py \
   --action package --data-dir /tmp/ddxplus-data \
@@ -73,11 +88,18 @@ SHA-256 hashes, pinned file IDs, selection counts, row hashes and prepared-file 
 are recorded in `source_manifest.json`. Output directories must be new. You can copy
 already downloaded official files into the cache using their release filenames.
 
-Use `--offset` and larger counts to select more source rows. Retain a fixed test set
-for comparisons and keep native validation offline for development. Packaging checks
-prepared-file hashes, source split/row identities, and exact duplicate clinical
-profiles across the selection. It rejects duplicates rather than moving patients
-between splits. Do not train on the test or validation rows.
+The default selection rule and catalog are frozen before evaluation. Adjust per-condition
+quotas to expand training without moving source patients between splits. Packaging
+checks prepared-file hashes, balanced condition coverage, split/row identities and
+exact duplicate clinical profiles across the selection. Do not train on test or
+validation rows. Recipe schema version 2 requires newly prepared data; old registered
+v1 specs and results remain unchanged.
+
+For an experimental full-49 smoke integration, use `--mode full49` with
+`--train-count 24 --validation-count 12 --test-count 12` and the desired per-split offsets.
+Give its upload a distinct `--name ddxplus-full49-v2`. This mode
+uses consecutive rows and the full 49-name actor catalog. It is harder and its small
+unbalanced sample is not the recommended first learning exercise.
 
 ## Diagnose with one task
 
@@ -115,7 +137,8 @@ for task in report.tasks:
 ```
 
 Check the actual question/answer turns and final submission. A completed `ENV_DONE`
-with accuracy 0 is a valid wrong or semantically invalid submission. Missing
+with accuracy 0 is a valid wrong or invalid primary diagnosis. Invalid secondary
+labels are recorded separately and do not erase a correct primary diagnosis. Missing
 submission, token/turn limits and cut-off calls are `TRUNCATION` with no native grade;
 model-service, malformed tool protocol, inconsistent source profile or grader failures
 are `ERROR`, also ungraded. An image build alone does not validate the agent loop.
@@ -162,10 +185,15 @@ training = client.training.create(
     options={
         **OPTIONS,
         "num_steps": 3,
-        "batch_size": 4,
+        "batch_size": 1,
+        "min_trajectories_per_group": 2,
         "group_size": 4,
+        "learning_rate": 1e-5,
         "max_concurrent_trajectories": 8,
         "val_enabled": False,
+        "train_on_truncation": False,
+        "train_on_error": False,
+        "train_on_timeout": False,
     },
 )
 print(links.training(training.training_run_id))
@@ -174,7 +202,8 @@ print(links.training(training.training_run_id))
 Training uses only registered `train` tasks. Keep truncated/error trajectories excluded
 and inspect graded rollouts and optimizer steps. Compare a completed checkpoint with
 the same held-out benchmark version, generation settings and grader before claiming
-improvement. No training was launched while developing this recipe.
+improvement. The revised curriculum has no established learning result yet; do not
+infer improvement from a successful diagnostic or checkpoint creation.
 
 ## Evidence semantics and verification
 
@@ -199,14 +228,27 @@ Run local checks:
 uv run --with trajectory-sdk==0.10.13 --with pytest python -m pytest examples/ddxplus/tests -q
 ```
 
-Development validation on 2026-11-06: 23 local tests pass, covering package split
-isolation, profile checks, and evidence/scoring/protocol behavior. All five official
-release MD5 checksums were verified during real-source preparation of 24/8/12 rows.
-A managed `Qwen/Qwen3.5-4B`
-diagnostic on the first training patient asked 15 distinct questions, then completed
-with `ENV_DONE` and reward 0. Its differential included unknown condition names and
-was correctly marked invalid. The tool loop and grader ran; this does not establish
-diagnostic quality, training improvement or held-out performance.
+Locally verified: all five official release MD5 checksums, real-source preparation of
+24/12/12 balanced curriculum rows, package split isolation and duplicate checks, and
+static evidence, independent primary accuracy, enum allowlists, budget, protocol/error
+and truncation tests. Managed v2 results are reported separately; this guide does not
+claim v2 model improvement.
+
+### What the original v1 pilot taught us
+
+The original 49-label, consecutive-row smoke pilot completed 24 held-out attempts:
+21 ended `ENV_DONE` and three were truncated. Its original joint list-validity scorer
+reported zero reward; one first diagnosis was correct but lost credit due to invalid
+secondary labels. Twelve of the 21 final differentials were invalid (nine contained
+unknown labels; three exceeded the list limit). Nine of the 12 held-out patients had
+gold labels missing from the tiny selected training subset.
+
+A bounded v1 training pilot was stopped after 100 attempts and zero optimizer updates:
+78 normal endings, 16 truncations and six cancellations; only three normal trajectories
+earned positive reward. This showed the initial smoke recipe was a poor small-model
+learning starter. V2 adds a fixed narrower curriculum, enum schemas, budget feedback
+and independent primary scoring. Keep v1 and v2 results separate; their task selections
+and scorer behavior differ.
 
 See [NOTICE](NOTICE) for attribution, [the official schema](https://github.com/mila-iqia/ddxplus#dataset-documentation)
 and the [paper](https://arxiv.org/abs/2205.09148). Dataset license: CC BY 4.0.
