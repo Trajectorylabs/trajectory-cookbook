@@ -180,8 +180,17 @@ checks the actual SDK upload file inventory against every Dockerfile `COPY` inpu
 Development validation on 2026-11-06: a managed `Qwen/Qwen3.5-4B` diagnostic on the
 first selected training question searched the report, submitted structured comparison
 steps and completed with `ENV_DONE` and execution accuracy 1. This checks one packaged
-agent/grader path; held-out performance and training improvement remain unverified.
+agent/grader path.
 Structured steps avoid requiring the actor to construct native punctuation tokens.
+
+A small Qwen3.5-4B pilot did not improve: 7/32 held-out attempts were correct before
+training, versus 2/32 afterward. Training stopped at 162 attempts with three optimizer
+updates and learning rate 1e-4. Before evaluation had 27 native grades and five
+truncations; after had 17 native grades, 14 truncations and one error. The platform
+after mean was 2/31 because it excluded the error; 2/32 is end-to-end success over
+all attempts, not a fabricated grade for that error. These results do not establish
+this configuration as a useful training starter. Inspect truncation, reward variation
+and held-out performance before increasing the budget.
 
 The cookbook adds calculator bounds: 16 operations, numeric literals no larger than 1e15,
 and exponents in [-20, 20], including computed exponents. It uses native valid-program
