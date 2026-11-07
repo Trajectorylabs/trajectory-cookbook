@@ -1,5 +1,19 @@
 # GSM8K
 
+> [!TIP]
+> **Run this example with a coding agent**
+>
+> 1. In the [Trajectory platform](https://platform.trajectory.ai), click **Copy setup prompt**.
+> 2. Paste the prompt into your coding agent of choice (Claude Code, Codex, Vercel, etc.).
+> 3. Then paste this example's GitHub link and ask the agent to run it:
+>
+>    ```text
+>    https://github.com/Trajectorylabs/trajectory-cookbook/tree/main/examples/gsm8k
+>    ```
+
+<img width="1056" height="425" alt="copy-setup-prompt" src="https://github.com/user-attachments/assets/0462cc90-daa1-42e4-be76-2770fbbe05c9" />
+
+
 Evaluate and train a model to solve grade-school math problems from
 [GSM8K dataset](https://github.com/openai/grade-school-math/tree/3101c7d5072418e28b9008a6636bde82a006892c)
 with Trajectory. This walkthrough takes you from running one problem to uploading a benchmark
