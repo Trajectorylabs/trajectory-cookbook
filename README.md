@@ -24,6 +24,7 @@ Feedback requires your authorization.
 | Benchmark | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
+| [Writing Agent](examples/writing_agent/README.md) | Draft from new notes or essay passages using current voice examples; quality gates and author calibration before training. Development-tested; author preference pending. |
 | [Harvey LAB](examples/harvey_labs/README.md) | Legal research tasks with the source harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | Multi-turn banking tasks with the upstream simulator and evaluator. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
