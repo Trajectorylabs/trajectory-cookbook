@@ -1,7 +1,15 @@
-# FinQA report agent
+# Financial document analyst agent (FinQA)
 
-Train a financial report agent to search report text/tables and execute arithmetic with
-[FinQA](https://github.com/czyssrs/FinQA). This example selects 64 official training questions
+Build an agent that answers financial questions by finding evidence in a report
+and calculating from its tables and text. FinQA supplies the starting tasks and
+reference answers for this document-analysis workflow.
+
+- **Input:** a financial question and the corresponding report.
+- **Agent workflow:** search for evidence → read relevant text or tables → calculate → submit.
+- **Training objective:** correct executed answers, scored with FinQA's native evaluator.
+
+This example selects 64 official training questions from
+[FinQA](https://github.com/czyssrs/FinQA)
 and 16 official **public-test** questions; the complete official dev split stays offline.
 It preserves source question IDs and upstream execution accuracy. This is a tool-enabled
 adaptation, so compare its results with the same harness rather than the original closed
