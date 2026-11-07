@@ -1,5 +1,19 @@
 # Terminal-Bench 4.0
 
+> [!TIP]
+> **Run this example with a coding agent**
+>
+> 1. In the [Trajectory platform](https://platform.trajectory.ai), click **Copy setup prompt**.
+> 2. Paste the prompt into your coding agent of choice (Claude Code, Codex, Vercel, etc.).
+> 3. Then paste this example's GitHub link and ask the agent to run it:
+>
+>    ```text
+>    https://github.com/Trajectorylabs/trajectory-cookbook/tree/main/examples/terminal_bench_4
+>    ```
+
+<img width="1056" height="425" alt="copy-setup-prompt" src="https://github.com/user-attachments/assets/c5c03c36-e07d-4789-a05e-5aa4a59159a8" />
+
+
 ## Dataset
 
 [Terminal-Bench 4.0](https://github.com/harbor-framework/terminal-bench/tree/v4.0.0)
