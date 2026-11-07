@@ -1,9 +1,15 @@
-# Writing Agent
+# Personal writing agent
 
-Turn new rough drafts or messy notes into posts that still sound like you.
-Collect past posts as voice examples, then supply ideas you actually want to post
-now. Preserve your wording and style while improving the new draft. Build a
-training dataset from those new inputs and your accepted edits.
+Build an agent that drafts new short posts in an author's voice, using past writing
+as context and the author's current notes as the task. Your own writing and accepted
+edits supply the dataset for this drafting workflow.
+
+- **Input:** new notes or an essay passage, voice examples, and writing constraints.
+- **Agent workflow:** draft from new material → check meaning and style → collect author ratings.
+- **Training objective:** drafts the author would accept; calibrate the automated quality proxy against author ratings before training.
+
+Preserve the author's wording and style while improving new drafts. Build training
+tasks from those new inputs and the author's accepted edits.
 
 This follows the cookbook's diagnostic → upload → baseline → training → comparison
 flow. Browser collection, managed image build, diagnosis, ingestion, training and
