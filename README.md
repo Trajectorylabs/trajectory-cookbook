@@ -24,6 +24,7 @@ Feedback requires your authorization.
 | Benchmark | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
+| [WeightProgramBench](examples/weight_program_bench/README.md) | Write neural-network weights across 317 training games; evaluate on five held-out MinAtar games. |
 | [Harvey LAB](examples/harvey_labs/README.md) | Legal research tasks with the source harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | Multi-turn banking tasks with the upstream simulator and evaluator. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
