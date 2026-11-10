@@ -57,8 +57,6 @@ def build_spec() -> BenchmarkSpec:
                 env_resources={
                     "cpus": 2,
                     "memory_mb": 2048,
-                    "gpus": 0,
-                    "network_mode": "no-network",
                 },
                 tags=["weight-programming"],
             )
