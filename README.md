@@ -25,8 +25,10 @@ Feedback requires your authorization.
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
 | [BFCL Multi-Turn](examples/bfcl_multi_turn/README.md) | Multi-turn tool calling graded by BFCL's checker; 640 training and 160 held-out entries. |
+| [FinQA Single-Turn](examples/finqa_single_turn/README.md) | Financial-report questions answered as FinQA programs and graded by FinQA's evaluator. |
 | [Harvey LAB](examples/harvey_labs/README.md) | Legal research tasks with the source harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | Multi-turn banking tasks with the upstream simulator and evaluator. |
+| [Tau 2 Retail and Airline](examples/tau2_retail_airline/README.md) | Diagnose one task, upload the source's 104 training and 60 held-out tasks, evaluate, and train. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
 | [Terminal-Bench 4.0](examples/terminal_bench_4/README.md) | Evaluation-only tasks using Harbor’s environment and verifier. |
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
