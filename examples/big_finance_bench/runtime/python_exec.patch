@@ -1,0 +1,13 @@
+--- a/big_finance_harness/tools/python_exec.py
++++ b/big_finance_harness/tools/python_exec.py
+@@ -44,6 +44,10 @@
+             "-I",  # isolated mode: ignore PYTHON* env vars and user site-packages
+             "-c",
+             code,
++            user="nobody",
++            group="nogroup",
++            extra_groups=[],
++            env={},
+             stdout=asyncio.subprocess.PIPE,
+             stderr=asyncio.subprocess.PIPE,
+         )
