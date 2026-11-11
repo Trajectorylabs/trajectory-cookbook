@@ -24,6 +24,7 @@ Feedback requires your authorization.
 | Benchmark | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
+| [BFCL Multi-Turn](examples/bfcl_multi_turn/README.md) | Multi-turn tool calling graded by BFCL's checker; 640 training and 160 held-out entries. |
 | [FinQA Single-Turn](examples/finqa_single_turn/README.md) | Financial-report questions answered as FinQA programs and graded by FinQA's evaluator. |
 | [Harvey LAB](examples/harvey_labs/README.md) | Legal research tasks with the source harness, native judge, and nested Podman. |
 | [Tau 3 Banking](examples/tau3_banking/README.md) | Multi-turn banking tasks with the upstream simulator and evaluator. |
