@@ -2,7 +2,7 @@
 
 Examples for evaluating and training agents with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/). Each example packages a task harness
-and grader, uploads a benchmark, and shows how to launch runs. Use **trajectory-sdk 0.10.1
+and grader, uploads a benchmark, and shows how to launch runs. Use **trajectory-sdk 0.10.13
 or newer** and run commands from this repository’s root.
 
 **Start with [GSM8K](examples/gsm8k/README.md):** create an agent, diagnose one math problem,
@@ -21,7 +21,11 @@ Feedback requires your authorization.
 
 ## Examples
 
-| Benchmark | What it shows |
+Choose a recipe for the job you want your agent to do. Each example makes its
+input, interaction workflow and grading rule explicit; the dataset supplies the
+starting tasks. Several recipes share a tool-using reasoning loop.
+
+| Agent recipe | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
 | [BFCL Multi-Turn](examples/bfcl_multi_turn/README.md) | Multi-turn tool calling graded by BFCL's checker; 640 training and 160 held-out entries. |
@@ -32,6 +36,7 @@ Feedback requires your authorization.
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
 | [Terminal-Bench 4.0](examples/terminal_bench_4/README.md) | Evaluation-only tasks using Harbor’s environment and verifier. |
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
+| [Personal writing agent](examples/writing_agent/README.md) | Draft from new notes or essay passages using current voice examples; quality gates and author calibration before training. Development-tested; author preference pending. |
 
 For SDK adapter details, see the guides for [source graders](https://docs.trajectory.ai/guides/source-graders),
 [Inspect](https://docs.trajectory.ai/guides/inspect), [diagnostics](https://docs.trajectory.ai/guides/spec#validate-one-task-before-uploading),
