@@ -31,6 +31,7 @@ Feedback requires your authorization.
 | [Tau 2 Retail and Airline](examples/tau2_retail_airline/README.md) | Diagnose one task, upload the source's 104 training and 60 held-out tasks, evaluate, and train. |
 | [SWE-Bench Pro](examples/swe_bench_pro/README.md) | A bash-tool coding agent in an offline container, graded on a fresh one. |
 | [Terminal-Bench 4.0](examples/terminal_bench_4/README.md) | Evaluation-only tasks using Harbor’s environment and verifier. |
+| [ExtractBench](examples/extractbench/README.md) | Official PDF extraction tasks through Harbor, with the native Value F1 verifier. |
 | [T Factory](examples/t_factory/README.md) | Start with one task, then evaluate and train against a toy reward. |
 
 For SDK adapter details, see the guides for [source graders](https://docs.trajectory.ai/guides/source-graders),
