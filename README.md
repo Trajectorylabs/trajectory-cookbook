@@ -1,6 +1,6 @@
 # Trajectory Cookbook
 
-Examples for evaluating and training agents with the
+Examples for evaluating and training agents on [Trajectory](https://www.trajectory.ai/) with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/). Each example packages a task harness
 and grader, uploads a benchmark, and shows how to launch runs. Use **trajectory-sdk 0.10.1
 or newer** and run commands from this repository’s root.
