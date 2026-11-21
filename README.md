@@ -53,3 +53,18 @@ source evaluator before scaling up.
 
 Cookbook-authored code is Apache 2.0; see [LICENSE](LICENSE). External benchmarks and
 datasets retain their source licenses, linked from their example READMEs.
+
+## Development checks
+
+```bash
+uvx ruff@0.14.14 check .
+./scripts/test.sh
+```
+
+CI runs these same commands. The test script installs the locked Harvey source, applies the
+runtime overlay, and runs its unit tests without Docker or provider credentials. Its installed
+packages use copy mode so applying the overlay leaves uv's shared cache intact. Pass pytest
+arguments after the script, such as `./scripts/test.sh -k judge`.
+The [container check](examples/harvey_labs/README.md) validates the full runtime image.
+The test runner fetches only the pinned upstream library and packaging files with sparse
+checkout, leaving its large task data and Git history out of the local test environment.
