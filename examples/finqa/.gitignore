@@ -1,0 +1,5 @@
+.source/
+data/
+package/
+.pytest_cache/
+.ruff_cache/
