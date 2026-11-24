@@ -51,11 +51,13 @@ client.secrets.create(name="ANTHROPIC_API_KEY", value="YOUR_ANTHROPIC_API_KEY")
 client.secrets.create(name="OPENAI_API_KEY", value="YOUR_OPENAI_API_KEY")
 ```
 
-Then upload the benchmark:
+Upload the benchmark using the agent ID from your setup prompt:
 
 ```bash
-uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME
+uv run examples/harvey_labs/ingest.py --agent-id YOUR_AGENT_ID
 ```
+
+If you have the agent's name, you can use `--agent-name YOUR_AGENT_NAME` instead.
 
 The uploader prints the benchmark ID and waits for the runtime image, which downloads
 the 3 GB pinned source archive. Image readiness does not establish that inference or
@@ -66,7 +68,7 @@ For a single-judge OpenRouter override, register `OPENAI_API_KEY` with that cred
 and use this command instead:
 
 ```bash
-uv run examples/harvey_labs/ingest.py --agent-name YOUR_AGENT_NAME \
+uv run examples/harvey_labs/ingest.py --agent-id YOUR_AGENT_ID \
   --judges openai/gpt-6-luna
 ```
 
