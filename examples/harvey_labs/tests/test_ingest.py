@@ -1,5 +1,8 @@
 import importlib.util
+import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import create_autospec
 
 import pytest
 
@@ -7,6 +10,51 @@ EXAMPLE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("ingest", EXAMPLE / "ingest.py")
 ingest = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ingest)
+
+
+@pytest.mark.parametrize(
+    ("flag", "target", "agent_id", "agent_name"),
+    [
+        ("--agent-id", "agt_test", "agt_test", None),
+        ("--agent-name", "test-agent", None, "test-agent"),
+    ],
+)
+def test_cli_uploads_to_the_selected_agent(
+    monkeypatch, flag, target, agent_id, agent_name
+):
+    client_factory = create_autospec(ingest.Client)
+    client = client_factory.return_value.__enter__.return_value
+    upload = create_autospec(
+        ingest.push, return_value=SimpleNamespace(bench_id="bmk_test")
+    )
+    wait = create_autospec(ingest.wait_for_benchmark_images)
+    monkeypatch.setattr(ingest, "Client", client_factory)
+    monkeypatch.setattr(ingest, "push", upload)
+    monkeypatch.setattr(ingest, "wait_for_benchmark_images", wait)
+    monkeypatch.setattr(sys, "argv", ["ingest.py", flag, target])
+
+    ingest.main()
+
+    upload.assert_called_once()
+    assert upload.call_args.args[0] is client
+    assert upload.call_args.kwargs["agent_id"] == agent_id
+    assert upload.call_args.kwargs["agent_name"] == agent_name
+    wait.assert_called_once_with(client, "bmk_test", timeout_seconds=3600)
+
+
+@pytest.mark.parametrize(
+    "flags", [[], ["--agent-id", "agt_test", "--agent-name", "test-agent"]]
+)
+def test_cli_requires_exactly_one_agent_selector(monkeypatch, flags):
+    client_factory = create_autospec(ingest.Client)
+    monkeypatch.setattr(ingest, "Client", client_factory)
+    monkeypatch.setattr(sys, "argv", ["ingest.py", *flags])
+
+    with pytest.raises(SystemExit) as error:
+        ingest.main()
+
+    assert error.value.code == 2
+    client_factory.assert_not_called()
 
 
 def test_default_judges_are_the_standard_pair_with_both_keys():

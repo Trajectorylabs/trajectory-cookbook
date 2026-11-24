@@ -88,13 +88,16 @@ def build_benchmark(
 
 def ingest(
     name: str,
-    agent_name: str,
+    agent_name: str | None = None,
     judges: tuple[str, ...] = JUDGES,
     judge_base_url: str | None = None,
+    agent_id: str | None = None,
 ) -> str:
     benchmark = build_benchmark(name, judges, judge_base_url)
     with Client() as client:
-        result = push(client, benchmark, agent_name=agent_name, root=ROOT)
+        result = push(
+            client, benchmark, agent_id=agent_id, agent_name=agent_name, root=ROOT
+        )
         print(f"bench_id={result.bench_id}", flush=True)
         wait_for_benchmark_images(client, result.bench_id, timeout_seconds=60 * 60)
         return result.bench_id
@@ -102,7 +105,9 @@ def ingest(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-name", required=True)
+    agent = parser.add_mutually_exclusive_group(required=True)
+    agent.add_argument("--agent-id", help="Agent ID from the Trajectory setup prompt")
+    agent.add_argument("--agent-name", help="Name of an existing agent")
     parser.add_argument("--name", default="harvey-lab-public-podman")
     parser.add_argument(
         "--judges",
@@ -116,7 +121,13 @@ def main() -> None:
         help="OpenAI-compatible endpoint for the judge (OPENAI_BASE_URL)",
     )
     args = parser.parse_args()
-    ingest(args.name, args.agent_name, tuple(args.judges), args.judge_base_url)
+    ingest(
+        args.name,
+        agent_name=args.agent_name,
+        judges=tuple(args.judges),
+        judge_base_url=args.judge_base_url,
+        agent_id=args.agent_id,
+    )
 
 
 if __name__ == "__main__":
