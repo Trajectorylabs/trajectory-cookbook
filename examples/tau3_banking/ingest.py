@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.11.4"]
 # ///
 """Ingest the pinned public Tau 3 Banking tasks and build their SDK runtime."""
 
@@ -26,7 +26,7 @@ from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
 ROOT = Path(__file__).parent
 
 
-def build_benchmark(
+def build_spec(
     name: str, user_judge_model: str = USER_AND_JUDGE_MODEL
 ) -> BenchmarkSpec:
     api_secret = (
@@ -77,12 +77,12 @@ def build_benchmark(
     )
 
 
-def ingest(name: str, agent_name: str, user_judge_model: str) -> str:
+def ingest(name: str, project_name: str, user_judge_model: str) -> str:
     with Client() as client:
         result = push(
             client,
-            build_benchmark(name, user_judge_model),
-            agent_name=agent_name,
+            build_spec(name, user_judge_model),
+            agent_name=project_name,
             root=ROOT,
         )
         print(f"bench_id={result.bench_id}", flush=True)
@@ -92,11 +92,11 @@ def ingest(name: str, agent_name: str, user_judge_model: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-name", required=True)
+    parser.add_argument("--project-name", required=True)
     parser.add_argument("--name", default="tau3-banking-trajectory-sdk")
     parser.add_argument("--user-judge-model", default=USER_AND_JUDGE_MODEL)
     args = parser.parse_args()
-    ingest(args.name, args.agent_name, args.user_judge_model)
+    ingest(args.name, args.project_name, args.user_judge_model)
 
 
 if __name__ == "__main__":

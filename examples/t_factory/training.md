@@ -12,18 +12,18 @@ Run these commands from the repository root with `TRAJECTORY_API_KEY` set.
 
 ## Upload and validate
 
-The benchmark contains 128 training tasks and 64 held-out test tasks.
-[Choose or create an agent](https://docs.trajectory.ai/agent). For a new agent:
+The spec contains 128 training tasks and 64 held-out test tasks.
+[Choose or create a project](https://docs.trajectory.ai/projects). For a new project:
 
 ```bash
 uv run --with trajectory-sdk python -c \
-  'from trajectory import Client; Client().agents.create(name="t-factory-cookbook")'
+  'from trajectory import Client; Client().projects.create(name="t-factory-cookbook")'
 ```
 
-Upload using its name. The script builds the runtime image, then runs a benchmark diagnostic:
+Upload using its name. The script builds the runtime image, then runs a spec diagnostic:
 
 ```bash
-uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
+uv run examples/t_factory/ingest.py --project-name "t-factory-cookbook"
 ```
 
 The diagnostic runs up to 10 tasks on Qwen 3.5 4B with the settings training uses and prints
@@ -32,18 +32,18 @@ otherwise the script prints each task failure and exits with an error.
 
 ## Evaluate and train
 
-Replace `YOUR_BENCH_ID` with the printed `bench_id`, then run the baseline evaluation alongside
+Replace `YOUR_SPEC_ID` with the printed `bench_id`, then run the baseline evaluation alongside
 training, and the final evaluation after it:
 
 ```bash
-uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID
+uv run examples/t_factory/train.py --spec-id YOUR_SPEC_ID
 ```
 
 Training runs 10 steps on Qwen 3.5 4B with `reasoning_effort` off, four task groups per step,
 and the model's default `group_size` of eight attempts per group. The command prints the
 `training_run_id`, then `baseline_reward`, `final_reward`, `reward_delta`, how many held-out tasks
 recorded a reward in both evaluations, and the reply whose reward rose most, before and after
-training. It takes about 20 minutes. The agent's
+training. It takes about 20 minutes. The project's
 **Train** and **Compare** tabs show the same runs.
 
 Ten steps is enough for the model to fill most replies with T-starting words. Past that, most
@@ -60,7 +60,7 @@ if you changed the default 10 training steps:
 from trajectory import Client
 
 client = Client()
-checkpoint = client.training.checkpoints.retrieve("YOUR_TRAINING_RUN_ID", step_index=10)
+checkpoint = client.rl.checkpoints.retrieve("YOUR_TRAINING_RUN_ID", step_index=10)
 deployment = client.deployments.create(
     checkpoint_id=checkpoint.checkpoint_id,
     test_model_slug="t-factory-trained-test",
@@ -102,7 +102,7 @@ cut_off = choice.finish_reason in ("length", "max_tokens")
 client.trajectories.complete(tid, termination_reason="TRUNCATION" if cut_off else "ENV_DONE")
 ```
 
-To serve it on the agent's production model slug, promote it as the
+To serve it on the project's production model slug, promote it as the
 [deployment guide](https://docs.trajectory.ai/guides/deployments) describes.
 
 ## Observed results

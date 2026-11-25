@@ -16,7 +16,7 @@
 
 Evaluate and train a customer-service agent on the retail and airline domains of
 [tau2-bench v1.0.1](https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992)
-with Trajectory. This walkthrough takes you from running one task to uploading a benchmark
+with Trajectory. This walkthrough takes you from running one task to uploading a spec
 and starting evaluation and training runs. The upload uses the source's train/test split:
 104 training and 60 held-out tasks (retail 74/40, airline 30/20).
 
@@ -40,7 +40,7 @@ export OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
 uv run --with trajectory-sdk --upgrade-package trajectory-sdk python
 ```
 
-Create the agent that will own this benchmark and its runs:
+Create the project that will own this spec and its runs:
 
 ```python
 import trajectory
@@ -48,7 +48,7 @@ from trajectory.lib.platform_links import PlatformLinks
 
 client = trajectory.Client()
 links = PlatformLinks.from_client(client)
-agent = client.agents.create(
+project = client.projects.create(
     name="tau2-retail-airline-cookbook",
     description="Tau 2 retail and airline evaluation and training",
 )
@@ -69,7 +69,7 @@ the `OPENAI_API_KEY` entry with it and set `TAU2_USER_JUDGE_MODEL` to
 
 ## Diagnose with one task
 
-Try the first retail task before uploading the full benchmark. This diagnostic builds the image
+Try the first retail task before uploading the full spec. This diagnostic builds the image
 and starts the harness with `retail 0`, which selects task `0` of the retail domain. Use the
 report below to check whether the task ran, how it ended, and what reward it received:
 
@@ -151,11 +151,11 @@ Task: completed | Ending: ENV_DONE | Reward: 1.0
 A reward of `0.0` can also be a valid result: it means the evaluator found the task unsolved.
 Check any reported failures before continuing.
 
-## Upload benchmark
+## Upload spec
 
 Read the source's train/test split for each domain at the pinned commit. Each `TaskSpec` selects
 one task by domain and ID, and all tasks share the runtime. The upload returns a `bench_id`
-that identifies this benchmark version; use it for the runs below:
+that identifies this spec version; use it for the runs below:
 
 ```python
 import json
@@ -182,7 +182,7 @@ for domain in ("retail", "airline"):
             )
             tasks.append(task)
 
-benchmark = trajectory.BenchmarkSpec(
+spec = trajectory.BenchmarkSpec(
     name="tau2-retail-airline-trajectory-sdk",
     description="Pinned tau2-bench retail and airline tasks with the upstream evaluator.",
     runtime=trajectory.lib.DockerfileBuild("Dockerfile"),
@@ -191,20 +191,20 @@ benchmark = trajectory.BenchmarkSpec(
 
 result = trajectory.lib.push(
     client,
-    benchmark,
+    spec,
     agent_name="tau2-retail-airline-cookbook",
     root=Path("examples/tau2_retail_airline/runtime"),
     build_images=True,
 )
 bench_id = result.bench_id
-print("Benchmark:", bench_id)
+print("Spec:", bench_id)
 print("Tasks:", result.task_count)
 ```
 
-Sample output; the benchmark ID will differ for your upload:
+Sample output; the spec ID will differ for your upload:
 
 ```text
-Benchmark: bm_<benchmark-id>
+Spec: bm_<spec-id>
 Tasks: 164
 ```
 
@@ -246,7 +246,7 @@ Train the same model on the training split for three steps. Training produces ch
 that you can evaluate on the same held-out tasks:
 
 ```python
-training = client.training.create(
+training = client.rl.train(
     bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options={
@@ -262,7 +262,7 @@ print("Training:", training.training_run_id, links.training(training.training_ru
 Fetch the training run to check its current status:
 
 ```python
-run = client.training.runs.retrieve(training.training_run_id)
+run = client.rl.runs.retrieve(training.training_run_id)
 print("Status:", run.status)
 ```
 
@@ -275,7 +275,7 @@ Status: running
 Fetch the mean training reward for each policy step—the same series shown in the product:
 
 ```python
-rewards = client.training.rewards.list_history(training.training_run_id)
+rewards = client.rl.rewards.list_history(training.training_run_id)
 for reward in rewards:
     print(f"Step {reward.step}: {reward.avg_reward:.2f}")
 ```

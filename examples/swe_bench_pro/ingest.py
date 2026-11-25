@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.11.4"]
 # ///
 """Upload SWE-Bench Pro V2 tasks with a fixed train/test split, then run a diagnostic."""
 
@@ -36,7 +36,7 @@ RUN_OPTIONS = {
     "max_output_tokens_per_trajectory": 262_144,
     "trajectory_timeout_seconds": 9_000,
 }
-BENCHMARK_NAME = "swe-bench-pro"
+SPEC_NAME = "swe-bench-pro"
 RUNTIME_ROOT = Path(__file__).parent / "runtime"
 BUILD_TIMEOUT_SECONDS = 45 * 60
 
@@ -142,7 +142,7 @@ def task_spec(instance_id: str, split: str) -> TaskSpec:
     )
 
 
-def build_benchmark(
+def build_spec(
     instance_ids: list[str], name: str, train_tasks: int | None, test_tasks: int | None
 ) -> BenchmarkSpec:
     splits = split_tasks(instance_ids)
@@ -160,19 +160,19 @@ def build_benchmark(
 
 
 def ingest(
-    agent_name: str, name: str, train_tasks: int | None, test_tasks: int | None
+    project_name: str, name: str, train_tasks: int | None, test_tasks: int | None
 ) -> str:
     with tempfile.TemporaryDirectory() as workspace:
         upstream = download_upstream(Path(workspace))
         context = Path(workspace) / "context"
         context.mkdir()
-        benchmark = build_benchmark(
+        spec = build_spec(
             stage_runtime(upstream, context), name, train_tasks, test_tasks
         )
         operation = start_push(
-            Client(), benchmark, agent_name=agent_name, root=context, build_images=True
+            Client(), spec, agent_name=project_name, root=context, build_images=True
         )
-        print(f"operation_id={operation.id} tasks={len(benchmark.tasks)}", flush=True)
+        print(f"operation_id={operation.id} tasks={len(spec.tasks)}", flush=True)
         try:
             result = operation.result(timeout=BUILD_TIMEOUT_SECONDS)
         except BenchmarkOperationError as error:
@@ -183,7 +183,7 @@ def ingest(
     return result.status.bench_id
 
 
-def benchmark_diagnostic(bench_id: str) -> None:
+def spec_diagnostic(bench_id: str) -> None:
     client = Client()
     diagnostic_id = client.diagnostics.start_benchmark(
         bench_id=bench_id, base_model_slug=MODEL, options=RUN_OPTIONS
@@ -218,8 +218,8 @@ def benchmark_diagnostic(bench_id: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-name", required=True)
-    parser.add_argument("--name", default=BENCHMARK_NAME)
+    parser.add_argument("--project-name", required=True)
+    parser.add_argument("--name", default=SPEC_NAME)
     parser.add_argument(
         "--train-tasks", type=int, help="Upload only the first N training tasks."
     )
@@ -227,8 +227,8 @@ def main() -> None:
         "--test-tasks", type=int, help="Upload only the first N test tasks."
     )
     args = parser.parse_args()
-    bench_id = ingest(args.agent_name, args.name, args.train_tasks, args.test_tasks)
-    benchmark_diagnostic(bench_id)
+    bench_id = ingest(args.project_name, args.name, args.train_tasks, args.test_tasks)
+    spec_diagnostic(bench_id)
 
 
 if __name__ == "__main__":

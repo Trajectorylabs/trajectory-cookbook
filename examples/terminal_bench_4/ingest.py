@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.11.4"]
 # ///
 """Upload pinned Terminal-Bench 4.0 tasks and run a diagnostic."""
 
@@ -165,7 +165,7 @@ def diagnose(bench_id: str, timeout: int | None) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-name", required=True)
+    parser.add_argument("--project-name", required=True)
     parser.add_argument("--task", action="append", metavar="NAME")
     parser.add_argument(
         "--agent-timeout",
@@ -181,7 +181,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as workspace:
         context, spec = stage(Path(workspace), tasks, args.agent_timeout)
         operation = start_push(
-            Client(), spec, agent_name=args.agent_name, root=context, build_images=True
+            Client(), spec, agent_name=args.project_name, root=context, build_images=True
         )
         print(f"operation_id={operation.id} tasks={len(tasks)}", flush=True)
         result = operation.result(timeout=2700)

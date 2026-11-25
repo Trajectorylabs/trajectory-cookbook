@@ -87,12 +87,12 @@ Success means a reward is recorded (including zero) and `status` is `completed`,
 
 ## Ingestion
 
-After the one-task check, create an agent and upload the benchmark from the repository root:
+After the one-task check, create a project and upload the spec from the repository root:
 
 ```bash
 uv run --with trajectory-sdk python -c \
-  'from trajectory import Client; Client().agents.create(name="t-factory-cookbook")'
-uv run examples/t_factory/ingest.py --agent-name "t-factory-cookbook"
+  'from trajectory import Client; Client().projects.create(name="t-factory-cookbook")'
+uv run examples/t_factory/ingest.py --project-name "t-factory-cookbook"
 ```
 
 The uploader builds the runtime and diagnoses up to 10 tasks. It fails if a task does not
@@ -100,14 +100,14 @@ complete with a recorded reward. See [upload and validation details](training.md
 
 ## Evaluation
 
-Use the printed benchmark ID with [`train.py`](train.py). It starts the Qwen 3.5 4B
+Use the printed spec ID with [`train.py`](train.py). It starts the Qwen 3.5 4B
 baseline evaluation alongside training, then evaluates the final checkpoint on the
 same held-out tasks after training succeeds.
 
 ## Training
 
 ```bash
-uv run examples/t_factory/train.py --bench-id YOUR_BENCH_ID
+uv run examples/t_factory/train.py --spec-id YOUR_SPEC_ID
 ```
 
 The script trains for 10 steps and prints the baseline, final, and delta rewards. The
