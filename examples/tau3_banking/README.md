@@ -44,15 +44,28 @@ never included in the image or upload.
 ```sh
 uv run --with trajectory-sdk python -c \
   'import os; from trajectory import Client; Client().secrets.create(name="OPENAI_API_KEY", value=os.environ["OPENAI_API_KEY"])'
-uv run examples/tau3_banking/ingest.py --project-name YOUR_PROJECT_NAME
+uv run examples/tau3_banking/ingest.py --project-id YOUR_PROJECT_ID
 ```
+
+You can also use `--project-name YOUR_PROJECT_NAME`.
 
 To use an OpenRouter customer and judge model, register `OPENROUTER_API_KEY` instead and pass
 `--user-judge-model openrouter/MODEL` when ingesting. The native GPT-5.4 Mini medium setting
 remains the default.
 
-Ingestion waits for a new runtime build. Follow the
-[spec diagnostic guidance](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec)
+By default, ingestion starts the runtime image build and waits for it. Add `--upload-only`
+to upload the spec and print its ID without building images.
+
+```sh
+uv run examples/tau3_banking/ingest.py --project-id YOUR_PROJECT_ID --upload-only
+```
+
+Pass the printed `bench_id` to `client.specs.images.build(spec_id)` when you're ready
+to start the build. Poll `client.specs.images.list(spec_id)` until the images finish
+building, iterating through the results to read every page. Check
+`client.specs.retrieve_readiness(spec_id)` before launching a run.
+
+Follow the [spec diagnostic guidance](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec)
 to execute a subset before training,
 with the model and options you will evaluate with, such as
 `base_model_slug="Qwen/Qwen3.6-35B-A3B"` and the sampling options below. Without them, a
