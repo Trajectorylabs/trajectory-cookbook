@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["trajectory-sdk>=0.11.4"]
 # ///
-"""Ingest the pinned public Tau 3 Banking tasks and build their SDK runtime."""
+"""Upload the pinned Tau 3 Banking tasks and optionally build their runtime images."""
 
 import argparse
 from pathlib import Path
@@ -77,26 +77,52 @@ def build_spec(
     )
 
 
-def ingest(name: str, project_name: str, user_judge_model: str) -> str:
+def ingest(
+    name: str,
+    project_name: str | None,
+    user_judge_model: str,
+    *,
+    project_id: str | None = None,
+    upload_only: bool = False,
+) -> str:
     with Client() as client:
         result = push(
             client,
             build_spec(name, user_judge_model),
+            agent_id=project_id,
             agent_name=project_name,
             root=ROOT,
+            build_images=False,
         )
         print(f"bench_id={result.bench_id}", flush=True)
-        wait_for_benchmark_images(client, result.bench_id, timeout_seconds=45 * 60)
+        if not upload_only:
+            # The SDK helper starts the builds before polling.
+            wait_for_benchmark_images(client, result.bench_id, timeout_seconds=45 * 60)
         return result.bench_id
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--project-name", required=True)
+    project = parser.add_mutually_exclusive_group(required=True)
+    project.add_argument(
+        "--project-id", help="Project ID from the Trajectory setup prompt"
+    )
+    project.add_argument("--project-name", help="Name of an existing project")
+    parser.add_argument(
+        "--upload-only",
+        action="store_true",
+        help="Upload the spec without building images",
+    )
     parser.add_argument("--name", default="tau3-banking-trajectory-sdk")
     parser.add_argument("--user-judge-model", default=USER_AND_JUDGE_MODEL)
     args = parser.parse_args()
-    ingest(args.name, args.project_name, args.user_judge_model)
+    ingest(
+        args.name,
+        args.project_name,
+        args.user_judge_model,
+        project_id=args.project_id,
+        upload_only=args.upload_only,
+    )
 
 
 if __name__ == "__main__":
