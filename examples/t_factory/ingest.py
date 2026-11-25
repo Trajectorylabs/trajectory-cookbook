@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.11.4"]
 # ///
 """Ingest the prompted T-starting-word task for evaluation and training."""
 
@@ -68,7 +68,7 @@ def build_dataset() -> dict[str, list[str]]:
     }
 
 
-def build_benchmark(name: str) -> BenchmarkSpec:
+def build_spec(name: str) -> BenchmarkSpec:
     return BenchmarkSpec(
         name=name,
         description="Respond normally while maximizing the fraction of T-starting words.",
@@ -87,14 +87,14 @@ def build_benchmark(name: str) -> BenchmarkSpec:
     )
 
 
-def ingest(client: Client, name: str, agent_name: str, skip_build: bool) -> str:
+def ingest(client: Client, name: str, project_name: str, skip_build: bool) -> str:
     result = push(
         client,
-        build_benchmark(name),
-        agent_name=agent_name,
+        build_spec(name),
+        agent_name=project_name,
         root=_ROOT,
     )
-    print(f"agent_name={agent_name}", flush=True)
+    print(f"project_name={project_name}", flush=True)
     print(f"bench_id={result.bench_id}", flush=True)
     if not skip_build:
         wait_for_benchmark_images(
@@ -105,7 +105,7 @@ def ingest(client: Client, name: str, agent_name: str, skip_build: bool) -> str:
     return result.bench_id
 
 
-def benchmark_diagnostic(client: Client, bench_id: str) -> None:
+def spec_diagnostic(client: Client, bench_id: str) -> None:
     # Run the uploaded harness on a sample of tasks before evaluation or training.
     diagnostic = client.diagnostics.start_benchmark(
         bench_id=bench_id, base_model_slug=_MODEL, options=_RUN_OPTIONS
@@ -151,14 +151,14 @@ def benchmark_diagnostic(client: Client, bench_id: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-name", required=True)
+    parser.add_argument("--project-name", required=True)
     parser.add_argument("--name", default="t-factory")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
     client = Client(max_retries=20)
-    bench_id = ingest(client, args.name, args.agent_name, args.skip_build)
+    bench_id = ingest(client, args.name, args.project_name, args.skip_build)
     if not args.skip_build:
-        benchmark_diagnostic(client, bench_id)
+        spec_diagnostic(client, bench_id)
     return 0
 
 

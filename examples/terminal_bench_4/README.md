@@ -36,14 +36,14 @@ API key. The task runtime needs nested Docker, as in the
 
 ```sh
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
-uv run --with 'trajectory-sdk>=0.10.1' python -c \
-  'from trajectory import Client; Client().agents.create(name="terminal-bench-4", description="Terminal-Bench 4.0 evaluation")'
-uv run examples/terminal_bench_4/ingest.py --agent-name terminal-bench-4 --agent-timeout 300
+uv run --with 'trajectory-sdk>=0.11.4' python -c \
+  'from trajectory import Client; Client().projects.create(name="terminal-bench-4", description="Terminal-Bench 4.0 evaluation")'
+uv run examples/terminal_bench_4/ingest.py --project-name terminal-bench-4 --agent-timeout 300
 ```
 
 The command fetches the pinned upstream task, omits its `solution/` and `cheat/` files,
 uploads it, waits for the image, and runs a diagnostic with Qwen 3.6 35B A3B. It prints
-the benchmark and diagnostic IDs. A reward of zero is a valid grade; a missing grade or
+the spec and diagnostic IDs. A reward of zero is a valid grade; a missing grade or
 failed task is not. The `--agent-timeout 300` flag caps the source's eight-hour agent
 deadline for this smoke check, so its score is not comparable to Terminal-Bench's
 leaderboard.
@@ -60,7 +60,7 @@ To evaluate the same uploaded version, use the printed `bench_id`:
 from trajectory import Client
 
 run = Client().evals.create(
-    bench_id="YOUR_BENCH_ID",
+    bench_id="YOUR_SPEC_ID",
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options={
         "reasoning_effort": "on",

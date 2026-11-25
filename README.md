@@ -2,11 +2,11 @@
 
 Examples for evaluating and training agents on [Trajectory](https://www.trajectory.ai/) with the
 [Trajectory SDK](https://pypi.org/project/trajectory-sdk/). Each example packages a task harness
-and grader, uploads a benchmark, and shows how to launch runs. Use **trajectory-sdk 0.10.1
+and grader, uploads it as a spec, and shows how to launch runs. Use **trajectory-sdk 0.11.4
 or newer** and run commands from this repository’s root.
 
-**Start with [GSM8K](examples/gsm8k/README.md):** create an agent, diagnose one math problem,
-upload the benchmark, evaluate a model, and launch training. The walkthrough includes SDK
+**Start with [GSM8K](examples/gsm8k/README.md):** create a project, diagnose one math problem,
+upload the spec, evaluate a model, and launch training. The walkthrough includes SDK
 snippets for fetching evaluation scores and the training reward history shown in the product.
 
 For a smaller introduction to responses, rewards, and trajectory completion, try
@@ -21,7 +21,7 @@ Feedback requires your authorization.
 
 ## Examples
 
-| Benchmark | What it shows |
+| Example | What it shows |
 | --- | --- |
 | [GSM8K](examples/gsm8k/README.md) | Diagnose one task, upload 64 training and 16 held-out problems, evaluate, and train. |
 | [BFCL Multi-Turn](examples/bfcl_multi_turn/README.md) | Multi-turn tool calling graded by BFCL's checker; 640 training and 160 held-out entries. |

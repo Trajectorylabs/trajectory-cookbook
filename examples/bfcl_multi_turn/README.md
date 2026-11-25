@@ -16,7 +16,7 @@
 
 Evaluate and train a model to call tools across multi-turn conversations from the
 [Berkeley Function Calling Leaderboard (BFCL) v4](https://github.com/ShishirPatil/gorilla/tree/6ea57973c7a6097fd7c5915698c54c17c5b1b6c8/berkeley-function-call-leaderboard)
-with Trajectory. This walkthrough takes you from running one entry to uploading a benchmark
+with Trajectory. This walkthrough takes you from running one entry to uploading a spec
 and starting evaluation and training runs. The upload uses 640 training and 160 held-out
 entries. BFCL is evaluation-only upstream; this split, which holds out 40 of its 200 scenarios
 in every category, is ours for training.
@@ -41,7 +41,7 @@ export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with trajectory-sdk --upgrade-package trajectory-sdk python
 ```
 
-Create the agent that will own this benchmark and its runs:
+Create the project that will own this spec and its runs:
 
 ```python
 import trajectory
@@ -49,7 +49,7 @@ from trajectory.lib.platform_links import PlatformLinks
 
 client = trajectory.Client()
 links = PlatformLinks.from_client(client)
-agent = client.agents.create(
+project = client.projects.create(
     name="bfcl-multi-turn-cookbook",
     description="BFCL multi-turn function-calling evaluation and training",
 )
@@ -57,7 +57,7 @@ agent = client.agents.create(
 
 ## Diagnose with one task
 
-Try the first entry before uploading the full benchmark. This diagnostic builds the image and
+Try the first entry before uploading the full spec. This diagnostic builds the image and
 starts the harness with `--entry multi_turn_base_0`, which selects the first base-category
 entry. Use the report below to check whether the task ran, how it ended, and what reward it
 received. The sampling options follow
@@ -123,12 +123,12 @@ Task: completed | Ending: ENV_DONE | Reward: 1.0
 A reward of `0.0` can also be a valid result: it means some turn's end state or responses did
 not match BFCL's ground truth. Check any reported failures before continuing.
 
-## Upload benchmark
+## Upload spec
 
 Define which entries to train on and which to reserve for evaluation. Entry `i` of every
 category is a variant of the same scenario, so `split_of` holds out whole scenarios: no variant
 of a test scenario is trained on. All tasks share the runtime. The upload returns a `bench_id`
-that identifies this benchmark version; use it for the runs below:
+that identifies this spec version; use it for the runs below:
 
 ```python
 import sys
@@ -148,7 +148,7 @@ for category in CATEGORIES:
         )
         tasks.append(task)
 
-benchmark = trajectory.BenchmarkSpec(
+spec = trajectory.BenchmarkSpec(
     name="bfcl-multi-turn-trajectory-sdk",
     description="BFCL v4 multi-turn function calling, graded by BFCL's state and response checks.",
     runtime=trajectory.lib.DockerfileBuild("Dockerfile"),
@@ -157,20 +157,20 @@ benchmark = trajectory.BenchmarkSpec(
 
 result = trajectory.lib.push(
     client,
-    benchmark,
+    spec,
     agent_name="bfcl-multi-turn-cookbook",
     root=Path("examples/bfcl_multi_turn/runtime"),
     build_images=True,
 )
 bench_id = result.bench_id
-print("Benchmark:", bench_id)
+print("Spec:", bench_id)
 print("Tasks:", result.task_count)
 ```
 
-Sample output; the benchmark ID will differ for your upload:
+Sample output; the spec ID will differ for your upload:
 
 ```text
-Benchmark: bm_<benchmark-id>
+Spec: bm_<spec-id>
 Tasks: 800
 ```
 
@@ -212,7 +212,7 @@ Train the same model on the training split for three steps. Training produces ch
 that you can evaluate on the same held-out entries:
 
 ```python
-training = client.training.create(
+training = client.rl.train(
     bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options={
@@ -231,7 +231,7 @@ print("Training:", training.training_run_id, links.training(training.training_ru
 Fetch the training run to check its current status:
 
 ```python
-run = client.training.runs.retrieve(training.training_run_id)
+run = client.rl.runs.retrieve(training.training_run_id)
 print("Status:", run.status)
 ```
 
@@ -244,7 +244,7 @@ Status: running
 Fetch the mean training reward for each policy step—the same series shown in the product:
 
 ```python
-rewards = client.training.rewards.list_history(training.training_run_id)
+rewards = client.rl.rewards.list_history(training.training_run_id)
 for reward in rewards:
     print(f"Step {reward.step}: {reward.avg_reward:.2f}")
 ```

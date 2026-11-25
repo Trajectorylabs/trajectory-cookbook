@@ -62,34 +62,34 @@ full budget.
 You need Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/),
 this cookbook checkout, and an organization API key from
 **Settings → API keys** in the [platform](https://platform.trajectory.ai). The images pull
-anonymously; no other secrets are needed. [Choose or create an agent](https://docs.trajectory.ai/agent),
-then export your key from the repository root. If you need a new agent, run the create command:
+anonymously; no other secrets are needed. [Choose or create a project](https://docs.trajectory.ai/projects),
+then export your key from the repository root. If you need a new project, run the create command:
 
 ```bash
 export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with trajectory-sdk python -c \
-  'from trajectory import Client; Client().agents.create(name="swe-bench-pro", description="SWE-Bench Pro code repair")'
+  'from trajectory import Client; Client().projects.create(name="swe-bench-pro", description="SWE-Bench Pro code repair")'
 ```
 
-Upload one task from each split, using your agent name if it differs:
+Upload one task from each split, using your project name if it differs:
 
 ```bash
-uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 1 --test-tasks 1
+uv run examples/swe_bench_pro/ingest.py --project-name swe-bench-pro --train-tasks 1 --test-tasks 1
 ```
 
 The uploader checks the pinned release against `v2/SHA256SUMS`, packages the task files
 without `solution/`, waits for the runtime image, and diagnoses the uploaded tasks with
-Qwen 3.6 35B A3B and the evaluation settings below. It prints the benchmark ID, task
+Qwen 3.6 35B A3B and the evaluation settings below. It prints the spec ID, task
 statuses, and rewards; a zero reward is a valid grade, while a missing reward fails the
 command. See the [SDK diagnostic guide](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec).
 
 For a larger demo, upload 40 training and 8 held-out tasks:
 
 ```bash
-uv run examples/swe_bench_pro/ingest.py --agent-name swe-bench-pro --train-tasks 40 --test-tasks 8
+uv run examples/swe_bench_pro/ingest.py --project-name swe-bench-pro --train-tasks 40 --test-tasks 8
 ```
 
-This creates a new version of the benchmark. `--train-tasks` and `--test-tasks` select
+This creates a new version of the spec. `--train-tasks` and `--test-tasks` select
 the first N tasks in each stable split; omit both to upload all 642.
 
 ## Evaluation
@@ -107,13 +107,13 @@ RUN_OPTIONS = {
 ```
 
 In the same Python session, evaluate the uploaded version without training using its
-printed benchmark ID:
+printed spec ID:
 
 ```python
 from trajectory import Client
 
 baseline = Client().evals.create(
-    bench_id="YOUR_BENCH_ID",
+    bench_id="YOUR_SPEC_ID",
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options=RUN_OPTIONS,
 )
@@ -130,7 +130,7 @@ run in parallel.
 After the 40/8 upload, run the small training example:
 
 ```bash
-uv run examples/swe_bench_pro/train.py --agent-name swe-bench-pro
+uv run examples/swe_bench_pro/train.py --project-name swe-bench-pro
 ```
 
 The script evaluates Qwen 3.6 35B A3B on the eight test tasks, trains two steps with one
@@ -149,7 +149,7 @@ Measured with Qwen 3.6 35B A3B and the settings above:
 | Training, 2 steps | `trn_06ae6a7737697f6f8000c6215ea26a00` | About 72 minutes | Both steps succeeded |
 | Checkpoint on the same 8 tasks | `evr_06ae6b86fe9f7e3d8000f59eeb7a4ac1` | 42 minutes | 8 of 8 graded, 5 resolved; 8 `ENV_DONE` |
 
-All four stages used one benchmark version; baseline and checkpoint evaluation used the
+All four stages used one spec version; baseline and checkpoint evaluation used the
 same eight tasks and options. Timed-out attempts were graded. Eight held-out tasks with
 one attempt each cannot measure lift from two training steps; use more tasks and
 `val_trajectories_per_task` for a comparison.

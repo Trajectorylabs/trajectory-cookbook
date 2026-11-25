@@ -35,7 +35,7 @@ counting a deliverable as missing.
 
 ## Ingestion
 
-[Choose or create an agent](https://docs.trajectory.ai/agent). For the default judge
+[Choose or create a project](https://docs.trajectory.ai/projects). For the default judge
 pair, register organization secrets `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`.
 A single-judge override needs only that provider's key. From the cookbook root:
 
@@ -51,24 +51,24 @@ client.secrets.create(name="ANTHROPIC_API_KEY", value="YOUR_ANTHROPIC_API_KEY")
 client.secrets.create(name="OPENAI_API_KEY", value="YOUR_OPENAI_API_KEY")
 ```
 
-Upload the benchmark using the agent ID from your setup prompt:
+Upload the spec using the project ID from your setup prompt:
 
 ```bash
-uv run examples/harvey_labs/ingest.py --agent-id YOUR_AGENT_ID
+uv run examples/harvey_labs/ingest.py --project-id YOUR_PROJECT_ID
 ```
 
-If you have the agent's name, you can use `--agent-name YOUR_AGENT_NAME` instead.
+If you have the project's name, you can use `--project-name YOUR_PROJECT_NAME` instead.
 
-The uploader prints the benchmark ID and waits for the runtime image, which downloads
+The uploader prints the spec ID and waits for the runtime image, which downloads
 the 3 GB pinned source archive. Image readiness does not establish that inference or
-grading works, so run a [benchmark diagnostic](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec)
+grading works, so run a [spec diagnostic](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec)
 before evaluation or training.
 
 For a single-judge OpenRouter override, register `OPENAI_API_KEY` with that credential
 and use this command instead:
 
 ```bash
-uv run examples/harvey_labs/ingest.py --agent-id YOUR_AGENT_ID \
+uv run examples/harvey_labs/ingest.py --project-id YOUR_PROJECT_ID \
   --judges openai/gpt-6-luna
 ```
 
@@ -86,7 +86,7 @@ Remove `val_num_tasks` to evaluate all 120 held-out tasks.
 from trajectory import Client
 
 client = Client()
-bench_id = "YOUR_BENCH_ID"
+bench_id = "YOUR_SPEC_ID"
 model = "Qwen/Qwen3.6-35B-A3B"
 limits = {
     "reasoning_effort": "on",
@@ -121,7 +121,7 @@ The source's `criteria_fraction` and `all_pass` components are available with
 Continue in the same Python session after the diagnostic and baseline complete:
 
 ```python
-training = client.training.create(
+training = client.rl.train(
     bench_id=bench_id,
     base_model_slug=model,
     options={
@@ -142,7 +142,7 @@ the same held-out tasks and options as the baseline:
 
 ```python
 checkpoint = max(
-    client.training.checkpoints.list(training.training_run_id),
+    client.rl.checkpoints.list(training.training_run_id),
     key=lambda c: c.step_index,
 )
 final = client.evals.create(

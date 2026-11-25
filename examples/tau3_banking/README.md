@@ -36,15 +36,15 @@ replies to the conversation; exhaustion still fails the task.
 
 ## Ingestion
 
-Choose an existing agent and organization API key using the
-[agent guide](https://docs.trajectory.ai/agent). Register your OpenAI key once as the
+Choose an existing project and organization API key using the
+[project guide](https://docs.trajectory.ai/projects). Register your OpenAI key once as the
 organization secret `OPENAI_API_KEY` for the upstream user simulator and judge; its value is
 never included in the image or upload.
 
 ```sh
 uv run --with trajectory-sdk python -c \
   'import os; from trajectory import Client; Client().secrets.create(name="OPENAI_API_KEY", value=os.environ["OPENAI_API_KEY"])'
-uv run examples/tau3_banking/ingest.py --agent-name YOUR_AGENT_NAME
+uv run examples/tau3_banking/ingest.py --project-name YOUR_PROJECT_NAME
 ```
 
 To use an OpenRouter customer and judge model, register `OPENROUTER_API_KEY` instead and pass
@@ -52,7 +52,7 @@ To use an OpenRouter customer and judge model, register `OPENROUTER_API_KEY` ins
 remains the default.
 
 Ingestion waits for a new runtime build. Follow the
-[benchmark diagnostic guidance](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec)
+[spec diagnostic guidance](https://docs.trajectory.ai/guides/spec#upload-and-diagnose-the-full-spec)
 to execute a subset before training,
 with the model and options you will evaluate with, such as
 `base_model_slug="Qwen/Qwen3.6-35B-A3B"` and the sampling options below. Without them, a
@@ -71,7 +71,7 @@ cut off a model reply. The sampling values follow
 from trajectory import Client
 
 Client().evals.create(
-    bench_id="bm_<your-benchmark-id>",
+    bench_id="bm_<your-spec-id>",
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options={
         "temperature": 1.0,
@@ -86,7 +86,7 @@ Client().evals.create(
 
 ## Training
 
-The uploader includes 80 training tasks and 17 held-out test tasks. Use the uploaded benchmark
+The uploader includes 80 training tasks and 17 held-out test tasks. Use the uploaded spec
 ID with the [SDK training guide](https://docs.trajectory.ai/guides/training); the example does
 not include a separate training script.
 

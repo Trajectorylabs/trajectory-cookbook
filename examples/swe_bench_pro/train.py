@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.11.4"]
 # ///
 """Evaluate the test tasks, train briefly, and evaluate the final checkpoint."""
 
@@ -59,8 +59,8 @@ def wait_for_evaluation(client: Client, eval_run_id: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-name", required=True)
-    parser.add_argument("--bench-name", default="swe-bench-pro")
+    parser.add_argument("--project-name", required=True)
+    parser.add_argument("--spec-name", default="swe-bench-pro")
     parser.add_argument("--num-steps", type=int, default=2)
     parser.add_argument("--train-batch-size", type=int, default=1)
     parser.add_argument("--group-size", type=int, default=4)
@@ -68,8 +68,8 @@ def main() -> None:
     client = Client(max_retries=20)
 
     baseline = client.evals.create(
-        agent_name=args.agent_name,
-        benchmark_name=args.bench_name,
+        agent_name=args.project_name,
+        benchmark_name=args.spec_name,
         base_model_slug=MODEL,
         display_name="SWE-Bench Pro baseline",
         options=RUN_OPTIONS,
@@ -78,7 +78,7 @@ def main() -> None:
     print(f"bench_id={bench_id}", flush=True)
     wait_for_evaluation(client, baseline.eval_run_id)
 
-    training = client.training.create(
+    training = client.rl.train(
         bench_id=bench_id,
         base_model_slug=MODEL,
         display_name="SWE-Bench Pro training",
@@ -98,8 +98,8 @@ def main() -> None:
     run_id = training.training_run_id
     print(f"training_run_id={run_id}", flush=True)
     while True:
-        run = client.training.runs.retrieve(run_id)
-        progress = client.training.runs.progress(run_id)
+        run = client.rl.runs.retrieve(run_id)
+        progress = client.rl.runs.progress(run_id)
         print(
             f"status={run.status} steps={progress.completed_steps}/{progress.total_steps}",
             flush=True,
@@ -110,7 +110,7 @@ def main() -> None:
     if run.status != "succeeded":
         raise RuntimeError(f"Training {run_id} ended {run.status}: {run.failure}")
 
-    checkpoint = client.training.checkpoints.retrieve(run_id, args.num_steps)
+    checkpoint = client.rl.checkpoints.retrieve(run_id, args.num_steps)
     final = client.evals.create(
         bench_id=bench_id,
         base_model_slug=MODEL,

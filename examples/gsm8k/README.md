@@ -16,7 +16,7 @@
 
 Evaluate and train a model to solve grade-school math problems from
 [GSM8K dataset](https://github.com/openai/grade-school-math/tree/3101c7d5072418e28b9008a6636bde82a006892c)
-with Trajectory. This walkthrough takes you from running one problem to uploading a benchmark
+with Trajectory. This walkthrough takes you from running one problem to uploading a spec
 and starting evaluation and training runs. The upload uses 64 training and 16 held-out
 problems.
 
@@ -37,7 +37,7 @@ export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with trajectory-sdk --upgrade-package trajectory-sdk python
 ```
 
-Create the agent that will own this benchmark and its runs:
+Create the project that will own this spec and its runs:
 
 ```python
 import trajectory
@@ -45,7 +45,7 @@ from trajectory.lib.platform_links import PlatformLinks
 
 client = trajectory.Client()
 links = PlatformLinks.from_client(client)
-agent = client.agents.create(
+project = client.projects.create(
     name="gsm8k-cookbook",
     description="GSM8K math evaluation and training",
 )
@@ -53,7 +53,7 @@ agent = client.agents.create(
 
 ## Diagnose with one task
 
-Try the first problem before uploading the full benchmark. This diagnostic builds the image and
+Try the first problem before uploading the full spec. This diagnostic builds the image and
 starts the harness with `--task_id 0`, which selects the first row of the JSONL file. Use the
 report below to check whether the task ran, how it ended, and what reward it received:
 
@@ -116,11 +116,11 @@ Task: completed | Ending: ENV_DONE | Reward: 1.0
 A reward of `0.0` can also be a valid result: it means the model did not submit the correct
 answer. Check any reported failures before continuing.
 
-## Upload benchmark
+## Upload spec
 
 Define which problems to train on and which to reserve for evaluation. Each `TaskSpec` selects
 one row from the same JSONL file, and all tasks share the runtime. The upload returns a
-`bench_id` that identifies this benchmark version; use it for the runs below:
+`bench_id` that identifies this spec version; use it for the runs below:
 
 ```python
 tasks = []
@@ -134,29 +134,29 @@ for task_id in range(80):
     )
     tasks.append(task)
 
-benchmark = trajectory.BenchmarkSpec(
+spec = trajectory.BenchmarkSpec(
     name="gsm8k-trajectory-sdk",
-    description="GSM8K exact-match training benchmark.",
+    description="GSM8K exact-match training spec.",
     runtime=trajectory.lib.DockerfileBuild("Dockerfile"),
     tasks=tasks,
 )
 
 result = trajectory.lib.push(
     client,
-    benchmark,
+    spec,
     agent_name="gsm8k-cookbook",
     root=Path("examples/gsm8k/runtime"),
     build_images=True,
 )
 bench_id = result.bench_id
-print("Benchmark:", bench_id)
+print("Spec:", bench_id)
 print("Tasks:", result.task_count)
 ```
 
-Sample output; the benchmark ID will differ for your upload:
+Sample output; the spec ID will differ for your upload:
 
 ```text
-Benchmark: bm_<benchmark-id>
+Spec: bm_<spec-id>
 Tasks: 80
 ```
 
@@ -198,7 +198,7 @@ Train the same model on the training split for three steps. Training produces ch
 that you can evaluate on the same held-out problems:
 
 ```python
-training = client.training.create(
+training = client.rl.train(
     bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.5-4B",
     options={
@@ -215,7 +215,7 @@ print("Training:", training.training_run_id, links.training(training.training_ru
 Fetch the training run to check its current status:
 
 ```python
-run = client.training.runs.retrieve(training.training_run_id)
+run = client.rl.runs.retrieve(training.training_run_id)
 print("Status:", run.status)
 ```
 
@@ -228,7 +228,7 @@ Status: running
 Fetch the mean training reward for each policy step—the same series shown in the product:
 
 ```python
-rewards = client.training.rewards.list_history(training.training_run_id)
+rewards = client.rl.rewards.list_history(training.training_run_id)
 for reward in rewards:
     print(f"Step {reward.step}: {reward.avg_reward:.2f}")
 ```

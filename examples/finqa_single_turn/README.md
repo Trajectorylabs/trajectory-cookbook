@@ -16,7 +16,7 @@
 
 Evaluate and train a model to answer numerical questions about company financial reports from
 [FinQA dataset](https://github.com/czyssrs/FinQA/tree/0f16e2867befa6840783e58be38c9efb9229d742)
-with Trajectory. This walkthrough takes you from running one question to uploading a benchmark
+with Trajectory. This walkthrough takes you from running one question to uploading a spec
 and starting evaluation and training runs. The upload uses 2,048 training questions sampled
 from FinQA's training set and all 1,147 questions of its test set held out.
 
@@ -40,7 +40,7 @@ export TRAJECTORY_API_KEY="YOUR_TRAJECTORY_API_KEY"
 uv run --with trajectory-sdk --upgrade-package trajectory-sdk python
 ```
 
-Create the agent that will own this benchmark and its runs:
+Create the project that will own this spec and its runs:
 
 ```python
 import trajectory
@@ -48,7 +48,7 @@ from trajectory.lib.platform_links import PlatformLinks
 
 client = trajectory.Client()
 links = PlatformLinks.from_client(client)
-agent = client.agents.create(
+project = client.projects.create(
     name="finqa-single-turn-cookbook",
     description="FinQA financial-report evaluation and training",
 )
@@ -56,7 +56,7 @@ agent = client.agents.create(
 
 ## Diagnose with one task
 
-Try the first test question before uploading the full benchmark. This diagnostic builds the
+Try the first test question before uploading the full spec. This diagnostic builds the
 image and starts the harness with `--split test --row 0`, which selects the first question of
 FinQA's `test.json`. Use the report below to check whether the task ran, how it ended, and what
 reward it received:
@@ -120,12 +120,12 @@ Task: completed | Ending: ENV_DONE | Reward: 1.0
 A reward of `0.0` can also be a valid result: it means the program did not compute the
 reference answer. Check any reported failures before continuing.
 
-## Upload benchmark
+## Upload spec
 
 Define which questions to train on and which to reserve for evaluation. Each `TaskSpec` selects
 one row of FinQA's `train.json` or `test.json`, and all tasks share the runtime. Training uses a
 seeded sample of 2,048 of the 6,251 training rows, leaving out rows 0, 1, and 3, which every
-prompt shows as worked examples. The upload returns a `bench_id` that identifies this benchmark
+prompt shows as worked examples. The upload returns a `bench_id` that identifies this spec
 version; use it for the runs below:
 
 ```python
@@ -147,29 +147,29 @@ for split, row in rows:
     )
     tasks.append(task)
 
-benchmark = trajectory.BenchmarkSpec(
+spec = trajectory.BenchmarkSpec(
     name="finqa-trajectory-sdk",
-    description="FinQA execution-accuracy training benchmark.",
+    description="FinQA execution-accuracy training spec.",
     runtime=trajectory.lib.DockerfileBuild("Dockerfile"),
     tasks=tasks,
 )
 
 result = trajectory.lib.push(
     client,
-    benchmark,
+    spec,
     agent_name="finqa-single-turn-cookbook",
     root=Path("examples/finqa_single_turn/runtime"),
     build_images=True,
 )
 bench_id = result.bench_id
-print("Benchmark:", bench_id)
+print("Spec:", bench_id)
 print("Tasks:", result.task_count)
 ```
 
-Sample output; the benchmark ID will differ for your upload:
+Sample output; the spec ID will differ for your upload:
 
 ```text
-Benchmark: bm_<benchmark-id>
+Spec: bm_<spec-id>
 Tasks: 3195
 ```
 
@@ -211,7 +211,7 @@ Train the same model on the training split for three steps. Training produces ch
 that you can evaluate on the same held-out questions:
 
 ```python
-training = client.training.create(
+training = client.rl.train(
     bench_id=bench_id,
     base_model_slug="Qwen/Qwen3.6-35B-A3B",
     options={
@@ -227,7 +227,7 @@ print("Training:", training.training_run_id, links.training(training.training_ru
 Fetch the training run to check its current status:
 
 ```python
-run = client.training.runs.retrieve(training.training_run_id)
+run = client.rl.runs.retrieve(training.training_run_id)
 print("Status:", run.status)
 ```
 
@@ -240,7 +240,7 @@ Status: running
 Fetch the mean training reward for each policy step—the same series shown in the product:
 
 ```python
-rewards = client.training.rewards.list_history(training.training_run_id)
+rewards = client.rl.rewards.list_history(training.training_run_id)
 for reward in rewards:
     print(f"Step {reward.step}: {reward.avg_reward:.2f}")
 ```

@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.11.4"]
 # ///
 """Evaluate, train, and compare Qwen 3.5 4B on the prompted T-starting-word task."""
 
@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 
 from trajectory import Client
-from trajectory.types.training.training_run_response import TrainingRunResponse
+from trajectory.types.rl.training_run_response import TrainingRunResponse
 
 _DEFAULT_MODEL = "Qwen/Qwen3.5-4B"
 _TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
@@ -33,16 +33,16 @@ def train_and_evaluate(
     poll_seconds: float,
 ) -> tuple[Evaluation, Evaluation, str]:
     # Spec detail omits tasks unless asked.
-    benchmark = client.benchmarks.specs.retrieve(bench_id, include_tasks=True)
-    if not benchmark.tasks or {task.split for task in benchmark.tasks} != {
+    spec = client.specs.details.retrieve(bench_id, include_tasks=True)
+    if not spec.tasks or {task.split for task in spec.tasks} != {
         "train",
         "test",
     }:
-        raise ValueError("The benchmark must contain explicit train and test splits")
+        raise ValueError("The spec must contain explicit train and test splits")
 
     baseline_id = _start_evaluation(client, bench_id, model, "T Factory baseline")
     # Training does not use the baseline score, so start it without waiting.
-    created = client.training.create(
+    created = client.rl.train(
         bench_id=bench_id,
         base_model_slug=model,
         options={
@@ -61,14 +61,14 @@ def train_and_evaluate(
             client, baseline_id, "T Factory baseline", poll_seconds
         )
     except RuntimeError:
-        # Training on a benchmark whose baseline failed would be wasted.
-        client.training.runs.cancel(run_id)
+        # Training on a spec whose baseline failed would be wasted.
+        client.rl.runs.cancel(run_id)
         raise
     run = _wait_for_training(client, run_id, poll_seconds)
     if str(run.status) != "succeeded":
         raise RuntimeError(f"training ended with status={run.status}: {run.failure}")
 
-    checkpoint = client.training.checkpoints.retrieve(run_id, num_steps)
+    checkpoint = client.rl.checkpoints.retrieve(run_id, num_steps)
     final = _evaluate_model(
         client,
         bench_id,
@@ -159,8 +159,8 @@ def _wait_for_training(
 ) -> TrainingRunResponse:
     last = None
     while True:
-        run = client.training.runs.retrieve(run_id)
-        progress = client.training.runs.progress(run_id)
+        run = client.rl.runs.retrieve(run_id)
+        progress = client.rl.runs.progress(run_id)
         line = f"status={run.status} steps={progress.completed_steps}/{progress.total_steps or '?'}"
         if line != last:
             print(line, flush=True)
@@ -218,14 +218,14 @@ def _last_assistant_message(trajectory: object) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bench-id", required=True)
+    parser.add_argument("--spec-id", required=True)
     parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--num-steps", type=int, default=10)
     parser.add_argument("--poll-seconds", type=float, default=10)
     args = parser.parse_args()
     train_and_evaluate(
         Client(max_retries=20),
-        args.bench_id,
+        args.spec_id,
         args.model,
         args.num_steps,
         args.poll_seconds,

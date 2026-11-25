@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["trajectory-sdk>=0.10.1"]
+# dependencies = ["trajectory-sdk>=0.11.4"]
 # ///
 """Ingest the pinned public Harvey LAB tasks with the Trajectory runtime overlay."""
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, SecretRef, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
-from trajectory.types.benchmarks.task_spec import EnvResources
+from trajectory.types.specs.task_spec import EnvResources
 
 ROOT = Path(__file__).parent
 SOURCE_COMMIT = "1dd81403b2fbb60596f7aea3fcecafad7bf73143"
@@ -26,7 +26,7 @@ JUDGE_KEYS = {
 }
 
 
-def build_benchmark(
+def build_spec(
     name: str, judges: tuple[str, ...] = JUDGES, judge_base_url: str | None = None
 ) -> BenchmarkSpec:
     if not 1 <= len(judges) <= 2:
@@ -88,15 +88,15 @@ def build_benchmark(
 
 def ingest(
     name: str,
-    agent_name: str | None = None,
+    project_name: str | None = None,
     judges: tuple[str, ...] = JUDGES,
     judge_base_url: str | None = None,
-    agent_id: str | None = None,
+    project_id: str | None = None,
 ) -> str:
-    benchmark = build_benchmark(name, judges, judge_base_url)
+    spec = build_spec(name, judges, judge_base_url)
     with Client() as client:
         result = push(
-            client, benchmark, agent_id=agent_id, agent_name=agent_name, root=ROOT
+            client, spec, agent_id=project_id, agent_name=project_name, root=ROOT
         )
         print(f"bench_id={result.bench_id}", flush=True)
         wait_for_benchmark_images(client, result.bench_id, timeout_seconds=60 * 60)
@@ -105,9 +105,9 @@ def ingest(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    agent = parser.add_mutually_exclusive_group(required=True)
-    agent.add_argument("--agent-id", help="Agent ID from the Trajectory setup prompt")
-    agent.add_argument("--agent-name", help="Name of an existing agent")
+    project = parser.add_mutually_exclusive_group(required=True)
+    project.add_argument("--project-id", help="Project ID from the Trajectory setup prompt")
+    project.add_argument("--project-name", help="Name of an existing project")
     parser.add_argument("--name", default="harvey-lab-public-podman")
     parser.add_argument(
         "--judges",
@@ -123,10 +123,10 @@ def main() -> None:
     args = parser.parse_args()
     ingest(
         args.name,
-        agent_name=args.agent_name,
+        project_name=args.project_name,
         judges=tuple(args.judges),
         judge_base_url=args.judge_base_url,
-        agent_id=args.agent_id,
+        project_id=args.project_id,
     )
 
 
