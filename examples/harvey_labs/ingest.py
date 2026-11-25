@@ -11,7 +11,7 @@ from pathlib import Path
 
 from trajectory import BenchmarkSpec, Client, SecretRef, TaskSpec
 from trajectory.lib import DockerfileBuild, push, wait_for_benchmark_images
-from trajectory.types.specs.task_spec import EnvResources
+from trajectory.types import EnvResources
 
 ROOT = Path(__file__).parent
 SOURCE_COMMIT = "1dd81403b2fbb60596f7aea3fcecafad7bf73143"
